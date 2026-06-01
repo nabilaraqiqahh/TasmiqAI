@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TasmiqAI — QuranJSON Dataset Viewer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent2: #48cfad;
+      --gold: #f6c90e;
+      --red: #ff6b6b;
+      --text: #e8eaf6;
+      --muted: #7b83b0;
+      --arabic-font: 'Amiri', 'Traditional Arabic', serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ─── Header ─── */
+    header {
+      background: linear-gradient(135deg, #1a1d27, #22263a);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .badge {
+      background: var(--accent);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+    }
+    .stats-bar {
+      margin-left: auto;
+      display: flex;
+      gap: 20px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .stats-bar b { color: var(--accent2); }
+
+    /* ─── Layout ─── */
+    .container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: calc(100vh - 65px);
+    }
+
+    /* ─── Sidebar ─── */
+    aside {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h3 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .search-input {
+      margin-top: 10px;
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .surah-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .surah-list::-webkit-scrollbar { width: 4px; }
+    .surah-list::-webkit-scrollbar-track { background: var(--surface); }
+    .surah-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .surah-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(46,50,80,0.5);
+      transition: background 0.15s;
+    }
+    .surah-item:hover { background: var(--surface2); }
+    .surah-item.active { background: rgba(108,99,255,0.15); border-left: 3px solid var(--accent); }
+    .surah-num {
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .surah-item.active .surah-num { background: var(--accent); color: white; }
+    .surah-info { flex: 1; overflow: hidden; }
+    .surah-name { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .surah-meta { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+    /* ─── Main ─── */
+    main {
+      overflow-y: auto;
+      padding: 32px;
+      background: var(--bg);
+    }
+    main::-webkit-scrollbar { width: 6px; }
+    main::-webkit-scrollbar-track { background: var(--bg); }
+    main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .welcome {
+      text-align: center;
+      padding: 80px 40px;
+      color: var(--muted);
+    }
+    .welcome h2 { font-size: 2rem; color: var(--text); margin-bottom: 12px; }
+    .welcome p { line-height: 1.7; max-width: 500px; margin: 0 auto; }
+
+    .surah-header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .surah-title {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .surah-title h1 { font-size: 1.8rem; font-weight: 700; }
+    .surah-arabic-title {
+      font-size: 2rem;
+      margin-left: auto;
+      color: var(--gold);
+      font-family: var(--arabic-font);
+    }
+    .surah-details { display: flex; gap: 16px; flex-wrap: wrap; }
+    .chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .chip b { color: var(--text); }
+
+    /* ─── Tabs ─── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      width: fit-content;
+    }
+    .tab {
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* ─── Verse Cards ─── */
+    .verses { display: flex; flex-direction: column; gap: 16px; }
+    .verse-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .verse-card:hover { border-color: var(--accent); }
+
+    .verse-card-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .verse-badge {
+      background: rgba(108,99,255,0.2);
+      color: var(--accent);
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .verse-card-title { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+
+    .audio-controls {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .play-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      transition: transform 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .play-btn:hover { transform: scale(1.08); background: #5549e0; }
+    .play-btn.playing { background: var(--accent2); }
+    audio { display: none; }
+
+    .verse-arabic {
+      padding: 24px 24px 16px;
+      font-size: 2rem;
+      line-height: 2.2;
+      text-align: right;
+      direction: rtl;
+      font-family: var(--arabic-font);
+      color: #f0e8d0;
+      letter-spacing: 0.5px;
+    }
+    .verse-translation {
+      padding: 0 24px 20px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.7;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+
+    /* ─── Tajweed Panel ─── */
+    .tajweed-rules { padding: 16px 24px 20px; }
+    .tajweed-rules h4 { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+    .rules-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rule-chip {
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      border: 1px solid;
+    }
+    .rule-madd { background: rgba(72,207,173,0.1); border-color: rgba(72,207,173,0.4); color: var(--accent2); }
+    .rule-hamzat { background: rgba(246,201,14,0.1); border-color: rgba(246,201,14,0.4); color: var(--gold); }
+    .rule-lam { background: rgba(255,107,107,0.1); border-color: rgba(255,107,107,0.4); color: var(--red); }
+    .rule-ghunnah { background: rgba(108,99,255,0.15); border-color: rgba(108,99,255,0.4); color: var(--accent); }
+    .rule-other { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: var(--muted); }
+
+    /* ─── Raw JSON ─── */
+    .json-view {
+      background: #0d0f1a;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'Consolas', monospace;
+      font-size: 0.82rem;
+      overflow-x: auto;
+      line-height: 1.6;
+      color: #a8b3d0;
+      max-height: 600px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+
+    /* ─── Loading ─── */
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: var(--muted);
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Error ─── */
+    .error-msg {
+      background: rgba(255,107,107,0.1);
+      border: 1px solid rgba(255,107,107,0.3);
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: var(--red);
+      font-size: 0.88rem;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Tasmiq<span>AI</span></div>
+  <div class="badge">DATASET VIEWER</div>
+  <div class="stats-bar">
+    <span><b>114</b> Surah</span>
+    <span><b>6,236</b> Verses</span>
+    <span><b>30</b> Juz'</span>
+    <span><b>MP3</b> Audio ✓</span>
+    <span><b>Tajweed</b> JSON ✓</span>
+  </div>
+</header>
+
+<div class="container">
+  <aside>
+    <div class="sidebar-header">
+      <h3>Surah List</h3>
+      <input class="search-input" id="searchInput" placeholder="Search surah..." />
+    </div>
+    <div class="surah-list" id="surahList">
+      <div class="loading"><div class="spinner"></div>Loading surahs...</div>
+    </div>
+  </aside>
+
+  <main id="mainContent">
+    <div class="welcome">
+      <h2>📖 QuranJSON Dataset</h2>
+      <p>Select a <b>Surah</b> from the sidebar to browse Arabic text, listen to audio recitation, and inspect Tajweed rules.</p>
+      <br/>
+      <p style="font-size:0.8rem; background: rgba(108,99,255,0.1); border:1px solid rgba(108,99,255,0.3); border-radius:10px; padding:14px; color:var(--accent)">
+        🎓 For TasmiqAI — use this as your <b>reference dataset</b> to compare against student recordings.
+      </p>
+    </div>
+  </main>
+</div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────
+  let surahMeta = [];
+  let currentSurah = null;
+  let currentTab = 'text';
+  let currentAudio = null;
+
+  // ─── Base paths ────────────────────────────────────────── 
+  const BASE = './source';
+
+  // ─── Fetch helpers ────────────────────────────────────────
+  async function fetchJSON(path) {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(`HTTP ${r.status} — ${path}`);
+    return r.json();
+  }
+
+  // ─── Boot ────────────────────────────────────────────────
+  async function init() {
+    try {
+      const data = await fetchJSON(`${BASE}/surah.json`);
+      // surah.json is an object keyed by index strings
+      surahMeta = Object.values(data).sort((a, b) => parseInt(a.index) - parseInt(b.index));
+      renderSurahList(surahMeta);
+    } catch (e) {
+      document.getElementById('surahList').innerHTML =
+        `<div style="padding:20px;color:var(--red);font-size:0.82rem">
+          ❌ Could not load surah.json<br/><br/>
+          <b>Make sure you are serving this file via a local server</b>, not opening directly as file://
+          <br/><br/>Run: <code style="background:#0d0f1a;padding:4px 8px;border-radius:4px">python -m http.server 8080</code>
+          <br/>Then open: <code style="background:#0d0f1a;padding:4px 8px;border-radius:4px">http://localhost:8080/viewer.html</code>
+        </div>`;
+    }
+  }
+
+  // ─── Surah List ───────────────────────────────────────────
+  function renderSurahList(list) {
+    const el = document.getElementById('surahList');
+    if (!list.length) { el.innerHTML = '<div style="padding:20px;color:var(--muted)">No results.</div>'; return; }
+    el.innerHTML = list.map(s => `
+      <div class="surah-item ${currentSurah?.index === s.index ? 'active' : ''}"
+           onclick="loadSurah('${s.index}', '${(s.name_simple || s.name || '').replace(/'/g,"\\'")}', ${s.verses_count || s.count || '?'}, '${s.revelation_place || ''}')">
+        <div class="surah-num">${parseInt(s.index)}</div>
+        <div class="surah-info">
+          <div class="surah-name">${s.name_simple || s.name || 'Surah ' + parseInt(s.index)}</div>
+          <div class="surah-meta">${s.verses_count || s.count || ''} verses${s.revelation_place ? ' · ' + s.revelation_place : ''}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    renderSurahList(surahMeta.filter(s =>
+      (s.name_simple || s.name || '').toLowerCase().includes(q) ||
+      String(parseInt(s.index)).includes(q)
+    ));
+  });
+
+  // ─── Load Surah ───────────────────────────────────────────
+  async function loadSurah(indexStr, name, count, place) {
+    const num = parseInt(indexStr);
+    currentSurah = { index: indexStr, name, count, place };
+    currentTab = 'text';
+
+    // Highlight sidebar
+    document.querySelectorAll('.surah-item').forEach(el => el.classList.remove('active'));
+    event?.currentTarget?.classList?.add('active');
+
+    // Show loading
+    const main = document.getElementById('mainContent');
+    main.innerHTML = `<div class="loading"><div class="spinner"></div>Loading Surah ${num}…</div>`;
+
+    try {
+      // Fetch text + tajweed in parallel
+      const [textData, tajweedData, transData] = await Promise.allSettled([
+        fetchJSON(`${BASE}/surah/surah_${num}.json`),
+        fetchJSON(`${BASE}/tajweed/surah_${num}.json`),
+        fetchJSON(`${BASE}/translation/en/en_translation_${num}.json`).catch(() => null)
+      ]);
+
+      const text = textData.status === 'fulfilled' ? textData.value : null;
+      const tajweed = tajweedData.status === 'fulfilled' ? tajweedData.value : null;
+      const trans = transData.status === 'fulfilled' ? transData.value : null;
+
+      currentSurah.text = text;
+      currentSurah.tajweed = tajweed;
+      currentSurah.trans = trans;
+      currentSurah.num = num;
+
+      renderSurahView();
+    } catch (e) {
+      main.innerHTML = `<div class="error-msg">❌ Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  // ─── Render Surah View ────────────────────────────────────
+  function renderSurahView() {
+    const { text, tajweed, trans, num, name, count, place } = currentSurah;
+    const main = document.getElementById('mainContent');
+
+    const verseKeys = text ? Object.keys(text.verse || {}) : [];
+    const arabicName = text?.name || name;
+
+    main.innerHTML = `
+      <div class="surah-header">
+        <div class="surah-title">
+          <h1>${name || 'Surah ' + num}</h1>
+          <div class="surah-arabic-title">${arabicName}</div>
+        </div>
+        <div class="surah-details">
+          <span class="chip">Surah <b>#${num}</b></span>
+          <span class="chip"><b>${count || verseKeys.length}</b> Verses</span>
+          ${place ? `<span class="chip"><b>${place}</b></span>` : ''}
+          ${tajweed ? '<span class="chip" style="color:var(--accent2)">✓ Tajweed Data</span>' : ''}
+          ${trans ? '<span class="chip" style="color:var(--gold)">✓ EN Translation</span>' : ''}
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab ${currentTab==='text'?'active':''}" onclick="switchTab('text')">📖 Arabic Text + Audio</button>
+        <button class="tab ${currentTab==='tajweed'?'active':''}" onclick="switchTab('tajweed')">🎯 Tajweed Rules</button>
+        <button class="tab ${currentTab==='raw'?'active':''}" onclick="switchTab('raw')">{ } Raw JSON</button>
+      </div>
+
+      <div id="tabContent"></div>
+    `;
+
+    renderTab();
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    renderTab();
+  }
+
+  function renderTab() {
+    const el = document.getElementById('tabContent');
+    if (!el) return;
+    if (currentTab === 'text') renderTextTab(el);
+    else if (currentTab === 'tajweed') renderTajweedTab(el);
+    else renderRawTab(el);
+  }
+
+  // ─── Text Tab ─────────────────────────────────────────────
+  function renderTextTab(el) {
+    const { text, trans, num, tajweed } = currentSurah;
+    if (!text) { el.innerHTML = '<div class="error-msg">No text data available.</div>'; return; }
+
+    const verseKeys = Object.keys(text.verse || {});
+    const transVerses = trans?.verse || {};
+
+    el.innerHTML = `<div class="verses">` + verseKeys.map((vk, i) => {
+      const vNum = i + 1;
+      const arabic = text.verse[vk] || '';
+      const translation = transVerses[vk] || '';
+      const audioPath = `${BASE}/audio/${String(num).padStart(3,'0')}/${String(vNum).padStart(3,'0')}.mp3`;
+      const cardId = `card_${vk}`;
+
+      return `
+        <div class="verse-card" id="${cardId}">
+          <div class="verse-card-header">
+            <div class="verse-badge">${vNum}</div>
+            <div class="verse-card-title">${currentSurah.name} — Verse ${vNum}</div>
+            <div class="audio-controls">
+              <button class="play-btn" id="btn_${vk}" onclick="togglePlay('${vk}', '${audioPath}', ${vNum})" title="Play verse audio">▶</button>
+              <audio id="audio_${vk}" src="${audioPath}" preload="none"></audio>
+            </div>
+          </div>
+          <div class="verse-arabic">${arabic}</div>
+          ${translation ? `<div class="verse-translation">🌐 ${translation}</div>` : ''}
+        </div>
+      `;
+    }).join('') + `</div>`;
+  }
+
+  function togglePlay(vk, path, vNum) {
+    const audio = document.getElementById(`audio_${vk}`);
+    const btn = document.getElementById(`btn_${vk}`);
+
+    // Stop any other audio
+    if (currentAudio && currentAudio !== audio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      // Reset other buttons
+      document.querySelectorAll('.play-btn').forEach(b => { b.textContent = '▶'; b.classList.remove('playing'); });
+    }
+
+    if (audio.paused) {
+      audio.play().then(() => {
+        btn.textContent = '⏸';
+        btn.classList.add('playing');
+        currentAudio = audio;
+      }).catch(() => {
+        btn.textContent = '❌';
+        setTimeout(() => { btn.textContent = '▶'; }, 2000);
+      });
+      audio.onended = () => { btn.textContent = '▶'; btn.classList.remove('playing'); };
+    } else {
+      audio.pause();
+      btn.textContent = '▶';
+      btn.classList.remove('playing');
+    }
+  }
+
+  // ─── Tajweed Tab ──────────────────────────────────────────
+  function renderTajweedTab(el) {
+    const { tajweed, text } = currentSurah;
+    if (!tajweed) { el.innerHTML = '<div class="error-msg">No tajweed data available.</div>'; return; }
+
+    const verseKeys = Object.keys(tajweed.verse || {});
+
+    // Count all rules
+    const ruleCounts = {};
+    verseKeys.forEach(vk => {
+      (tajweed.verse[vk] || []).forEach(r => {
+        ruleCounts[r.rule] = (ruleCounts[r.rule] || 0) + 1;
+      });
+    });
+
+    const ruleTotal = Object.values(ruleCounts).reduce((a,b) => a+b, 0);
+
+    el.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px;">
+        <h3 style="font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">📊 Rule Summary — ${ruleTotal} total annotations</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          ${Object.entries(ruleCounts).sort((a,b)=>b[1]-a[1]).map(([rule, count]) => `
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;min-width:140px;">
+              <div style="font-size:1.2rem;font-weight:700;color:var(--accent)">${count}</div>
+              <div style="font-size:0.78rem;color:var(--muted);margin-top:3px">${rule}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="verses">
+        ${verseKeys.filter(vk => (tajweed.verse[vk]||[]).length > 0).map(vk => {
+          const vNum = vk.replace('verse_','');
+          const arabic = text?.verse?.[vk] || '';
+          const rules = tajweed.verse[vk] || [];
+          return `
+            <div class="verse-card">
+              <div class="verse-card-header">
+                <div class="verse-badge">${vNum}</div>
+                <div class="verse-card-title">Verse ${vNum} — ${rules.length} rule(s)</div>
+              </div>
+              ${arabic ? `<div class="verse-arabic" style="font-size:1.6rem;padding:16px 24px">${arabic}</div>` : ''}
+              <div class="tajweed-rules">
+                <h4>Tajweed Rules Applied</h4>
+                <div class="rules-grid">
+                  ${rules.map(r => `
+                    <span class="rule-chip ${getRuleClass(r.rule)}" title="chars ${r.start}–${r.end}">
+                      ${r.rule} <span style="opacity:0.6;font-size:0.7rem">[${r.start}–${r.end}]</span>
+                    </span>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function getRuleClass(rule) {
+    if (rule.includes('madd')) return 'rule-madd';
+    if (rule.includes('hamzat')) return 'rule-hamzat';
+    if (rule.includes('lam')) return 'rule-lam';
+    if (rule.includes('ghunnah') || rule.includes('idgham') || rule.includes('ikhfa') || rule.includes('iqlab')) return 'rule-ghunnah';
+    return 'rule-other';
+  }
+
+  // ─── Raw JSON Tab ─────────────────────────────────────────
+  function renderRawTab(el) {
+    const { text, tajweed } = currentSurah;
+    el.innerHTML = `
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:280px;">
+          <h4 style="font-size:0.8rem;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📄 surah_${currentSurah.num}.json</h4>
+          <div class="json-view">${syntaxHL(text)}</div>
+        </div>
+        <div style="flex:1;min-width:280px;">
+          <h4 style="font-size:0.8rem;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">🎯 tajweed/surah_${currentSurah.num}.json</h4>
+          <div class="json-view">${syntaxHL(tajweed)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function syntaxHL(obj) {
+    let json = JSON.stringify(obj, null, 2);
+    json = json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return json.replace(
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+      function(m) {
+        if (/^"/.test(m)) {
+          if (/:$/.test(m)) return `<span style="color:#7986cb">${m}</span>`;
+          // Arabic text
+          if (/[\u0600-\u06FF]/.test(m)) return `<span style="color:#f6c90e">${m}</span>`;
+          return `<span style="color:#80cbc4">${m}</span>`;
+        }
+        if (/true|false/.test(m)) return `<span style="color:#ce93d8">${m}</span>`;
+        if (/null/.test(m)) return `<span style="color:#ef9a9a">${m}</span>`;
+        return `<span style="color:#a5d6a7">${m}</span>`;
+      }
+    );
+  }
+
+  // ─── Start ────────────────────────────────────────────────
+  init();
+</script>
+</body>
+</html>

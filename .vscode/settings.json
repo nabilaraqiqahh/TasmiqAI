@@ -1,0 +1,13 @@
+{
+    "python.defaultInterpreterPath": "C:\\Users\\nabil\\anaconda3\\envs\\python-starter\\python.exe",
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}"
+    ],
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.ipynb_checkpoints": true
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda"
+}
