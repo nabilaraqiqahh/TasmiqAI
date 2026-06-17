@@ -1,6 +1,12 @@
 import requests
 import shutil
 import os
+import sys
+
+# Force UTF-8 output on Windows to avoid cp1252 encoding errors
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # Copy a real reference audio file to simulate a real user recording
 real_audio_source = r"C:\Users\nabil\.gemini\antigravity\scratch\quranjson\source\audio\001\001.mp3"

@@ -1,363 +1,411 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, SafeAreaView, ScrollView,
-  StatusBar, Alert, Modal, FlatList, TextInput, ActivityIndicator,
+  StatusBar, Alert, Modal, FlatList, ActivityIndicator,
+  Animated, Easing, Platform, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import quranData from '../../data/quran_data.json';
-import { uploadRecitation, saveRecitationResult } from '../../services/recitationService';
-import { API_URL, analyzeRecitation } from '../../services/api';
-import { useTheme } from '../../context/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
-import { supabase } from '../../services/supabaseClient';
+import { useTheme } from '../../context/ThemeContext';
 import IslamicBackground from '../../components/IslamicBackground';
+import { supabase } from '../../services/supabaseClient';
+import { saveRecitationResult } from '../../services/recitationService';
+import { API_URL, analyzeRecitation, assessChunk } from '../../services/api';
+import quranData from '../../data/quran_data.json';
 
-function ScoreRing({ score, label, color }) {
-  const { colors: C } = useTheme();
+const { width: SCREEN_W } = Dimensions.get('window');
+
+/* ── Colour palette ─────────────────────────────────────────── */
+const P = {
+  primary:  '#14532D',
+  gold:     '#D4AF37',
+  goldBg:   '#FDF8E7',
+  green:    '#16A34A',
+  red:      '#DC2626',
+  amber:    '#D97706',
+  bg:       '#F5F2E9',
+  card:     '#FFFFFF',
+  muted:    '#6B7280',
+  text:     '#1A2E1C',
+  lightGreen: '#E8F5EC',
+};
+
+/* ── TAJWID RULES for error analysis ──────────────────────── */
+const TAJWID_RULES = [
+  { label: 'Ghunnah',  keywords: ['ghunnah'] },
+  { label: 'Qalqalah', keywords: ['qalqalah'] },
+  { label: 'Mad Asli', keywords: ['madd', 'mad asli', 'madda'] },
+  { label: 'Ikhfa',    keywords: ['ikhfa'] },
+  { label: 'Idgham',   keywords: ['idgham'] },
+  { label: 'Iqlab',    keywords: ['iqlab'] },
+  { label: 'Izhar',    keywords: ['izhar'] },
+];
+
+const TAJWID_TIPS = {
+  'Ghunnah':  'Practice nasalisation on Noon & Meem with prolonged nasal sound.',
+  'Qalqalah': 'Apply the echo/bouncing sound on ق ط ب ج د clearly.',
+  'Mad Asli': 'Ensure natural 2-count elongation on Alif, Waw, Ya.',
+  'Ikhfa':    'Conceal Noon Saakin/Tanwin before the 15 Ikhfa letters.',
+  'Idgham':   'Merge Noon Saakin smoothly into the following letter.',
+  'Iqlab':    'Convert Noon Saakin to Meem before ب precisely.',
+  'Izhar':    'Pronounce Noon Saakin clearly before throat letters.',
+};
+
+/* ── ACHIEVEMENT BADGES ─────────────────────────────────────── */
+function getBadges(score, hintCount) {
+  const badges = [];
+  if (score >= 95) badges.push({ icon: '🏆', label: 'Perfect Tasmiq',  color: P.gold });
+  if (score >= 85) badges.push({ icon: '⭐', label: 'Excellent',        color: P.green });
+  if (hintCount === 0) badges.push({ icon: '🧠', label: 'No Hints Used', color: P.primary });
+  if (score >= 70)  badges.push({ icon: '📖', label: 'Tasmiq Complete', color: '#4A90A4' });
+  return badges;
+}
+
+/* ── AI PROCESSING STAGES ───────────────────────────────────── */
+const AI_STAGES = [
+  { icon: 'cloud-upload-outline',     label: 'Uploading Audio' },
+  { icon: 'ear-outline',              label: 'Processing Recording' },
+  { icon: 'mic-outline',              label: 'Recognizing Quran Recitation' },
+  { icon: 'checkmark-done-outline',   label: 'Checking Memorization Accuracy' },
+  { icon: 'analytics-outline',        label: 'Evaluating Tajwid Rules' },
+  { icon: 'bulb-outline',             label: 'Generating Personalized Feedback' },
+];
+
+/* ── Animated Components ────────────────────────────────────── */
+function AnimatedQuranIcon() {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(pulseAnim, { toValue: 1,    duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseAnim }], marginBottom: 28 }}>
+      <View style={{
+        width: 110, height: 110, borderRadius: 55,
+        backgroundColor: '#0F6D3E15',
+        alignItems: 'center', justifyContent: 'center',
+        borderWidth: 3, borderColor: '#0F6D3E30',
+      }}>
+        <Ionicons name="book" size={56} color="#0F6D3E" />
+      </View>
+    </Animated.View>
+  );
+}
+
+function RotatingMessages() {
+  const messages = [
+    "Every verse memorized brings you closer to excellence.",
+    "Consistency is the key to Quran memorization.",
+    "Keep striving for perfection in your recitation.",
+    "Learning the Quran is a lifelong journey.",
+  ];
+  const [index, setIndex] = useState(0);
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % messages.length);
+      }, 400);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity, height: 40, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 14, color: '#1A2E1C', textAlign: 'center', fontWeight: '500', paddingHorizontal: 20 }}>
+        {messages[index]}
+      </Text>
+    </Animated.View>
+  );
+}
+
+/* ── ScoreRing sub-component ────────────────────────────────── */
+function ScoreRing({ score, label, color, size = 76 }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.06, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1,    duration: 1200, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  const scoreColor = score >= 85 ? P.green : score >= 70 ? P.amber : P.red;
+  const c = color || scoreColor;
+
   return (
     <View style={{ alignItems: 'center', flex: 1 }}>
-      <View style={{
-        width: 72, height: 72, borderRadius: 36,
-        borderWidth: 5, borderColor: color,
+      <Animated.View style={{
+        width: size, height: size, borderRadius: size / 2,
+        borderWidth: 5, borderColor: c,
         alignItems: 'center', justifyContent: 'center',
-        backgroundColor: color + '12', marginBottom: 8,
+        backgroundColor: c + '14',
+        transform: [{ scale: pulseAnim }],
+        marginBottom: 8,
       }}>
-        <Text style={{ fontSize: 18, fontWeight: '800', color }}>{score}%</Text>
-      </View>
-      <Text style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>{label}</Text>
+        <Text style={{ fontSize: size * 0.24, fontWeight: '900', color: c }}>{score}%</Text>
+      </Animated.View>
+      <Text style={{ fontSize: 12, color: P.muted, textAlign: 'center', fontWeight: '600' }}>{label}</Text>
     </View>
   );
 }
 
-function FeedbackRow({ icon, color, text }) {
-  const { colors: C } = useTheme();
+/* ── Waveform animation ─────────────────────────────────────── */
+function Waveform({ isActive }) {
+  const bars = 20;
+  const anims = useRef(Array.from({ length: bars }, () => new Animated.Value(0.3))).current;
+
+  useEffect(() => {
+    if (!isActive) {
+      anims.forEach(a => Animated.timing(a, { toValue: 0.3, duration: 300, useNativeDriver: true }).start());
+      return;
+    }
+    const loops = anims.map((a, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(a, { toValue: 0.2 + Math.random() * 0.8, duration: 200 + i * 15, useNativeDriver: true }),
+          Animated.timing(a, { toValue: 0.1 + Math.random() * 0.4, duration: 200 + i * 15, useNativeDriver: true }),
+        ])
+      )
+    );
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, [isActive]);
+
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-      <View style={{
-        width: 28, height: 28, borderRadius: 8,
-        backgroundColor: color + '18', alignItems: 'center',
-        justifyContent: 'center', marginRight: 12, marginTop: 2,
-      }}>
-        <Ionicons name={icon} size={14} color={color} />
-      </View>
-      <Text style={{ fontSize: 14, color: C.text, flex: 1, lineHeight: 22 }}>{text}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 60, gap: 3 }}>
+      {anims.map((a, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: (SCREEN_W - 80) / bars - 3,
+            borderRadius: 2,
+            backgroundColor: isActive ? P.primary : P.primary + '30',
+            transform: [{ scaleY: a }],
+            height: 44,
+          }}
+        />
+      ))}
     </View>
   );
 }
 
+/* ── Recording Timer hook ───────────────────────────────────── */
+function useTimer(running) {
+  const [elapsed, setElapsed] = useState(0);
+  const intervalRef = useRef(null);
+  useEffect(() => {
+    if (running) {
+      setElapsed(0);
+      intervalRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
+    } else {
+      clearInterval(intervalRef.current);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running]);
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const ss = String(elapsed % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ══════════════════════════════════════════════════════════════ */
 export default function TasmiqModeScreen({ navigation, route }) {
   const { isDark, colors: C } = useTheme();
-  
-  // Selection Modals
-  const [surahModalVisible, setSurahModalVisible] = useState(false);
-  const [ayahModalVisible, setAyahModalVisible] = useState(false);
-  const [modeModalVisible, setModeModalVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [stopAyahModalVisible, setStopAyahModalVisible] = useState(false);
-  
-  const [selectedSurahIndex, setSelectedSurahIndex] = useState(
-    route.params?.initialSurahIndex !== undefined ? route.params.initialSurahIndex : 0
-  );
-  const [selectedAyahNumber, setSelectedAyahNumber] = useState(1);
-  const [recitationMode, setRecitationMode] = useState('single'); // 'single', '5', '10', 'continuous'
-  const [actualEndAyah, setActualEndAyah] = useState(null);
 
-  // Memorization / Hint state
-  const [hintCount, setHintCount] = useState(0);
-  const [revealedWords, setRevealedWords] = useState(0);
+  /* ── Route params from TasmiqPrepScreen ── */
+  const {
+    initialSurahIndex = 0,
+    initialAyahStart = 1,
+    initialAyahEnd,
+    recitationMode: initMode = '5',
+    teacherName = 'Teacher',
+    assignment = null,
+  } = route.params || {};
 
-  // Live AI detection state
-  const [isRecording, setIsRecording] = useState(false);
-  const [detectedWordIndex, setDetectedWordIndex] = useState(-1);
-  const [wordResults, setWordResults] = useState([]);
-  const wordResultsRef = useRef([]);
-  const detectionTimerRef = useRef(null);
-
-  // AI analysis summary
-  const [aiAnalysis, setAiAnalysis] = useState(null);
-  const [showAIStatus, setShowAIStatus] = useState(false);
-
-  const [recording, setRecording] = useState(null);
-  const recordingRef = useRef(null);
-  const [saving, setSaving] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  const [refSound, setRefSound] = useState(null);
-  const [isPlayingRef, setIsPlayingRef] = useState(false);
-  const [isLoadingRef, setIsLoadingRef] = useState(false);
-
-  const startTimeRef = useRef(0);
-  const silenceStartRef = useRef(null);
-  const [weakAreas, setWeakAreas] = useState({});
+  /* ── Surah / Ayah state ── */
+  const [selectedSurahIndex, setSelectedSurahIndex] = useState(initialSurahIndex);
+  const [selectedAyahNumber, setSelectedAyahNumber] = useState(initialAyahStart);
+  const [recitationMode, setRecitationMode]         = useState(initMode);
+  const [actualEndAyah, setActualEndAyah]           = useState(null);
 
   const currentSurah = quranData[selectedSurahIndex];
-  const ayahCount = currentSurah.count;
-  
-  // Derived state for multiple ayahs
+  const ayahCount    = currentSurah.count;
+
   const targetEndAyahNumber = useMemo(() => {
     if (recitationMode === 'single') return selectedAyahNumber;
-    if (recitationMode === '5') return Math.min(selectedAyahNumber + 4, ayahCount);
+    if (recitationMode === '5')  return Math.min(selectedAyahNumber + 4, ayahCount);
     if (recitationMode === '10') return Math.min(selectedAyahNumber + 9, ayahCount);
-    return ayahCount; // 'continuous' could go up to the end
+    return ayahCount;
   }, [recitationMode, selectedAyahNumber, ayahCount]);
 
   const endAyahToAnalyze = actualEndAyah || targetEndAyahNumber;
 
   const fullAyahText = useMemo(() => {
-    let text = "";
-    for(let a = selectedAyahNumber; a <= endAyahToAnalyze; a++) {
-      text += (currentSurah.verse[`verse_${a}`] || '') + " \u06dd ";
+    let t = '';
+    for (let a = selectedAyahNumber; a <= endAyahToAnalyze; a++) {
+      t += (currentSurah.verse[`verse_${a}`] || '') + ' ۝ ';
     }
-    return text.trim();
+    return t.trim();
   }, [currentSurah, selectedAyahNumber, endAyahToAnalyze]);
 
   const ayahWords = useMemo(() => fullAyahText.trim().split(/\s+/), [fullAyahText]);
 
-  useFocusEffect(
-    useCallback(() => {
-      resetState();
-    }, [selectedSurahIndex, selectedAyahNumber, recitationMode])
-  );
+  /* ── Phase state machine ── */
+  // 'recording' | 'processing' | 'results'
+  const [phase, setPhase] = useState('recording');
 
-  useEffect(() => {
-    resetState();
-  }, [selectedSurahIndex, selectedAyahNumber, recitationMode]);
+  /* ── Hint system ── */
+  const MAX_HINTS      = 5;
+  const [hintCount, setHintCount]         = useState(0);
+  const [revealedWords, setRevealedWords] = useState(0);
+  const [hintWarning, setHintWarning]     = useState('');
+  const hintWarningTimer                  = useRef(null);
 
+  /* ── Recording ── */
+  const [isRecording, setIsRecording]   = useState(false);
+  const [isAnalyzing, setIsAnalyzing]   = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false); // show success screen
+  const recordingRef                    = useRef(null);
+  const mediaRecorderRef                = useRef(null);
+  const audioChunksRef                  = useRef([]);
+  const silenceStartRef                 = useRef(null);
+
+  /* ── AI Processing stages ── */
+  const [completedStages, setCompletedStages] = useState([]);
+  const [isTakingLong, setIsTakingLong] = useState(false);
+
+  /* ── Results ── */
+  const [aiAnalysis, setAiAnalysis]         = useState(null);
+  const [showMistakes, setShowMistakes]     = useState(false);
+  const [weakAreas, setWeakAreas]           = useState({});
+  const [lastAudioUri, setLastAudioUri]     = useState(null);
+  const [lastTranscription, setLastTranscription] = useState('');
+  const [isPlayingRecording, setIsPlayingRecording] = useState(false);
+  const playbackSoundRef = useRef(null);
+
+  /* ── Ref audio ── */
+  const [refSound, setRefSound]         = useState(null);
+  const [isPlayingRef, setIsPlayingRef] = useState(false);
+  const [isLoadingRef, setIsLoadingRef] = useState(false);
+
+  /* ── Stop-ayah modal (continuous mode) ── */
+  const [stopAyahModalVisible, setStopAyahModalVisible] = useState(false);
+
+  /* ── Timer ── */
+  const timer = useTimer(isRecording);
+
+  /* ── Mic pulse animation ── */
+  const micPulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
+    if (isRecording) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(micPulse, { toValue: 1.15, duration: 600, useNativeDriver: true }),
+          Animated.timing(micPulse, { toValue: 1,    duration: 600, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      micPulse.setValue(1);
+    }
+  }, [isRecording]);
+
+  /* ── Clean up on unmount ── */
+  useFocusEffect(useCallback(() => {
     return () => {
-      if (recording) recording.stopAndUnloadAsync();
-      if (refSound) refSound.unloadAsync();
-      if (detectionTimerRef.current) clearInterval(detectionTimerRef.current);
+      if (recordingRef.current) recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      if (refSound) refSound.unloadAsync().catch(() => {});
+      clearTimeout(hintWarningTimer.current);
     };
-  }, []);
+  }, [refSound]));
 
-  const resetState = () => {
+  /* ── Reset everything ── */
+  const resetAll = () => {
+    setPhase('recording');
     setHintCount(0);
     setRevealedWords(0);
+    setHintWarning('');
+    setCompletedStages([]);
+    setIsTakingLong(false);
     setAiAnalysis(null);
-    setShowAIStatus(false);
-    setDetectedWordIndex(-1);
-    setWordResults([]);
+    setShowMistakes(false);
     setActualEndAyah(null);
-    wordResultsRef.current = [];
-    if (detectionTimerRef.current) clearInterval(detectionTimerRef.current);
-    if (refSound) {
-      refSound.unloadAsync();
-      setRefSound(null);
-      setIsPlayingRef(false);
-    }
-  };
-
-  const nextAyah = () => {
-    let nextStart = endAyahToAnalyze + 1;
-    if (nextStart <= ayahCount) {
-      setSelectedAyahNumber(nextStart);
-    } else if (selectedSurahIndex < quranData.length - 1) {
-      setSelectedSurahIndex(prev => prev + 1);
-      setSelectedAyahNumber(1);
-    }
-  };
-
-  const handleHint = async () => {
-    if (hintCount >= 5) {
-      Alert.alert(
-        'Too many hints used',
-        "Please repeat this tasmiq section again to strengthen your memorization.",
-        [{ text: 'Retry', style: 'cancel', onPress: () => resetState() }]
-      );
-      return;
-    }
-    
-    const nextHint = hintCount + 1;
-    setHintCount(nextHint);
-    
-    if (nextHint === 1) {
-      setRevealedWords(1);
-    } else if (nextHint === 2) {
-      setRevealedWords(3);
-    } else if (nextHint === 3) {
-      setRevealedWords(Math.ceil(ayahWords.length / 2));
-    } else if (nextHint === 4) {
-      await playRefAudio();
-    } else if (nextHint === 5) {
-      setRevealedWords(ayahWords.length);
-    }
-  };
-
-  const buildWordResults = (refPhonetics, userPhonetics, totalWords) => {
-    const refTokens = (refPhonetics || '').trim().split(/\s+/);
-    const userTokens = (userPhonetics || '').trim().split(/\s+/);
-    const chunkSize = Math.max(1, Math.ceil(refTokens.length / totalWords));
-    const results = [];
-    for (let i = 0; i < totalWords; i++) {
-      const refChunk = refTokens.slice(i * chunkSize, (i + 1) * chunkSize);
-      const userChunk = userTokens.slice(i * chunkSize, (i + 1) * chunkSize);
-      const matches = refChunk.filter((t, j) => t === userChunk[j]).length;
-      const accuracy = refChunk.length > 0 ? matches / refChunk.length : 0;
-      results.push(accuracy >= 0.5 ? 'correct' : 'missed');
-    }
-    return results;
-  };
-
-  const startLiveDetectionSimulation = (totalWords) => {
-    let currentIndex = 0;
-    const results = new Array(totalWords).fill(null);
-    wordResultsRef.current = results;
-    
-    detectionTimerRef.current = setInterval(() => {
-      if (currentIndex >= totalWords) {
-        clearInterval(detectionTimerRef.current);
-        return;
-      }
-      results[currentIndex] = 'pending';
-      wordResultsRef.current = [...results];
-      setWordResults([...results]);
-      setDetectedWordIndex(currentIndex);
-      currentIndex++;
-    }, 800);
-  };
-
-  const stopRecording = async () => {
     setIsRecording(false);
-    if (detectionTimerRef.current) clearInterval(detectionTimerRef.current);
-    
-    if (recitationMode === 'continuous') {
-      setStopAyahModalVisible(true);
-      return;
+    setIsAnalyzing(false);
+    setIsPlayingRecording(false);
+    if (playbackSoundRef.current) {
+      playbackSoundRef.current.unloadAsync().catch(() => {});
+      playbackSoundRef.current = null;
     }
-    await processRecording(targetEndAyahNumber);
+    if (refSound) { refSound.unloadAsync(); setRefSound(null); setIsPlayingRef(false); }
   };
 
-  const handleStopAyahSelected = async (ayahNumber) => {
-    setStopAyahModalVisible(false);
-    setActualEndAyah(ayahNumber);
-    await processRecording(ayahNumber);
-  };
-
-  const processRecording = async (endAyah) => {
-    const activeRecording = recordingRef.current;
-    if (!activeRecording) return;
-
-    let audioUri = null;
+  /* ── Play back the student's own recording ── */
+  const togglePlayRecording = async () => {
+    if (!lastAudioUri) return;
     try {
-      await activeRecording.stopAndUnloadAsync();
-      audioUri = activeRecording.getURI();
-      recordingRef.current = null;
-      setRecording(null);
-    } catch (err) {
-      console.error('Recording stop error:', err);
-      return;
-    }
-
-    setIsAnalyzing(true);
-    try {
-      const ayahRange = endAyah > selectedAyahNumber ? `${selectedAyahNumber}-${endAyah}` : `${selectedAyahNumber}`;
-      const response = await analyzeRecitation(audioUri, selectedSurahIndex + 1, ayahRange);
-      const result = response?.data || {};
-
-      const realScore  = typeof result.score   === 'number' ? Math.round(result.score)   : 0;
-      const realTajwid = typeof result.tajwid  === 'number' ? Math.round(result.tajwid)  : realScore;
-      const realMakhraj= typeof result.makhraj === 'number' ? Math.round(result.makhraj) : realScore;
-      const refPh      = result.ref_phonetics  || '';
-      const userPh     = result.user_phonetics || '';
-      const fullFeedback = result.feedback     || '';
-
-      let actualText = "";
-      for(let a = selectedAyahNumber; a <= endAyah; a++) {
-        actualText += (currentSurah.verse[`verse_${a}`] || '') + " \u06dd ";
-      }
-      const actualWords = actualText.trim().split(/\s+/);
-
-      const wordLevelResults = buildWordResults(refPh, userPh, actualWords.length);
-      const correct = wordLevelResults.filter(r => r === 'correct').length;
-
-      setDetectedWordIndex(actualWords.length - 1);
-      wordResultsRef.current = wordLevelResults;
-      setWordResults(wordLevelResults);
-
-      let finalScore = realScore;
-      if (hintCount >= 3) finalScore = Math.max(0, finalScore - 15);
-
-      const hesitation = wordLevelResults.includes('missed') || hintCount > 2;
-      let motivation = fullFeedback || 'Good effort! Keep refining your pronunciation.';
-      if (finalScore >= 90) motivation = 'Excellent memorization! MashaAllah! 🌟';
-      else if (finalScore < 75) motivation = "Keep practicing. Use Muraja'ah to strengthen these ayahs.";
-
-      if (finalScore < 80) {
-        setWeakAreas(prev => ({ ...prev, [`${selectedAyahNumber}-${endAyah}`]: (prev[`${selectedAyahNumber}-${endAyah}`] || 0) + 1 }));
-      }
-
-      setAiAnalysis({ score: finalScore, tajwid: realTajwid, makhraj: realMakhraj,
-        hesitation, correct, total: actualWords.length, motivation, refPhonetics: refPh, userPhonetics: userPh });
-      setShowAIStatus(true);
-    } catch (err) {
-      console.error('AI analysis failed:', err);
-      Alert.alert(
-        'AI Analysis Failed',
-        'Could not reach the TasmiqAI server.\nMake sure the backend is running at:\n' + API_URL,
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow microphone access to use Tasmiq.');
+      if (isPlayingRecording && playbackSoundRef.current) {
+        await playbackSoundRef.current.stopAsync();
+        await playbackSoundRef.current.unloadAsync();
+        playbackSoundRef.current = null;
+        setIsPlayingRecording(false);
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          metering: true,
-        }
-      );
-      
-      newRecording.setOnRecordingStatusUpdate((status) => {
-        if (status.isRecording) {
-          const metering = status.metering;
-          if (metering !== undefined) {
-            const THRESHOLD = -50; 
-            const DURATION = 3000; 
-            
-            if (metering < THRESHOLD) {
-              if (!silenceStartRef.current) {
-                silenceStartRef.current = Date.now();
-              } else if (Date.now() - silenceStartRef.current > DURATION) {
-                console.log("Silence detected, stopping recording automatically.");
-                stopRecording();
-              }
-            } else {
-              silenceStartRef.current = null;
-            }
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: lastAudioUri },
+        { shouldPlay: true },
+        status => {
+          if (status.didJustFinish) {
+            setIsPlayingRecording(false);
+            playbackSoundRef.current = null;
           }
         }
-      });
-
-      startTimeRef.current = Date.now();
-      recordingRef.current = newRecording;
-      setRecording(newRecording);
-      setIsRecording(true);
-      setIsAnalyzing(false);
-      setShowAIStatus(false);
-      setDetectedWordIndex(-1);
-      
-      const initialResults = new Array(ayahWords.length).fill(null);
-      setWordResults(initialResults);
-      wordResultsRef.current = initialResults;
-      
-      startLiveDetectionSimulation(ayahWords.length);
+      );
+      playbackSoundRef.current = sound;
+      setIsPlayingRecording(true);
     } catch (err) {
-      console.error('Recording start error:', err);
-      Alert.alert('Error', 'Could not start recording. Please try again.');
+      Alert.alert('Playback Error', 'Could not play your recording. Try again.');
     }
   };
 
+  /* ── Hint handler ── */
+  const handleHint = async () => {
+    if (hintCount >= MAX_HINTS) {
+      showHintWarning('Maximum hints reached. No further hints available.');
+      return;
+    }
+    const next = hintCount + 1;
+    setHintCount(next);
+    showHintWarning(`Hint ${next} of ${MAX_HINTS} used. Final score may be reduced.`);
+
+    if (next === 1) setRevealedWords(1);
+    else if (next === 2) setRevealedWords(3);
+    else if (next === 3) setRevealedWords(Math.ceil(ayahWords.length / 2));
+    else if (next === 4) setRevealedWords(ayahWords.length);
+    else if (next === 5) await playRefAudio();
+  };
+
+  const showHintWarning = (msg) => {
+    setHintWarning(msg);
+    clearTimeout(hintWarningTimer.current);
+    hintWarningTimer.current = setTimeout(() => setHintWarning(''), 3500);
+  };
+
+  /* ── Ref audio ── */
   const playRefAudio = async () => {
     try {
       if (refSound) {
@@ -374,484 +422,1082 @@ export default function TasmiqModeScreen({ navigation, route }) {
       const { sound } = await Audio.Sound.createAsync(
         { uri: `${API_URL}/audio/${sp}/${ap}.mp3` },
         { shouldPlay: true },
-        (s) => { if (s.didJustFinish) { setIsPlayingRef(false); } }
+        s => { if (s.didJustFinish) setIsPlayingRef(false); }
       );
       setRefSound(sound);
       setIsPlayingRef(true);
-    } catch { Alert.alert('Error', 'Could not load reference audio.'); }
-    finally { setIsLoadingRef(false); }
+    } catch {
+      Alert.alert('Error', 'Could not load reference audio.');
+    } finally {
+      setIsLoadingRef(false);
+    }
   };
 
-  const handleSubmit = async () => {
-    if (aiAnalysis?.score < 75) {
-       Alert.alert('Pronunciation Threshold', 'Your score is below the required threshold for Tasmiq. Please retry.');
-       return;
+  /* ── Start recording ── */
+  const startRecording = async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow microphone access to use Tasmiq.');
+        return;
+      }
+      setIsRecording(true);
+
+      if (Platform.OS === 'web') {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
+        const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorderRef.current = mr;
+        mr.ondataavailable = async (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+            const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            try {
+              const res = await assessChunk(blob, fullAyahText);
+              if (res && typeof res.matched_word_count === 'number') {
+                // silent live progress (no text shown)
+              }
+            } catch {}
+          }
+        };
+        mr.start(2000);
+      }
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording: newRec } = await Audio.Recording.createAsync({
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        metering: true,
+      });
+
+      newRec.setOnRecordingStatusUpdate(status => {
+        if (status.isRecording && status.metering !== undefined) {
+          if (status.metering < -50) {
+            if (!silenceStartRef.current) silenceStartRef.current = Date.now();
+            else if (Date.now() - silenceStartRef.current > 4000) stopRecording();
+          } else {
+            silenceStartRef.current = null;
+          }
+        }
+      });
+
+      recordingRef.current = newRec;
+    } catch (err) {
+      console.error('Recording start error:', err);
+      setIsRecording(false);
+      Alert.alert('Error', 'Could not start recording. Please check microphone permissions.');
     }
+  };
+
+  /* ── Stop recording ── */
+  const stopRecording = async () => {
+    setIsRecording(false);
+    if (Platform.OS === 'web' && mediaRecorderRef.current) {
+      if (mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current.stream) mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      mediaRecorderRef.current = null;
+    }
+    if (recitationMode === 'continuous') {
+      setStopAyahModalVisible(true);
+      return;
+    }
+    await processRecording(targetEndAyahNumber);
+  };
+
+  const handleStopAyahSelected = async (ayahNum) => {
+    setStopAyahModalVisible(false);
+    setActualEndAyah(ayahNum);
+    await processRecording(ayahNum);
+  };
+
+  /* ── Process recording → AI ── */
+  const processRecording = async (endAyah) => {
+    const activeRec = recordingRef.current;
+    if (!activeRec) return;
+
+    let audioUri = null;
+    try {
+      await activeRec.stopAndUnloadAsync();
+      audioUri = activeRec.getURI();
+      recordingRef.current = null;
+    } catch (err) {
+      console.error('Recording stop error:', err);
+      return;
+    }
+
+    // Switch to processing phase with staged animation
+    setPhase('processing');
+    setIsAnalyzing(true);
+    setCompletedStages([]);
+    setIsTakingLong(false);
+
+    // 15-second timeout warning (Gemini should respond in 3-8s)
+    const longTimer = setTimeout(() => {
+      setIsTakingLong(true);
+    }, 15000);
+
+    // Animate stages with delays
+    const stageDelay = 250;
+    AI_STAGES.forEach((_, i) => {
+      setTimeout(() => {
+        setCompletedStages(prev => [...prev, i]);
+      }, i * stageDelay);
+    });
+
+    try {
+      const ayahRange = endAyah > selectedAyahNumber ? `${selectedAyahNumber}-${endAyah}` : `${selectedAyahNumber}`;
+      const response = await analyzeRecitation(audioUri, selectedSurahIndex + 1, ayahRange, fullAyahText);
+
+      // Backend returns { status: "success", result: { overall_score, ... } }
+      // Unwrap the nested result object
+      const result = response?.result || response || {};
+
+      const realScore   = typeof result.overall_score      === 'number' ? Math.round(result.overall_score)      : 0;
+      const memScore    = typeof result.memorization_score === 'number' ? Math.round(result.memorization_score) : realScore;
+      const pronScore   = typeof result.pronunciation_score=== 'number' ? Math.round(result.pronunciation_score): realScore;
+      const tajwidScore = typeof result.tajwid_score       === 'number' ? Math.round(result.tajwid_score)       : realScore;
+      const fluScore    = typeof result.fluency_score      === 'number' ? Math.round(result.fluency_score)      : realScore;
+      const wordAlignments = result.word_alignments || [];
+      const refPh      = result.ref_phonetics  || '';
+      const userPh     = result.user_phonetics || '';
+      const fullFeedback = result.feedback     || '';
+      const backendFeedback = result.feedback || '';
+
+      // Apply hint penalty
+      let finalScore = realScore;
+      if (hintCount >= 3) finalScore = Math.max(0, finalScore - 15);
+      else if (hintCount >= 1) finalScore = Math.max(0, finalScore - hintCount * 3);
+
+      // Tajwid error analysis
+      const tajwidCounts = {};
+      TAJWID_RULES.forEach(r => { tajwidCounts[r.label] = 0; });
+      const searchText = [fullFeedback, refPh, userPh].join(' ').toLowerCase();
+      TAJWID_RULES.forEach(rule => {
+        if (rule.keywords.some(kw => searchText.includes(kw))) tajwidCounts[rule.label]++;
+      });
+      const tajwidErrors = TAJWID_RULES
+        .map(r => ({ rule: r.label, count: tajwidCounts[r.label] }))
+        .filter(e => e.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+      // Recommendations
+      const recommendations = tajwidErrors.slice(0, 3).map(e => ({
+        error: e.rule,
+        tip: TAJWID_TIPS[e.rule] || 'Practice this rule with a qualified Qari.',
+      }));
+      if (finalScore < 80) {
+        recommendations.push({ error: 'Murajaah', tip: `Murajaah recommended for ${currentSurah.name}.` });
+      }
+
+      // Motivation message
+      let motivation = '';
+      if (finalScore >= 90) motivation = 'Excellent work! Keep maintaining your memorization. 🌟';
+      else if (finalScore >= 70) motivation = 'Good effort! A little more practice will improve your accuracy.';
+      else motivation = "Keep practicing. Repetition will strengthen your memorization.";
+
+      if (finalScore < 80) {
+        setWeakAreas(prev => ({ ...prev, [`${selectedAyahNumber}-${endAyah}`]: (prev[`${selectedAyahNumber}-${endAyah}`] || 0) + 1 }));
+      }
+
+      // Ensure all stages are shown as complete
+      setCompletedStages(AI_STAGES.map((_, i) => i));
+
+      // Store audio URI and transcription for submission
+      // backend returns user_phonetics (the transcribed Arabic text from Gemini)
+      const transcription = result.user_phonetics || result.transcription || result.user_text || '';
+      setLastAudioUri(audioUri);
+      setLastTranscription(transcription);
+
+      // Brief pause before showing results
+      setTimeout(() => {
+        setAiAnalysis({
+          score: finalScore,
+          memorization: memScore,
+          pronunciation: pronScore,
+          tajwid: tajwidScore,
+          fluency: fluScore,
+          wordAlignments,
+          hintsUsed: hintCount,
+          motivation,
+          tajwidErrors,
+          recommendations,
+          refPhonetics: refPh,
+          userPhonetics: userPh,
+          feedbackText: backendFeedback,
+          transcription,
+        });
+        setPhase('results');
+        setIsAnalyzing(false);
+      }, 800);
+    } catch (err) {
+      console.error('AI analysis failed:', err);
+      setPhase('recording');
+      Alert.alert(
+        'AI Server Not Reachable',
+        `Cannot connect to TasmiqAI backend at:\n${API_URL}\n\nTo fix this:\n1. Make sure the backend is running on your PC (python tasmiq_api.py)\n2. Make sure your phone and PC are on the SAME WiFi network\n3. Update MY_PC_IP in src/services/api.js to your PC's current IP address (run ipconfig to find it)`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      clearTimeout(longTimer);
+      setIsAnalyzing(false);
+    }
+  };
+  /* ── Submit to teacher ── */
+  const handleSubmit = async () => {
+    // If score is low, warn but allow them to submit (teacher will review)
+    if (aiAnalysis?.score < 60) {
+      Alert.alert(
+        '⚠️ Low Score',
+        `Your score is ${aiAnalysis.score}%. Your teacher will still receive this attempt and can provide guidance.\n\nSubmit anyway?`,
+        [
+          { text: 'Retry Instead', style: 'cancel', onPress: resetAll },
+          { text: 'Submit Anyway', style: 'destructive', onPress: doSubmit },
+        ]
+      );
+      return;
+    }
+    doSubmit();
+  };
+
+  const doSubmit = async () => {
     setSaving(true);
     try {
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
-      const ayahRange = endAyahToAnalyze > selectedAyahNumber ? `${selectedAyahNumber}-${endAyahToAnalyze}` : `${selectedAyahNumber}`;
-      if (user) {
-        await saveRecitationResult(user.id, {
-          surah: currentSurah.name,
-          ayah: ayahRange,
-          score: aiAnalysis.score,
-          tajwid: aiAnalysis.tajwid,
-          makhraj: aiAnalysis.makhraj,
-          feedback: aiAnalysis.motivation,
-          type: 'Tasmiq',
+      const { getCurrentUser } = await import('../../services/authService');
+      const session = await getCurrentUser();
+      const ayahRange = endAyahToAnalyze > selectedAyahNumber
+        ? `${selectedAyahNumber}-${endAyahToAnalyze}`
+        : `${selectedAyahNumber}`;
+
+      if (session?.id) {
+        await saveRecitationResult(session.id, {
+          studentName:         session.full_name || session.displayName,
+          surah:               currentSurah.name,
+          surahNumber:         selectedSurahIndex + 1,
+          ayah:                ayahRange,
+          score:               aiAnalysis.score,
+          memorization_score:  aiAnalysis.memorization,
+          pronunciation_score: aiAnalysis.pronunciation,
+          tajwid:              aiAnalysis.tajwid,
+          fluency_score:       aiAnalysis.fluency,
+          makhraj:             aiAnalysis.tajwid,
+          feedback:            aiAnalysis.feedbackText || aiAnalysis.motivation,
+          audioUri:            lastAudioUri,
+          transcription:       aiAnalysis.transcription || lastTranscription,
         });
-        Alert.alert('Success', 'Your recitation has been successfully submitted to the teacher!');
+        // Show success screen instead of Alert
+        setSubmitSuccess(true);
       } else {
-        Alert.alert('Notice', 'You are not logged in, so your score was not saved. Moving to next.');
+        Alert.alert('Not Logged In', 'Please log in to submit your results.');
       }
-      nextAyah();
     } catch (e) {
-      console.error('Failed to save tasmiq error:', e);
-      Alert.alert('Error', 'Could not save your tasmiq results.');
+      console.error('Submit error:', e);
+      Alert.alert('Submit Failed', 'Could not send results. Error: ' + (e?.message || String(e)));
     } finally {
       setSaving(false);
     }
   };
 
-  const getWordStyle = (index) => {
-    if (isRecording || isAnalyzing) {
-      if (index === detectedWordIndex) {
-        return { bg: C.accent, text: '#000', border: C.primary, scale: 1.05 }; 
-      }
-      if (index < detectedWordIndex) {
-        const result = wordResults[index];
-        if (result === 'pending') return { bg: C.primary + '22', text: C.text, border: 'transparent' };
-        if (result === 'correct') return { bg: C.primary + '33', text: C.text, border: 'transparent' };
-        if (result === 'missed') return { bg: C.red + '33', text: C.text, border: 'transparent' };
-      }
-      return { bg: 'transparent', text: C.muted, border: 'transparent' };
-    }
-    if (showAIStatus) {
-      return { bg: wordResults[index] === 'correct' ? C.primary + '33' : C.red + '33', text: C.text, border: 'transparent' };
-    }
-    return { bg: 'transparent', text: C.text, border: 'transparent' };
-  };
 
-  const getModeLabel = (mode) => {
-    switch(mode) {
-      case 'single': return 'Single Ayah';
-      case '5': return '5 Ayahs';
-      case '10': return '10 Ayahs';
-      case 'continuous': return 'Continuous';
-      default: return 'Single Ayah';
-    }
-  };
+  /* ══════════════════════════════════════════════════════════
+     RENDER
+     ══════════════════════════════════════════════════════════ */
+
+  // ── SUCCESS SCREEN ─────────────────────────────────────────
+  if (submitSuccess) {
+    const ayahRange = endAyahToAnalyze > selectedAyahNumber
+      ? `${selectedAyahNumber}-${endAyahToAnalyze}`
+      : `${selectedAyahNumber}`;
+
+    return (
+      <IslamicBackground variant="minimal">
+        <SafeAreaView style={{ flex: 1, backgroundColor: P.bg }}>
+          <StatusBar barStyle="dark-content" />
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Success Icon */}
+            <View style={{
+              width: 100, height: 100, borderRadius: 50,
+              backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 24,
+            }}>
+              <Text style={{ fontSize: 48 }}>✅</Text>
+            </View>
+
+            <Text style={{ fontSize: 26, fontWeight: '900', color: P.primary, marginBottom: 8, textAlign: 'center' }}>
+              Submitted!
+            </Text>
+            <Text style={{ fontSize: 15, color: P.muted, textAlign: 'center', lineHeight: 24, marginBottom: 28 }}>
+              Your recitation of{'\n'}
+              <Text style={{ fontWeight: '800', color: P.text }}>{currentSurah.name}</Text>
+              {' '}(Ayah {ayahRange}){'\n'}
+              has been sent to{' '}
+              <Text style={{ fontWeight: '800', color: P.primary }}>{teacherName}</Text>.
+            </Text>
+
+            {/* Score Summary Card */}
+            <View style={{
+              backgroundColor: P.card, borderRadius: 20, padding: 24, width: '100%',
+              marginBottom: 28, borderWidth: 1, borderColor: '#E5E7EB',
+            }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: P.muted, textAlign: 'center', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Your Score
+              </Text>
+              <Text style={{
+                fontSize: 56, fontWeight: '900', textAlign: 'center',
+                color: aiAnalysis?.score >= 85 ? '#16A34A' : aiAnalysis?.score >= 70 ? P.gold : P.red,
+                lineHeight: 64,
+              }}>
+                {aiAnalysis?.score ?? 0}%
+              </Text>
+              <Text style={{ fontSize: 14, color: P.muted, textAlign: 'center', marginTop: 4 }}>
+                {aiAnalysis?.score >= 85 ? '🌟 Excellent!' : aiAnalysis?.score >= 70 ? '👍 Good work!' : '📖 Keep practicing'}
+              </Text>
+
+              {/* Mini breakdown */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+                {[
+                  { label: 'Memory', val: aiAnalysis?.memorization ?? 0, color: P.primary },
+                  { label: 'Pronunciation', val: aiAnalysis?.pronunciation ?? 0, color: '#4A90A4' },
+                  { label: 'Tajwid', val: aiAnalysis?.tajwid ?? 0, color: P.gold },
+                  { label: 'Fluency', val: aiAnalysis?.fluency ?? 0, color: '#9B8EC4' },
+                ].map((m, i) => (
+                  <View key={i} style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '900', color: m.color }}>{m.val}%</Text>
+                    <Text style={{ fontSize: 10, color: P.muted, marginTop: 2, textAlign: 'center' }}>{m.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Info */}
+            <View style={{
+              backgroundColor: '#FFFBEB', borderRadius: 14, padding: 16, width: '100%',
+              borderWidth: 1, borderColor: '#FDE68A', marginBottom: 28,
+            }}>
+              <Text style={{ fontSize: 13, color: '#92400E', textAlign: 'center', lineHeight: 20 }}>
+                Your submission is now in the teacher's review queue.{'\n'}
+                You can view this in your <Text style={{ fontWeight: '800' }}>History</Text> tab.
+              </Text>
+            </View>
+
+            {/* Buttons */}
+            <TouchableOpacity
+              onPress={() => { setSubmitSuccess(false); navigation.navigate('History'); }}
+              style={{
+                width: '100%', padding: 18, borderRadius: 16,
+                backgroundColor: P.primary, alignItems: 'center', marginBottom: 12,
+                flexDirection: 'row', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <Ionicons name="time-outline" size={20} color="white" />
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '800' }}>View in History</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => { setSubmitSuccess(false); navigation.goBack(); }}
+              style={{
+                width: '100%', padding: 18, borderRadius: 16,
+                backgroundColor: 'white', alignItems: 'center',
+                borderWidth: 1.5, borderColor: P.primary,
+              }}
+            >
+              <Text style={{ color: P.primary, fontSize: 16, fontWeight: '800' }}>Back to Home</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </IslamicBackground>
+    );
+  }
 
   return (
     <IslamicBackground variant="minimal">
       <SafeAreaView style={{ flex: 1 }}>
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={C.bg} />
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12 }}>
-          <Ionicons name="arrow-back" size={24} color={C.text} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: C.text }}>Tasmiq Mode</Text>
+        {/* ── Top bar ── */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10,
+        }}>
+          <TouchableOpacity
+            onPress={() => {
+              if (isRecording) {
+                Alert.alert('Recording in Progress', 'Stop recording before going back.',
+                  [{ text: 'OK' }]);
+                return;
+              }
+              navigation.goBack();
+            }}
+            style={{
+              width: 40, height: 40, borderRadius: 12,
+              backgroundColor: P.primary + '12',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="arrow-back" size={22} color={P.primary} />
+          </TouchableOpacity>
+
+          <View style={{ flex: 1, marginHorizontal: 14 }}>
+            <Text style={{ fontSize: 11, color: P.primary + '80', fontWeight: '700', letterSpacing: 1.2 }}>
+              TASMIQ ASSESSMENT
+            </Text>
+            <Text style={{ fontSize: 16, fontWeight: '900', color: P.primary }}>
+              {currentSurah.name} · Ayah {selectedAyahNumber}
+              {endAyahToAnalyze > selectedAyahNumber ? `–${endAyahToAnalyze}` : ''}
+            </Text>
+          </View>
+
+          {/* Hint counter badge */}
+          {phase === 'recording' && (
+            <View style={{
+              backgroundColor: hintCount >= 4 ? P.red + '20' : P.goldBg,
+              borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6,
+              borderWidth: 1, borderColor: hintCount >= 4 ? P.red + '40' : P.gold + '60',
+            }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: hintCount >= 4 ? P.red : '#92400E' }}>
+                {MAX_HINTS - hintCount}/{MAX_HINTS} Hints
+              </Text>
+            </View>
+          )}
         </View>
-        <TouchableOpacity 
-          onPress={() => setModeModalVisible(true)}
-          style={{ backgroundColor: C.primary + '20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}
-        >
-          <Text style={{ color: C.primary, fontSize: 12, fontWeight: '700', marginRight: 4 }}>{getModeLabel(recitationMode)}</Text>
-          <Ionicons name="chevron-down" size={14} color={C.primary} />
-        </TouchableOpacity>
-      </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 }}>
-        <TouchableOpacity
-          onPress={() => { if (selectedSurahIndex > 0) { setSelectedSurahIndex(s => s - 1); setSelectedAyahNumber(1); } }}
-          disabled={selectedSurahIndex === 0}
-          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.primary + '18', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
-        >
-          <Ionicons name="chevron-back" size={20} color={selectedSurahIndex === 0 ? C.muted : C.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setSurahModalVisible(true)}
-          style={{ flex: 1, backgroundColor: C.primary + '15', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, alignItems: 'center' }}
-        >
-          <Text style={{ color: C.primary, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{currentSurah.name}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => { if (selectedSurahIndex < quranData.length - 1) { setSelectedSurahIndex(s => s + 1); setSelectedAyahNumber(1); } }}
-          disabled={selectedSurahIndex === quranData.length - 1}
-          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.primary + '18', alignItems: 'center', justifyContent: 'center', marginHorizontal: 8 }}
-        >
-          <Ionicons name="chevron-forward" size={20} color={selectedSurahIndex === quranData.length - 1 ? C.muted : C.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setAyahModalVisible(true)}
-          style={{ backgroundColor: C.accent + '80', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12 }}
-        >
-          <Text style={{ color: '#7A6000', fontSize: 13, fontWeight: '700' }}>Ayah {selectedAyahNumber}{recitationMode !== 'single' && endAyahToAnalyze > selectedAyahNumber ? `-${endAyahToAnalyze}` : ''}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        {!showAIStatus && (
-          <View style={{
-            backgroundColor: C.card, borderRadius: 24, padding: 28, marginBottom: 24,
-            shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, elevation: 4,
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <View style={{ backgroundColor: C.bg, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
-                <Text style={{ fontSize: 10, fontWeight: '800', color: C.muted }}>
-                  Surah {currentSurah.index} : {selectedAyahNumber}{recitationMode !== 'single' && endAyahToAnalyze > selectedAyahNumber ? `-${endAyahToAnalyze}` : ''}
+        {/* ── Phase: RECORDING ── */}
+        {phase === 'recording' && (
+          <ScrollView
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Assignment Info strip */}
+            <View style={{
+              backgroundColor: P.primary, borderRadius: 16,
+              paddingVertical: 12, paddingHorizontal: 18,
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 24,
+            }}>
+              <View>
+                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '700' }}>CURRENT ASSIGNMENT</Text>
+                <Text style={{ fontSize: 15, color: 'white', fontWeight: '800' }}>
+                  {currentSurah.name} · Verse {selectedAyahNumber}–{endAyahToAnalyze}
                 </Text>
               </View>
-              <View style={{ backgroundColor: hintCount >= 4 ? C.red + '20' : C.accent + '40', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
-                <Text style={{ fontSize: 10, fontWeight: '800', color: hintCount >= 4 ? C.red : '#B59100' }}>
-                  {hintCount}/5 Hints Used
-                </Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '700' }}>TEACHER</Text>
+                <Text style={{ fontSize: 13, color: P.gold, fontWeight: '700' }}>{teacherName}</Text>
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {ayahWords.map((word, index) => {
-                const isHidden = showAIStatus
-                  ? false
-                  : isRecording
-                    ? index > detectedWordIndex
-                    : index >= revealedWords;
+            {/* Mic area */}
+            <View style={{
+              backgroundColor: P.card, borderRadius: 28,
+              padding: 32, alignItems: 'center',
+              marginBottom: 20,
+              shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 20, elevation: 5,
+              borderWidth: 1, borderColor: P.primary + '10',
+            }}>
+              {/* No-text reminder */}
+              {!isRecording && (
+                <View style={{
+                  backgroundColor: '#FEF3C7', borderRadius: 12,
+                  padding: 12, marginBottom: 24, width: '100%',
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                }}>
+                  <Ionicons name="eye-off-outline" size={16} color="#92400E" />
+                  <Text style={{ fontSize: 12, color: '#92400E', flex: 1, fontWeight: '600' }}>
+                    Recite from memory. No Quran text is shown.
+                  </Text>
+                </View>
+              )}
 
-                const isCurrentlyDetected = isRecording && index === detectedWordIndex;
-                const style = getWordStyle(index);
+              {/* Timer */}
+              <Text style={{
+                fontSize: 48, fontWeight: '900',
+                color: isRecording ? P.red : P.primary + '40',
+                fontVariant: ['tabular-nums'], letterSpacing: 2,
+                marginBottom: 8,
+              }}>
+                {timer}
+              </Text>
 
+              {/* Status text */}
+              {isRecording ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: P.red }} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: P.red }}>Listening...</Text>
+                </View>
+              ) : (
+                <Text style={{ fontSize: 14, color: P.muted, marginBottom: 20, textAlign: 'center' }}>
+                  Press the mic button to start
+                </Text>
+              )}
+
+              {/* Waveform */}
+              <View style={{ width: '100%', marginBottom: 28 }}>
+                <Waveform isActive={isRecording} />
+              </View>
+
+              {/* Mic button */}
+              <Animated.View style={{ transform: [{ scale: micPulse }] }}>
+                <TouchableOpacity
+                  onPress={isRecording ? stopRecording : startRecording}
+                  activeOpacity={0.85}
+                  style={{
+                    width: 88, height: 88, borderRadius: 44,
+                    backgroundColor: isRecording ? P.red : P.primary,
+                    alignItems: 'center', justifyContent: 'center',
+                    shadowColor: isRecording ? P.red : P.primary,
+                    shadowOpacity: 0.4, shadowRadius: 18, elevation: 12,
+                  }}
+                >
+                  <Ionicons name={isRecording ? 'stop' : 'mic'} size={40} color="white" />
+                </TouchableOpacity>
+              </Animated.View>
+
+              <Text style={{ fontSize: 12, color: P.muted, marginTop: 14, fontWeight: '600' }}>
+                {isRecording ? 'Tap to stop recording' : 'Tap to begin reciting'}
+              </Text>
+
+              {/* Pause button (only while recording) */}
+              {isRecording && (
+                <TouchableOpacity
+                  onPress={stopRecording}
+                  style={{
+                    marginTop: 16, paddingHorizontal: 24, paddingVertical: 10,
+                    borderRadius: 12, borderWidth: 1.5, borderColor: P.primary + '40',
+                    flexDirection: 'row', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <Ionicons name="pause" size={16} color={P.primary} />
+                  <Text style={{ fontSize: 13, color: P.primary, fontWeight: '700' }}>Stop Recording</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Hint warning toast */}
+            {hintWarning !== '' && (
+              <View style={{
+                backgroundColor: '#FEF3C7', borderRadius: 14, padding: 14,
+                marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 10,
+                borderWidth: 1, borderColor: '#F59E0B' + '50',
+              }}>
+                <Ionicons name="warning-outline" size={18} color="#92400E" />
+                <Text style={{ fontSize: 13, color: '#92400E', flex: 1, fontWeight: '600' }}>{hintWarning}</Text>
+              </View>
+            )}
+
+            {/* Hint section */}
+            <View style={{
+              backgroundColor: P.card, borderRadius: 20, padding: 20,
+              borderWidth: 1, borderColor: P.primary + '12',
+              shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2,
+            }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: P.text }}>Hint System</Text>
+                <View style={{
+                  backgroundColor: hintCount >= MAX_HINTS ? P.red + '15' : P.goldBg,
+                  borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4,
+                }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: hintCount >= MAX_HINTS ? P.red : '#92400E' }}>
+                    {hintCount}/{MAX_HINTS} Used
+                  </Text>
+                </View>
+              </View>
+
+              {/* Hint level dots */}
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16 }}>
+                {[1,2,3,4,5].map(i => (
+                  <View key={i} style={{
+                    flex: 1, height: 6, borderRadius: 3,
+                    backgroundColor: i <= hintCount
+                      ? (hintCount >= 4 ? P.red : P.gold)
+                      : P.primary + '20',
+                  }} />
+                ))}
+              </View>
+
+              <View style={{ marginBottom: 14 }}>
+                {[
+                  'Hint 1 — First word revealed',
+                  'Hint 2 — First three words',
+                  'Hint 3 — First half of verse',
+                  'Hint 4 — Full verse revealed',
+                  'Hint 5 — Reference audio plays',
+                ].map((label, i) => (
+                  <View key={i} style={{
+                    flexDirection: 'row', alignItems: 'center', marginBottom: 6,
+                  }}>
+                    <Ionicons
+                      name={i < hintCount ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={14}
+                      color={i < hintCount ? P.primary : P.muted}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={{
+                      fontSize: 12, color: i < hintCount ? P.text : P.muted,
+                      fontWeight: i < hintCount ? '600' : '400',
+                      textDecorationLine: i < hintCount ? 'line-through' : 'none',
+                    }}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Hint revealed words (only shown words, not hidden) */}
+              {revealedWords > 0 && (
+                <View style={{
+                  backgroundColor: P.goldBg, borderRadius: 14,
+                  padding: 14, marginBottom: 14,
+                  borderWidth: 1, borderColor: P.gold + '40',
+                }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#92400E', marginBottom: 8, letterSpacing: 1 }}>
+                    HINT REVEALED
+                  </Text>
+                  <Text style={{
+                    fontSize: 22, textAlign: 'right', color: P.text,
+                    lineHeight: 38, fontFamily: 'serif',
+                  }}>
+                    {ayahWords.slice(0, revealedWords).join(' ')}
+                    {revealedWords < ayahWords.length && (
+                      <Text style={{ color: P.muted }}> ...</Text>
+                    )}
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                onPress={handleHint}
+                disabled={hintCount >= MAX_HINTS || isRecording}
+                activeOpacity={0.8}
+                style={{
+                  backgroundColor: hintCount >= MAX_HINTS ? '#F3F4F6' : P.goldBg,
+                  borderRadius: 14, paddingVertical: 14,
+                  alignItems: 'center', borderWidth: 1.5,
+                  borderColor: hintCount >= MAX_HINTS ? '#E5E7EB' : P.gold + '60',
+                  flexDirection: 'row', justifyContent: 'center', gap: 8,
+                }}
+              >
+                <Ionicons
+                  name="bulb-outline"
+                  size={18}
+                  color={hintCount >= MAX_HINTS ? P.muted : '#92400E'}
+                />
+                <Text style={{
+                  fontSize: 14, fontWeight: '800',
+                  color: hintCount >= MAX_HINTS ? P.muted : '#92400E',
+                }}>
+                  {hintCount >= MAX_HINTS ? 'Maximum Hints Reached' : 'Request Hint'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* ── Phase: PROCESSING ── */}
+        {phase === 'processing' && (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+            <AnimatedQuranIcon />
+
+            <Text style={{ fontSize: 24, fontWeight: '900', color: '#0F6D3E', marginBottom: 8, textAlign: 'center' }}>
+              Analyzing Your Recitation
+            </Text>
+            
+            <View style={{ height: 60, marginBottom: 20 }}>
+              <RotatingMessages />
+            </View>
+
+            {/* Stage list */}
+            <View style={{
+              backgroundColor: P.card, borderRadius: 20, padding: 20, width: '100%',
+              shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 4,
+            }}>
+              {AI_STAGES.map((stage, i) => {
+                const done = completedStages.includes(i);
+                const active = completedStages.length === i;
                 return (
                   <View
-                    key={index}
+                    key={i}
                     style={{
-                      margin: 4,
-                      paddingHorizontal: isHidden ? 2 : 10,
-                      paddingVertical: isHidden ? 0 : 6,
-                      backgroundColor: isHidden ? 'transparent' : style.bg,
-                      borderRadius: 12,
-                      borderWidth: isCurrentlyDetected ? 2.5 : 0,
-                      borderColor: isCurrentlyDetected ? C.primary : 'transparent',
-                      minWidth: isHidden ? 40 : undefined,
-                      alignItems: 'center',
+                      flexDirection: 'row', alignItems: 'center',
+                      paddingVertical: 10,
+                      borderBottomWidth: i < AI_STAGES.length - 1 ? 1 : 0,
+                      borderBottomColor: '#F0F0F0',
                     }}
                   >
-                    {isHidden ? (
-                      <View style={{ height: 4, width: 34, backgroundColor: C.muted + '35', borderRadius: 2, marginVertical: 24 }} />
-                    ) : (
-                      <Text style={{
-                        fontSize: 28,
-                        color: isCurrentlyDetected ? C.primary : style.text,
-                        fontFamily: 'serif',
-                        lineHeight: 46,
-                        fontWeight: isCurrentlyDetected ? '700' : '400',
-                      }}>
-                        {word}
-                      </Text>
-                    )}
+                    <View style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      backgroundColor: done ? '#0F6D3E15' : active ? '#D4AF3715' : '#F5F5F5',
+                      alignItems: 'center', justifyContent: 'center', marginRight: 14,
+                    }}>
+                      {done
+                        ? <Ionicons name="checkmark" size={18} color="#0F6D3E" />
+                        : active 
+                        ? <ActivityIndicator size="small" color="#D4AF37" />
+                        : <Ionicons name={stage.icon} size={16} color={P.muted} />
+                      }
+                    </View>
+                    <Text style={{
+                      fontSize: 14, flex: 1,
+                      color: done ? '#0F6D3E' : active ? '#D4AF37' : P.muted,
+                      fontWeight: done || active ? '700' : '400',
+                    }}>
+                      {stage.label}
+                    </Text>
                   </View>
                 );
               })}
             </View>
-
-            {!isRecording && !isAnalyzing && !showAIStatus && (
-              <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 4 }}>
-                <Ionicons name="mic-circle-outline" size={36} color={C.primary} style={{ opacity: 0.5 }} />
-                <Text style={{ fontSize: 13, color: C.muted, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
-                  Recite from memory, then press the{'\n'}mic button below to begin.
+            
+            {/* Long waiting timeout UI */}
+            {isTakingLong && (
+              <View style={{ marginTop: 24, width: '100%' }}>
+                <Text style={{ textAlign: 'center', color: P.muted, marginBottom: 12 }}>
+                  Analysis is taking longer than expected.
                 </Text>
-              </View>
-            )}
-
-            {isRecording && (
-              <View style={{ alignItems: 'center', marginTop: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.red, marginRight: 8 }} />
-                  <Text style={{ color: C.red, fontWeight: '700', fontSize: 13 }}>Recording — speak clearly</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity 
+                    style={{ flex: 1, paddingVertical: 12, backgroundColor: 'white', borderRadius: 10, borderWidth: 1, borderColor: '#D4AF37' }}
+                    onPress={() => setIsTakingLong(false)}
+                  >
+                    <Text style={{ textAlign: 'center', color: '#D4AF37', fontWeight: '700' }}>Continue Waiting</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={{ flex: 1, paddingVertical: 12, backgroundColor: P.red, borderRadius: 10 }}
+                    onPress={resetAll}
+                  >
+                    <Text style={{ textAlign: 'center', color: 'white', fontWeight: '700' }}>Retry Analysis</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-                  Press Stop when finished. AI will analyse your recitation.
-                </Text>
-              </View>
-            )}
-
-            {isAnalyzing && (
-              <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 4 }}>
-                <ActivityIndicator size="large" color={C.primary} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: C.primary, marginTop: 12 }}>Wav2Vec2 AI Analysing...</Text>
-                <Text style={{ fontSize: 12, color: C.muted, marginTop: 4, textAlign: 'center' }}>
-                  Comparing your recitation to the reference phonetics.
-                </Text>
               </View>
             )}
           </View>
         )}
 
-        {showAIStatus && aiAnalysis && (
-          <View>
+        {/* ── Phase: RESULTS ── */}
+        {phase === 'results' && aiAnalysis && (
+          <ScrollView
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Overall Score card */}
             <View style={{
-              backgroundColor: C.primary, borderRadius: 20,
-              padding: 24, marginBottom: 20, alignItems: 'center',
+              backgroundColor: '#0F6D3E',
+              borderRadius: 24, padding: 28,
+              alignItems: 'center', marginBottom: 16,
+              shadowColor: '#0F6D3E', shadowOpacity: 0.35,
+              shadowRadius: 16, elevation: 8,
             }}>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 4 }}>Overall Score</Text>
-              <Text style={{ color: '#FFFFFF', fontSize: 52, fontWeight: '800', lineHeight: 60 }}>{aiAnalysis.score}%</Text>
-              <Text style={{ color: C.accent, fontSize: 14, fontWeight: '600' }}>
+              <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: '700', marginBottom: 4, letterSpacing: 1 }}>
+                OVERALL PERFORMANCE
+              </Text>
+              <Text style={{
+                fontSize: 72, fontWeight: '900', color: 'white',
+                lineHeight: 80, letterSpacing: -2,
+              }}>
+                {aiAnalysis.score}%
+              </Text>
+              <View style={{
+                backgroundColor: aiAnalysis.score >= 90 ? '#16A34A' : aiAnalysis.score >= 70 ? '#D4AF37' : '#DC2626',
+                borderRadius: 20, paddingHorizontal: 24, paddingVertical: 8, marginTop: 8,
+              }}>
+                <Text style={{ color: 'white', fontWeight: '800', fontSize: 16 }}>
+                  {aiAnalysis.score >= 90 ? 'Excellent' : aiAnalysis.score >= 70 ? 'Good' : 'Needs Practice'}
+                </Text>
+              </View>
+              <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14, marginTop: 14, textAlign: 'center', lineHeight: 22, fontWeight: '500' }}>
                 {aiAnalysis.motivation}
               </Text>
             </View>
 
+            {/* Detailed Metric Cards */}
             <View style={{
-              backgroundColor: C.card, borderRadius: 18, padding: 20, marginBottom: 20,
-              shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+              backgroundColor: P.card, borderRadius: 20, padding: 22, marginBottom: 14,
+              shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
             }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 20 }}>Score Breakdown</Text>
-              <View style={{ flexDirection: 'row' }}>
-                <ScoreRing score={aiAnalysis.tajwid} label="Tajwid" color={C.primary} />
-                <ScoreRing score={aiAnalysis.makhraj} label="Makhraj" color={C.lilac} />
-                <ScoreRing score={aiAnalysis.score} label="Fluency" color={C.accent} />
+              <Text style={{ fontSize: 14, fontWeight: '900', color: '#0F6D3E', marginBottom: 20, letterSpacing: 0.5 }}>
+                DETAILED ASSESSMENT
+              </Text>
+              
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 }}>
+                {/* 1. Memorization */}
+                <View style={{ width: '47%', alignItems: 'center', paddingVertical: 10 }}>
+                  <ScoreRing score={aiAnalysis.memorization} label="Memorization Accuracy" color="#0F6D3E" size={68} />
+                </View>
+                {/* 2. Pronunciation */}
+                <View style={{ width: '47%', alignItems: 'center', paddingVertical: 10 }}>
+                  <ScoreRing score={aiAnalysis.pronunciation} label="Pronunciation" color="#D4AF37" size={68} />
+                </View>
+                {/* 3. Tajwid */}
+                <View style={{ width: '47%', alignItems: 'center', paddingVertical: 10 }}>
+                  <ScoreRing score={aiAnalysis.tajwid} label="Tajwid Rules" color="#4A90A4" size={68} />
+                </View>
+                {/* 4. Fluency */}
+                <View style={{ width: '47%', alignItems: 'center', paddingVertical: 10 }}>
+                  <ScoreRing score={aiAnalysis.fluency} label="Fluency & Flow" color="#9B7DC8" size={68} />
+                </View>
+              </View>
+
+              {/* Hints used row */}
+              <View style={{
+                marginTop: 10, paddingTop: 16,
+                borderTopWidth: 1, borderTopColor: '#F0F0F0',
+                flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <Text style={{ fontSize: 13, color: P.muted, fontWeight: '600' }}>Hints Used</Text>
+                <View style={{
+                  backgroundColor: aiAnalysis.hintsUsed > 0 ? '#FEF3C7' : P.lightGreen,
+                  borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5,
+                }}>
+                  <Text style={{
+                    fontSize: 14, fontWeight: '800',
+                    color: aiAnalysis.hintsUsed > 0 ? '#92400E' : P.green,
+                  }}>
+                    {aiAnalysis.hintsUsed}/{MAX_HINTS}
+                  </Text>
+                </View>
               </View>
             </View>
 
+            {/* Error Summary & Highlighted Text */}
             <View style={{
-              backgroundColor: C.card, borderRadius: 18, padding: 20, marginBottom: 24,
-              shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+              backgroundColor: P.card, borderRadius: 20, padding: 20, marginBottom: 14,
+              shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
             }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 16 }}>AI Feedback</Text>
-              {aiAnalysis.hesitation && (
-                <FeedbackRow icon="warning" color="#E0952F" text="Hesitation or pronunciation gap detected. Practice more for fluency." />
-              )}
-              {aiAnalysis.tajwid < 80 && (
-                <FeedbackRow icon="information-circle" color={C.lilac} text="Focus on Tajwid rules — pay attention to elongation (Madd)." />
-              )}
-              {weakAreas[`${selectedAyahNumber}-${endAyahToAnalyze}`] >= 2 && (
-                <FeedbackRow icon="alert-circle" color={C.red} text="This ayah is marked as a weak area. Consider adding it to Muraja'ah." />
-              )}
-              {hintCount >= 3 && (
-                <FeedbackRow icon="bulb-outline" color="#B59100" text="You relied heavily on hints. Try memorizing fully before Tasmiq." />
-              )}
-              {aiAnalysis.refPhonetics ? (
-                <View style={{ marginTop: 12, backgroundColor: C.bg, borderRadius: 12, padding: 12 }}>
-                  <Text style={{ fontSize: 11, color: C.muted, fontWeight: '700', marginBottom: 4 }}>✅ REFERENCE PHONETICS</Text>
-                  <Text style={{ fontSize: 13, color: C.primary, fontFamily: 'monospace', lineHeight: 22 }} numberOfLines={3}>
-                    {aiAnalysis.refPhonetics}
-                  </Text>
-                  <View style={{ height: 1, backgroundColor: C.border, marginVertical: 10 }} />
-                  <Text style={{ fontSize: 11, color: C.muted, fontWeight: '700', marginBottom: 4 }}>🎙 YOUR PHONETICS</Text>
-                  <Text style={{ fontSize: 13, color: C.text, fontFamily: 'monospace', lineHeight: 22 }} numberOfLines={3}>
-                    {aiAnalysis.userPhonetics}
-                  </Text>
+              <Text style={{ fontSize: 14, fontWeight: '900', color: '#0F6D3E', marginBottom: 16, letterSpacing: 0.5 }}>
+                RECITED TEXT COMPARISON
+              </Text>
+              
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: P.green }} />
+                  <Text style={{ fontSize: 11, color: P.muted }}>Correct</Text>
                 </View>
-              ) : null}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: P.red }} />
+                  <Text style={{ fontSize: 11, color: P.muted }}>Incorrect</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: P.amber }} />
+                  <Text style={{ fontSize: 11, color: P.muted }}>Pronunciation</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: P.muted }} />
+                  <Text style={{ fontSize: 11, color: P.muted }}>Skipped</Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', direction: 'rtl' }}>
+                {aiAnalysis.wordAlignments && aiAnalysis.wordAlignments.map((w, i) => {
+                  let color = P.text;
+                  let decoration = 'none';
+                  if (w.status === 'correct') color = P.green;
+                  else if (w.status === 'incorrect') { color = P.red; decoration = 'underline'; }
+                  else if (w.status === 'pronunciation_issue') color = P.amber;
+                  else if (w.status === 'skipped') { color = P.muted; decoration = 'line-through'; }
+                  
+                  return (
+                    <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => {
+                      if (w.status !== 'correct') {
+                        Alert.alert('Word Details', `Expected: ${w.word}\n${w.user_said ? `You said: ${w.user_said}` : 'Skipped/Missed'}`);
+                      }
+                    }}>
+                      <Text style={{ 
+                        fontSize: 24, fontFamily: 'serif', marginRight: 8, marginBottom: 12,
+                        color, textDecorationLine: decoration,
+                      }}>
+                        {w.word}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            {/* AI Recommendations */}
+            {aiAnalysis.recommendations && aiAnalysis.recommendations.length > 0 && (
+              <View style={{
+                backgroundColor: P.card, borderRadius: 20, padding: 20, marginBottom: 14,
+                shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <Ionicons name="sparkles" size={16} color={P.gold} />
+                  <Text style={{ fontSize: 13, fontWeight: '900', color: P.primary, letterSpacing: 0.5 }}>
+                    AI RECOMMENDATIONS
+                  </Text>
+                </View>
+                {aiAnalysis.recommendations.map((r, i) => (
+                  <View key={i} style={{
+                    flexDirection: 'row', alignItems: 'flex-start',
+                    backgroundColor: P.lightGreen, borderRadius: 12,
+                    padding: 14, marginBottom: 10,
+                  }}>
+                    <View style={{
+                      width: 28, height: 28, borderRadius: 8,
+                      backgroundColor: P.primary + '15',
+                      alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 1,
+                    }}>
+                      <Ionicons name="bulb-outline" size={14} color={P.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: P.primary, marginBottom: 2 }}>{r.error}</Text>
+                      <Text style={{ fontSize: 13, color: P.muted, lineHeight: 20 }}>{r.tip}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Achievements / Badges */}
+            {(() => {
+              const badges = getBadges(aiAnalysis.score, aiAnalysis.hintsUsed);
+              return badges.length > 0 ? (
+                <View style={{
+                  backgroundColor: P.card, borderRadius: 20, padding: 20, marginBottom: 20,
+                  shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
+                }}>
+                  <Text style={{ fontSize: 13, fontWeight: '900', color: P.primary, marginBottom: 16, letterSpacing: 0.5 }}>
+                    ACHIEVEMENTS EARNED
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    {badges.map((b, i) => (
+                      <View key={i} style={{
+                        flexDirection: 'row', alignItems: 'center',
+                        backgroundColor: b.color + '15',
+                        borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+                        borderWidth: 1, borderColor: b.color + '30',
+                      }}>
+                        <Text style={{ fontSize: 16, marginRight: 6 }}>{b.icon}</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: b.color }}>{b.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null;
+            })()}
+
+            {/* Teacher Notification note */}
+            <View style={{
+              backgroundColor: P.lightGreen, borderRadius: 14,
+              padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 10,
+            }}>
+              <Ionicons name="mail-outline" size={20} color={P.primary} />
+              <Text style={{ fontSize: 13, color: P.primary, flex: 1, fontWeight: '600' }}>
+                Results will be sent to <Text style={{ fontWeight: '900' }}>{teacherName}</Text> upon submission.
+              </Text>
+            </View>
+
+            {/* Action Buttons */}
+            {aiAnalysis.feedbackText ? (
+              <View style={{
+                backgroundColor: '#F8FAF7', borderRadius: 20, padding: 18, marginBottom: 18,
+                borderWidth: 1, borderColor: '#D1E7DD',
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: '900', color: '#0F5132', marginBottom: 10 }}>AI Feedback</Text>
+                <Text style={{ fontSize: 14, color: '#0F5132', lineHeight: 22 }}>{aiAnalysis.feedbackText}</Text>
+              </View>
+            ) : null}
+
+            {/* ── Play Recording Button ── */}
+            {lastAudioUri && (
               <TouchableOpacity
-                onPress={resetState}
+                onPress={togglePlayRecording}
                 style={{
-                  flex: 1, backgroundColor: C.bg, borderRadius: 16,
-                  paddingVertical: 18, alignItems: 'center',
-                  borderWidth: 1.5, borderColor: C.primary, marginRight: 10,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                  gap: 10, padding: 16, borderRadius: 16, marginBottom: 12,
+                  backgroundColor: isPlayingRecording ? '#FEF3C7' : '#F5F2E9',
+                  borderWidth: 1.5,
+                  borderColor: isPlayingRecording ? P.gold : '#E5E7EB',
                 }}
               >
-                <Text style={{ color: C.primary, fontSize: 16, fontWeight: '700' }}>Retry</Text>
+                <Ionicons
+                  name={isPlayingRecording ? 'stop-circle' : 'play-circle'}
+                  size={24}
+                  color={isPlayingRecording ? P.gold : P.primary}
+                />
+                <Text style={{
+                  fontWeight: '800', fontSize: 15,
+                  color: isPlayingRecording ? P.gold : P.primary,
+                }}>
+                  {isPlayingRecording ? 'Stop Playback' : 'Play My Recording'}
+                </Text>
+                <View style={{
+                  backgroundColor: isPlayingRecording ? P.gold + '20' : P.primary + '15',
+                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+                }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: isPlayingRecording ? P.gold : P.primary }}>
+                    {isPlayingRecording ? 'Playing...' : 'Review before submit'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={resetAll}
+                style={{
+                  flex: 1, paddingVertical: 18, borderRadius: 16,
+                  backgroundColor: 'white',
+                  borderWidth: 2, borderColor: P.primary,
+                  alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8,
+                }}
+              >
+                <Ionicons name="refresh" size={18} color={P.primary} />
+                <Text style={{ color: P.primary, fontSize: 15, fontWeight: '800' }}>Retry</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleSubmit}
+                disabled={saving}
                 style={{
-                  flex: 1, backgroundColor: C.primary, borderRadius: 16,
-                  paddingVertical: 18, alignItems: 'center',
-                  shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+                  flex: 2, paddingVertical: 18, borderRadius: 16,
+                  backgroundColor: P.primary,
+                  alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8,
+                  shadowColor: P.primary, shadowOpacity: 0.35, shadowRadius: 12, elevation: 8,
+                  opacity: saving ? 0.7 : 1,
                 }}
               >
-                {saving ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Submit to Teacher</Text>}
+                {saving
+                  ? <ActivityIndicator color="white" />
+                  : <>
+                      <Ionicons name="send-outline" size={18} color="white" />
+                      <Text style={{ color: 'white', fontSize: 15, fontWeight: '800' }}>Submit to Teacher</Text>
+                    </>
+                }
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         )}
 
-        {!showAIStatus && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', marginBottom: 28, marginTop: 10 }}>
-            <TouchableOpacity
-              onPress={handleHint}
-              disabled={isRecording || isAnalyzing}
-              style={{
-                width: 64, height: 64, borderRadius: 32,
-                backgroundColor: (isRecording || isAnalyzing) ? C.border : C.accent + '80',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="bulb-outline" size={26} color={(isRecording || isAnalyzing) ? C.muted : '#9B7D00'} />
-              <Text style={{ fontSize: 9, fontWeight: '800', color: (isRecording || isAnalyzing) ? C.muted : '#9B7D00', marginTop: 2 }}>HINT</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={isRecording ? stopRecording : startRecording}
-              disabled={isAnalyzing}
-              style={{
-                width: 90, height: 90, borderRadius: 45,
-                backgroundColor: isAnalyzing ? C.muted : (isRecording ? C.red : C.primary),
-                alignItems: 'center', justifyContent: 'center',
-                shadowColor: isRecording ? C.red : C.primary,
-                shadowOpacity: 0.35, shadowRadius: 16, elevation: 10,
-              }}
-            >
-              {isAnalyzing
-                ? <ActivityIndicator color="#FFF" size="large" />
-                : <Ionicons name={isRecording ? 'stop' : 'mic'} size={42} color="#FFF" />
-              }
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Mode Modal */}
-      <Modal visible={modeModalVisible} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: C.card, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: C.text }}>Recitation Mode</Text>
-              <TouchableOpacity onPress={() => setModeModalVisible(false)}>
-                <Ionicons name="close-circle" size={32} color={C.muted} />
-              </TouchableOpacity>
-            </View>
-            {[
-              { id: 'single', label: 'Single Ayah', desc: 'Recite one ayah at a time.' },
-              { id: '5', label: '5 Ayahs', desc: 'Recite up to 5 ayahs consecutively.' },
-              { id: '10', label: '10 Ayahs', desc: 'Recite up to 10 ayahs consecutively.' },
-              { id: 'continuous', label: 'Continuous (Stop Anytime)', desc: 'Recite as many as you want, then press stop.' },
-            ].map(m => (
-              <TouchableOpacity
-                key={m.id}
-                onPress={() => { setRecitationMode(m.id); setModeModalVisible(false); }}
-                style={{
-                  padding: 16, borderRadius: 16, marginBottom: 12,
-                  backgroundColor: recitationMode === m.id ? C.primary + '15' : C.bg,
-                  borderWidth: 2, borderColor: recitationMode === m.id ? C.primary : 'transparent'
-                }}
-              >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 4 }}>{m.label}</Text>
-                <Text style={{ fontSize: 13, color: C.muted }}>{m.desc}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Stop Ayah Selection Modal for Continuous Mode */}
-      <Modal visible={stopAyahModalVisible} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 24, width: '100%', maxHeight: '70%' }}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 12 }}>Which Ayah did you stop at?</Text>
-            <Text style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>To accurately score your recitation, select the last Ayah you recited.</Text>
-            
-            <FlatList
-              data={Array.from({ length: Math.min(20, ayahCount - selectedAyahNumber + 1) }, (_, i) => selectedAyahNumber + i)}
-              keyExtractor={item => item.toString()}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => handleStopAyahSelected(item)}
-                  style={{
-                    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.border,
-                    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
-                  }}
-                >
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: C.text }}>Ayah {item}</Text>
-                  <Ionicons name="chevron-forward" size={18} color={C.muted} />
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity onPress={() => setStopAyahModalVisible(false)} style={{ marginTop: 16, alignItems: 'center' }}>
-              <Text style={{ color: C.red, fontWeight: '700', paddingVertical: 10 }}>Cancel Analysis</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Surah Modal */}
-      <Modal visible={surahModalVisible} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: C.card, height: '72%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: C.text }}>Select Surah</Text>
-              <TouchableOpacity onPress={() => { setSurahModalVisible(false); setSearchQuery(''); }}>
-                <Ionicons name="close-circle" size={32} color={C.muted} />
-              </TouchableOpacity>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg, borderRadius: 14, paddingHorizontal: 14, marginBottom: 14 }}>
-              <Ionicons name="search" size={18} color={C.muted} />
-              <TextInput
-                placeholder="Search surah..."
-                style={{ flex: 1, padding: 12, fontSize: 15, color: C.text }}
-                onChangeText={setSearchQuery}
-                value={searchQuery}
+        {/* ── Stop Ayah modal (continuous mode) ── */}
+        <Modal visible={stopAyahModalVisible} animationType="slide" transparent>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <View style={{ backgroundColor: '#FFF', borderRadius: 24, padding: 24, width: '100%', maxHeight: '70%' }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: P.primary, marginBottom: 8 }}>Which Ayah did you stop at?</Text>
+              <Text style={{ fontSize: 14, color: P.muted, marginBottom: 20 }}>
+                Select the last ayah you recited to accurately score your session.
+              </Text>
+              <FlatList
+                data={Array.from({ length: Math.min(20, ayahCount - selectedAyahNumber + 1) }, (_, i) => selectedAyahNumber + i)}
+                keyExtractor={item => item.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => handleStopAyahSelected(item)}
+                    style={{
+                      paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+                      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: P.text }}>Ayah {item}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={P.muted} />
+                  </TouchableOpacity>
+                )}
               />
-            </View>
-            <FlatList
-              data={quranData.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.index.includes(searchQuery))}
-              keyExtractor={item => item.index}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSelectedSurahIndex(parseInt(item.index) - 1);
-                    setSelectedAyahNumber(1);
-                    setSurahModalVisible(false);
-                    setSearchQuery('');
-                  }}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border }}
-                >
-                  <View style={{ backgroundColor: C.primary + '20', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                    <Text style={{ color: C.primary, fontWeight: '700', fontSize: 12 }}>{parseInt(item.index)}</Text>
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: C.text }}>{item.name}</Text>
-                    <Text style={{ fontSize: 12, color: C.muted }}>{item.count} verses</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-
-      {/* Ayah Modal */}
-      <Modal visible={ayahModalVisible} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: C.card, height: '50%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: C.text }}>Select Ayah</Text>
-              <TouchableOpacity onPress={() => setAyahModalVisible(false)}>
-                <Ionicons name="close-circle" size={32} color={C.muted} />
+              <TouchableOpacity onPress={() => setStopAyahModalVisible(false)} style={{ marginTop: 16, alignItems: 'center' }}>
+                <Text style={{ color: P.red, fontWeight: '700', paddingVertical: 10 }}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            <FlatList
-              data={Array.from({ length: ayahCount }, (_, i) => i + 1)}
-              numColumns={5}
-              keyExtractor={item => item.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => { setSelectedAyahNumber(item); setAyahModalVisible(false); }}
-                  style={{
-                    width: '18%', aspectRatio: 1, borderRadius: 12, margin: '1%',
-                    backgroundColor: item === selectedAyahNumber ? C.primary : C.bg,
-                    alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ fontWeight: '700', color: item === selectedAyahNumber ? '#FFF' : C.primary, fontSize: 14 }}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+
+      </SafeAreaView>
     </IslamicBackground>
   );
 }

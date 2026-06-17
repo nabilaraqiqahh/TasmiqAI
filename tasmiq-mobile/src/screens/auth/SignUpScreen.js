@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import PlatformStorage from '../../services/storage';
 import { registerStudent, registerTeacher } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import IslamicBackground from '../../components/IslamicBackground';
@@ -69,22 +69,17 @@ export default function SignUpScreen({ navigation, route }) {
     try {
       if (isStaff) {
         await registerTeacher(email.trim(), password, name.trim());
-        await AsyncStorage.setItem('user_role', 'staff');
+        await PlatformStorage.setItem('user_role', 'staff');
         setSuccess('✅ Staff account created! Redirecting...');
-        setTimeout(() => navigation.replace('TeacherDashboard'), 1200);
+        setTimeout(() => navigation.replace('TeacherDashboard'), 1000);
       } else {
         await registerStudent(email.trim(), password, name.trim());
-        await AsyncStorage.setItem('user_role', 'student');
+        await PlatformStorage.setItem('user_role', 'student');
         setSuccess('✅ Account created! Redirecting...');
-        setTimeout(() => navigation.replace('MainTabs'), 1200);
+        setTimeout(() => navigation.replace('MainTabs'), 1000);
       }
     } catch (err) {
-      const msg =
-        err.code === 'auth/email-already-in-use' ? 'This email is already registered.' :
-        err.code === 'auth/invalid-email' ? 'Invalid email address.' :
-        err.code === 'auth/weak-password' ? 'Password is too weak.' :
-        `Sign up failed: ${err.message}`;
-      setError(msg);
+      setError(err.message || 'Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -203,3 +198,4 @@ export default function SignUpScreen({ navigation, route }) {
     </IslamicBackground>
   );
 }
+

@@ -1,80 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, XCircle, Users, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Users, Mail, Calendar } from 'lucide-react';
 import { supabase } from '../supabase';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const C = {
-  bg: '#F5F2E9',
-  card: '#FFFFFF',
-  primary: '#4A8C73',
-  gold: '#C9A84C',
-  lilac: '#9B8EC4',
-  text: '#1E2A22',
-  muted: '#5C6E65',
-  red: '#E05252',
-  green: '#10B981',
+const T = {
+  primary: '#10B981', primaryDark: '#047857', primaryLight: '#D1FAE5',
+  gold: '#D4AF37', bg: '#F5F2E9', card: '#FFFFFF',
+  text: '#064E3B', muted: '#6B7280', red: '#EF4444',
+  green: '#10B981', border: '#EAE3D5',
 };
 
 export default function PendingRequests() {
-  const navigate = useNavigate();
   const { teacher } = useAuth();
-  
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'history'
+  const [loading, setLoading]   = useState(true);
+  const [tab, setTab]           = useState('pending');
 
-  useEffect(() => {
-    loadRequests();
-  }, [teacher]);
+  useEffect(() => { loadRequests(); }, [teacher]);
 
   const loadRequests = async () => {
-    if (!teacher) return;
+    if (!teacher?.id) return;
+    setLoading(true);
     try {
-      // Get classes owned by teacher
+      // Get teacher's classes
       const { data: teacherClasses } = await supabase
         .from('classes')
         .select('id, name')
         .eq('teacher_id', teacher.id);
-        
-      if (!teacherClasses || teacherClasses.length === 0) {
-        setRequests([]);
-        setLoading(false);
-        return;
-      }
-      
-      const classIds = teacherClasses.map(c => c.id);
-      const classMap = teacherClasses.reduce((acc, c) => ({...acc, [c.id]: c.name}), {});
 
-      // Get pending requests for these classes
+      if (!teacherClasses?.length) { setRequests([]); setLoading(false); return; }
+
+      const classIds = teacherClasses.map(c => c.id);
+      const classMap = Object.fromEntries(teacherClasses.map(c => [c.id, c.name]));
+
+      // Get join requests
       const { data, error } = await supabase
         .from('join_requests')
-        .select(`
-          id,
-          class_id,
-          student_id,
-          status,
-          created_at,
-          users (
-            uid,
-            displayName,
-            email
-          )
-        `)
+        .select('id, class_id, student_id, status, created_at')
         .in('class_id', classIds)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      const formatted = (data || []).map(req => ({
+
+      // Load real student profiles
+      const studentIds = [...new Set((data || []).map(r => r.student_id).filter(Boolean))];
+      let studentMap = {};
+      if (studentIds.length > 0) {
+        const { data: students } = await supabase
+          .from('users')
+          .select('id, full_name, email, role, created_at')
+          .in('id', studentIds);
+        (students || []).forEach(s => { studentMap[s.id] = s; });
+      }
+
+      setRequests((data || []).map(req => ({
         ...req,
-        class_name: classMap[req.class_id],
-        student: req.users
-      }));
-      
-      setRequests(formatted);
+        class_name: classMap[req.class_id] || 'Unknown Class',
+        student:    studentMap[req.student_id] || null,
+      })));
     } catch (err) {
-      console.error("Error loading requests", err);
+      console.error('Load requests error:', err);
     } finally {
       setLoading(false);
     }
@@ -83,160 +68,172 @@ export default function PendingRequests() {
   const handleAction = async (requestId, classId, studentId, action) => {
     try {
       const newStatus = action === 'approve' ? 'approved' : 'rejected';
-      
-      // Update request status
-      await supabase
-        .from('join_requests')
-        .update({ status: newStatus })
+      await supabase.from('join_requests')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', requestId);
 
       if (action === 'approve') {
-        // Insert into class_members
-        await supabase
-          .from('class_members')
-          .insert([{
-            class_id: classId,
-            student_id: studentId
-          }]);
+        // Add to class_members
+        await supabase.from('class_members')
+          .insert([{ class_id: classId, student_id: studentId }])
+          .then(() => {}).catch(() => {});
       }
-      
-      // Update local state instead of removing
-      setRequests(requests.map(r => 
+
+      setRequests(prev => prev.map(r =>
         r.id === requestId ? { ...r, status: newStatus } : r
       ));
-      
     } catch (err) {
-      console.error(`Error ${action} request`, err);
-      alert(`Failed to ${action} request.`);
+      alert(`Failed to ${action}: ${err.message}`);
     }
   };
 
-  const filteredRequests = requests.filter(req => 
-    activeTab === 'pending' ? req.status === 'pending' : req.status !== 'pending'
+  const filtered = requests.filter(r =>
+    tab === 'pending' ? r.status === 'pending' : r.status !== 'pending'
+  );
+  const pendingCount = requests.filter(r => r.status === 'pending').length;
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: `4px solid ${T.primaryLight}`, borderTop: `4px solid ${T.primary}`, animation: 'spin 1s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 
-  if (loading) {
-    return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg }}>
-        <div className="spinner" style={{ border: `4px solid ${C.primary}33`, borderTop: `4px solid ${C.primary}`, borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite' }} />
-      </div>
-    );
-  }
-
   return (
-    <div style={{ backgroundColor: C.bg, minHeight: '100vh', padding: '40px' }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-        
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
-          <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '20px' }}>
-            <ArrowLeft size={28} color={C.text} />
+    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '28px' }}>
+        <p style={{ fontSize: '12px', fontWeight: '800', color: T.primary, textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 6px' }}>
+          Class Management
+        </p>
+        <h1 style={{ fontSize: '28px', fontWeight: '900', color: T.text, margin: '0 0 4px' }}>
+          Enrollment Requests
+        </h1>
+        <p style={{ fontSize: '14px', color: T.muted, margin: 0 }}>
+          Review and approve student class join requests.
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+        {[
+          { key: 'pending', label: `Pending (${pendingCount})` },
+          { key: 'history', label: 'History' },
+        ].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            padding: '10px 22px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+            fontWeight: '800', fontSize: '14px',
+            backgroundColor: tab === t.key ? T.primaryDark : T.card,
+            color: tab === t.key ? 'white' : T.muted,
+            boxShadow: tab === t.key ? `0 4px 12px ${T.primary}40` : '0 2px 6px rgba(0,0,0,0.04)',
+          }}>
+            {t.label}
           </button>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', color: C.text, margin: 0 }}>Enrollment Requests</h1>
-            <p style={{ fontSize: '15px', color: C.muted }}>Review and approve pending student join requests</p>
+        ))}
+      </div>
+
+      {/* Request Cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {filtered.length === 0 ? (
+          <div style={{
+            backgroundColor: T.card, borderRadius: '20px', padding: '60px',
+            textAlign: 'center', border: `1px solid ${T.border}`,
+          }}>
+            <Clock size={40} color={T.border} style={{ margin: '0 auto 16px', display: 'block' }} />
+            <p style={{ color: T.muted, fontSize: '15px', margin: 0 }}>
+              {tab === 'pending' ? 'No pending requests. All caught up!' : 'No request history yet.'}
+            </p>
           </div>
-        </div>
+        ) : filtered.map(req => {
+          const stu = req.student;
+          const name  = stu?.full_name || stu?.email?.split('@')[0] || 'Unknown Student';
+          const email = stu?.email || '—';
+          const date  = new Date(req.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
-          <button 
-            onClick={() => setActiveTab('pending')}
-            style={{ 
-              padding: '12px 24px', borderRadius: '16px', border: 'none', cursor: 'pointer',
-              fontWeight: '800', fontSize: '15px',
-              backgroundColor: activeTab === 'pending' ? C.primary : C.card,
-              color: activeTab === 'pending' ? 'white' : C.muted,
-              boxShadow: activeTab === 'pending' ? `0 8px 20px ${C.primary}40` : '0 4px 12px rgba(0,0,0,0.03)'
-            }}
-          >
-            Pending ({requests.filter(r => r.status === 'pending').length})
-          </button>
-          <button 
-            onClick={() => setActiveTab('history')}
-            style={{ 
-              padding: '12px 24px', borderRadius: '16px', border: 'none', cursor: 'pointer',
-              fontWeight: '800', fontSize: '15px',
-              backgroundColor: activeTab === 'history' ? C.primary : C.card,
-              color: activeTab === 'history' ? 'white' : C.muted,
-              boxShadow: activeTab === 'history' ? `0 8px 20px ${C.primary}40` : '0 4px 12px rgba(0,0,0,0.03)'
-            }}
-          >
-            History
-          </button>
-        </div>
-
-        {/* Requests List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {filteredRequests.length > 0 ? filteredRequests.map((req) => (
-            <div key={req.id} style={{ backgroundColor: C.card, borderRadius: '24px', padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 8px 24px rgba(0,0,0,0.03)', border: '1px solid #F8F8F8' }}>
-              
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '20px', backgroundColor: C.primary + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '20px' }}>
-                  <span style={{ fontSize: '24px', fontWeight: '900', color: C.primary }}>
-                    {req.student?.displayName ? req.student.displayName[0] : 'S'}
+          return (
+            <div key={req.id} style={{
+              backgroundColor: T.card, borderRadius: '18px', padding: '22px 24px',
+              border: `1px solid ${T.border}`,
+              boxShadow: '0 2px 12px rgba(16,185,129,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              {/* Student Info */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  width: '52px', height: '52px', borderRadius: '14px',
+                  backgroundColor: T.primaryLight,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <span style={{ fontSize: '22px', fontWeight: '900', color: T.primaryDark }}>
+                    {name[0]?.toUpperCase()}
                   </span>
                 </div>
-                
+
                 <div>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: C.text, marginBottom: '4px' }}>
-                    {req.student?.displayName || 'Unknown Student'}
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: T.text, marginBottom: '2px' }}>
+                    {name}
                   </div>
-                  <div style={{ fontSize: '14px', color: C.muted, marginBottom: '8px' }}>
-                    {req.student?.email}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: T.muted, marginBottom: '6px' }}>
+                    <Mail size={13} /> {email}
                   </div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: C.bg, padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: C.primary }}>
-                    <Users size={14} /> Requested to join: {req.class_name}
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      backgroundColor: T.primaryLight, color: T.primaryDark,
+                      padding: '3px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                    }}>
+                      <Users size={12} /> {req.class_name}
+                    </span>
+                    <span style={{
+                      backgroundColor: '#FEF9E7', color: T.gold,
+                      padding: '3px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                    }}>
+                      <Calendar size={12} /> {date}
+                    </span>
                   </div>
                 </div>
               </div>
-              
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {activeTab === 'pending' ? (
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '10px', flexShrink: 0, marginLeft: '20px' }}>
+                {tab === 'pending' ? (
                   <>
-                    <button 
-                      onClick={() => handleAction(req.id, req.class_id, req.student_id, 'reject')}
-                      style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: C.red + '10', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.red }}
-                      title="Reject Request"
-                    >
-                      <XCircle size={24} />
+                    <button onClick={() => handleAction(req.id, req.class_id, req.student_id, 'reject')} style={{
+                      width: '44px', height: '44px', borderRadius: '12px',
+                      backgroundColor: '#FEE2E2', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }} title="Reject">
+                      <XCircle size={22} color={T.red} />
                     </button>
-                    <button 
-                      onClick={() => handleAction(req.id, req.class_id, req.student_id, 'approve')}
-                      style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: C.green + '15', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.green }}
-                      title="Approve Request"
-                    >
-                      <CheckCircle size={24} />
+                    <button onClick={() => handleAction(req.id, req.class_id, req.student_id, 'approve')} style={{
+                      padding: '0 18px', height: '44px', borderRadius: '12px',
+                      backgroundColor: T.primary, border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      color: 'white', fontWeight: '800', fontSize: '13px',
+                      boxShadow: `0 4px 12px ${T.primary}40`,
+                    }} title="Approve">
+                      <CheckCircle size={18} /> Approve
                     </button>
                   </>
                 ) : (
-                  <div style={{ 
-                    padding: '8px 16px', borderRadius: '12px', fontWeight: '800', fontSize: '14px',
-                    backgroundColor: req.status === 'approved' ? C.green + '15' : C.red + '15',
-                    color: req.status === 'approved' ? C.green : C.red,
-                    display: 'flex', alignItems: 'center', gap: '8px'
+                  <div style={{
+                    padding: '6px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '800',
+                    backgroundColor: req.status === 'approved' ? T.primaryLight : '#FEE2E2',
+                    color: req.status === 'approved' ? T.primaryDark : T.red,
+                    display: 'flex', alignItems: 'center', gap: '6px',
                   }}>
-                    {req.status === 'approved' ? <CheckCircle size={18} /> : <XCircle size={18} />}
+                    {req.status === 'approved' ? <CheckCircle size={16} /> : <XCircle size={16} />}
                     {req.status === 'approved' ? 'Approved' : 'Rejected'}
                   </div>
                 )}
               </div>
-
             </div>
-          )) : (
-            <div style={{ padding: '60px', textAlign: 'center', backgroundColor: C.card, borderRadius: '24px' }}>
-              <Clock size={48} color="#DDD" style={{ marginBottom: '16px' }} />
-              <h3 style={{ fontSize: '20px', color: C.text, fontWeight: '800', marginBottom: '8px' }}>
-                {activeTab === 'pending' ? 'No Pending Requests' : 'No Request History'}
-              </h3>
-              <p style={{ color: C.muted, fontSize: '16px' }}>
-                {activeTab === 'pending' ? 'All caught up! There are no new students waiting to join your classes.' : 'You have not approved or rejected any requests yet.'}
-              </p>
-            </div>
-          )}
-        </div>
-
+          );
+        })}
       </div>
     </div>
   );
 }
+

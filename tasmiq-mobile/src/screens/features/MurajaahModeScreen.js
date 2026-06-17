@@ -125,18 +125,33 @@ export default function MurajaahModeScreen({ navigation }) {
   const handleFinish = async () => {
     setIsSaving(true);
     try {
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
-      if (user) {
-        await saveRecitationResult(user.id, {
-          surah: currentSurah.name,
-          ayah: 1,
-          score: 100,
-          tajwid: 100,
-          makhraj: 100,
-          feedback: "Completed Guided Muraja'ah session.",
-          type: "Muraja'ah"
+      const { getCurrentUser } = await import('../../services/authService');
+      const session = await getCurrentUser();
+      if (session?.id) {
+        await saveRecitationResult(session.id, {
+          surah:               currentSurah.name,
+          surahNumber:         parseInt(currentSurah.index) || 1,
+          ayah:                `1-${currentSurah.count}`,
+          score:               100,
+          memorization_score:  100,
+          pronunciation_score: 100,
+          tajwid:              100,
+          fluency_score:       100,
+          makhraj:             100,
+          feedback:            "Completed Guided Muraja'ah session.",
+          studentName:         session.full_name || session.displayName,
         });
+
+        await supabase.from('murajaah_sessions').insert([{
+          student_id:          session.id,
+          surah:               parseInt(currentSurah.index) || 1,
+          start_ayah:          1,
+          end_ayah:            currentSurah.count,
+          completed_ayahs:     currentSurah.count,
+          progress_percentage: 100,
+          status:              'completed',
+          session_date:        new Date().toISOString(),
+        }]).then(() => {}).catch(e => console.warn('murajaah_sessions insert failed:', e?.message));
       }
       navigation.navigate('Home');
     } catch (e) {

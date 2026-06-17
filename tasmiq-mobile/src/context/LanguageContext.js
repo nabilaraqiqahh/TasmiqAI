@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import PlatformStorage from '../services/storage';
 import { translations } from '../constants/translations';
 
 const LanguageContext = createContext();
@@ -9,14 +9,14 @@ export const LanguageProvider = ({ children }) => {
 
   useEffect(() => {
     // Load saved language on mount
-    AsyncStorage.getItem('appLanguage').then(savedLang => {
+    PlatformStorage.getItem('appLanguage').then(savedLang => {
       if (savedLang) setLanguage(savedLang);
     });
   }, []);
 
   const changeLanguage = async (newLang) => {
     setLanguage(newLang);
-    await AsyncStorage.setItem('appLanguage', newLang);
+    await PlatformStorage.setItem('appLanguage', newLang);
   };
 
   const t = (path) => {
@@ -40,3 +40,4 @@ export const LanguageProvider = ({ children }) => {
 };
 
 export const useLanguage = () => useContext(LanguageContext);
+

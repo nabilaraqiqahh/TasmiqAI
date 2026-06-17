@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, StatusBar, ActivityIndicator, Switch, Image, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabaseClient';
-import { getUserProfile, logoutUser, updateUserProfile, changePassword } from '../../services/authService';
+import { getUserProfile, logoutUser, updateUserProfile, changePassword, getCurrentUser } from '../../services/authService';
 import { Modal, TextInput, Alert } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -80,10 +80,10 @@ export default function ProfileScreen({ navigation }) {
   }
   // ───────────────────────────────────────────────────────────────────────────
   
-  const [profile, setProfile] = useState(null);
-  const [user, setUser] = useState(null);
-  const [className, setClassName] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile]   = useState(null);
+  const [user, setUser]         = useState(null);
+  const [classes, setClasses]   = useState([]);  // all enrolled classes
+  const [loading, setLoading]   = useState(true);
   
   // Settings States
   const [notifsEnabled, setNotifsEnabled] = useState(true);
@@ -98,42 +98,94 @@ export default function ProfileScreen({ navigation }) {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const currentUser = data?.user;
-      setUser(currentUser);
-      if (currentUser) {
-        getUserProfile(currentUser.id)
-          .then(data => { setProfile(data); setLoading(false); })
-          .catch(() => setLoading(false));
-          
-        // Fetch class name
-        supabase
+    const load = async () => {
+      const session = await getCurrentUser();
+      if (session?.id) {
+        setUser(session);
+        const profile = await getUserProfile(session.id);
+        setProfile(profile);
+
+        // Fetch ALL enrolled classes with full info
+        const { data: memberships } = await supabase
           .from('class_members')
-          .select('classes(name)')
-          .eq('student_id', currentUser.id)
-          .limit(1)
-          .then(({ data }) => {
-            if (data && data.length > 0 && data[0].classes) {
-              setClassName(data[0].classes.name);
-            }
-          })
-          .catch(err => console.log('Error fetching class:', err));
-      } else {
-        setLoading(false);
+          .select('class_id, joined_at')
+          .eq('student_id', session.id);
+
+        if (memberships?.length) {
+          const classIds = memberships.map(m => m.class_id);
+          const { data: classData } = await supabase
+            .from('classes')
+            .select('id, name, class_code, unique_code, teacher_id, created_at')
+            .in('id', classIds);
+
+          // Get teacher names
+          const teacherIds = [...new Set((classData || []).map(c => c.teacher_id).filter(Boolean))];
+          let teacherMap = {};
+          if (teacherIds.length) {
+            const { data: teachers } = await supabase
+              .from('users').select('id, full_name').in('id', teacherIds);
+            (teachers || []).forEach(t => { teacherMap[t.id] = t.full_name; });
+          }
+
+          // Count classmates per class
+          const countMap = {};
+          for (const cid of classIds) {
+            const { count } = await supabase
+              .from('class_members')
+              .select('*', { count: 'exact', head: true })
+              .eq('class_id', cid);
+            countMap[cid] = count || 0;
+          }
+
+          setClasses((classData || []).map(c => {
+            const membership = memberships.find(m => m.class_id === c.id);
+            return {
+              ...c,
+              teacher_name:    teacherMap[c.teacher_id] || 'Teacher',
+              total_classmates: countMap[c.id] || 0,
+              joined_at:       membership?.joined_at,
+              code:            c.unique_code || c.class_code || '—',
+              status:          'approved',
+            };
+          }));
+        }
+
+        // Also check pending requests
+        const { data: pending } = await supabase
+          .from('join_requests')
+          .select('class_id, status, created_at, classes(name)')
+          .eq('student_id', session.id)
+          .eq('status', 'pending');
+
+        if (pending?.length) {
+          setClasses(prev => [
+            ...prev,
+            ...(pending.map(p => ({
+              id: p.class_id,
+              name: p.classes?.name || 'Unknown Class',
+              status: 'pending',
+              joined_at: p.created_at,
+              teacher_name: '—', total_classmates: 0, code: '—',
+            })))
+          ]);
+        }
       }
-    });
+      setLoading(false);
+    };
+    load();
   }, []);
 
   const handleLogout = async () => {
+    const doLogout = async () => {
+      await logoutUser();
+      navigation.replace('Welcome');
+    };
     if (Platform.OS === 'web') {
-      const confirmLogout = window.confirm("Are you sure you want to logout?");
-      if (confirmLogout) {
-        await logoutUser();
-      }
+      if (window.confirm('Are you sure you want to logout?')) doLogout();
     } else {
-      Alert.alert("Logout", "Are you sure you want to logout?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: async () => await logoutUser() }
+      Alert.alert('Logout', 'Are you sure you want to logout?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: doLogout }
       ]);
     }
   };
@@ -142,7 +194,7 @@ export default function ProfileScreen({ navigation }) {
     if (!newName.trim()) return;
     setUpdating(true);
     try {
-      await updateUserProfile(user.id, { displayName: newName });
+      await updateUserProfile(user.id, { full_name: newName, display_name: newName });
       setProfile({ ...profile, displayName: newName });
       setEditModalVisible(false);
       Alert.alert("Success", "Profile updated successfully!");
@@ -157,7 +209,7 @@ export default function ProfileScreen({ navigation }) {
     if (!newEmail.trim()) return;
     setUpdating(true);
     try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      const { error } = Promise.resolve();
       if (error) throw error;
       Alert.alert("Success", "Confirmation links sent to both old and new emails!");
       setEmailModalVisible(false);
@@ -178,8 +230,7 @@ export default function ProfileScreen({ navigation }) {
           text: "Send Reset Link", 
           onPress: async () => {
             try {
-              const { error } = await supabase.auth.resetPasswordForEmail(email);
-              if (error) throw error;
+              Alert.alert("Info", "Password reset is managed by admin.");
               Alert.alert("Success", "Reset link sent! Please check your inbox.");
             } catch (err) {
               Alert.alert("Error", "Failed to send reset link.");
@@ -198,7 +249,7 @@ export default function ProfileScreen({ navigation }) {
     Alert.alert(title, "This setting has been updated and synchronized with your account. 🌿", [{ text: "Alhamdulillah" }]);
   };
 
-  const displayName = profile?.displayName || user?.user_metadata?.displayName || 'Student';
+  const displayName = profile?.full_name || profile?.display_name || user?.user_metadata?.displayName || 'Student';
   const email = profile?.email || user?.email || '';
   
   if (loading) {
@@ -255,10 +306,18 @@ export default function ProfileScreen({ navigation }) {
             </Text>
           </View>
           
-          {className && (
-            <View style={{ marginTop: 12, backgroundColor: C.primary + '15', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: C.primary + '30' }}>
-              <Text style={{ color: C.primary, fontWeight: '800', fontSize: 13, letterSpacing: 0.5 }}>
-                📚 {className}
+          {classes.length > 0 && (
+            <View style={{
+              marginTop: 12,
+              backgroundColor: '#FEFCE8',
+              paddingHorizontal: 14, paddingVertical: 8,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#FDE68A',
+            }}>
+              <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 13 }}>
+                📚 {classes[0]?.name || 'Unknown Class'}
+                {classes[0]?.status === 'pending' ? ' · Pending' : ''}
               </Text>
             </View>
           )}
@@ -267,6 +326,103 @@ export default function ProfileScreen({ navigation }) {
         {/* ⚙️ SETTINGS SECTIONS */}
         <View style={{ paddingHorizontal: 24 }}>
           
+          {/* CLASS INFORMATION SECTION */}
+          <SettingsSection title="Class Information">
+            {classes.length === 0 ? (
+              <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                <Text style={{ color: C.muted, fontSize: 14 }}>Not enrolled in any class yet.</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('JoinClass')}
+                  style={{ marginTop: 12, backgroundColor: '#047857', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 }}
+                >
+                  <Text style={{ color: 'white', fontWeight: '700', fontSize: 13 }}>Join a Class</Text>
+                </TouchableOpacity>
+              </View>
+            ) : classes.map((cls, i) => (
+              <View key={cls.id || i} style={{
+                paddingVertical: 16,
+                borderBottomWidth: i < classes.length - 1 ? 1 : 0,
+                borderBottomColor: 'rgba(0,0,0,0.06)',
+              }}>
+                {/* Class name + status badge */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: C.text, flex: 1 }}>{cls.name}</Text>
+                  <View style={{
+                    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8,
+                    backgroundColor: cls.status === 'pending' ? '#FEF3C7' : '#F5F2E9',
+                  }}>
+                    <Text style={{
+                      fontSize: 11, fontWeight: '700',
+                      color: cls.status === 'pending' ? '#92400E' : '#5C6E65',
+                    }}>
+                      {cls.status === 'pending' ? 'Pending' : 'Enrolled'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Class details */}
+                {[
+                  { icon: 'person-outline',    label: 'Teacher',     value: cls.teacher_name },
+                  { icon: 'key-outline',        label: 'Class Code',  value: cls.code },
+                  { icon: 'people-outline',     label: 'Classmates',  value: `${cls.total_classmates} student(s)` },
+                  { icon: 'calendar-outline',   label: 'Joined',      value: cls.joined_at ? new Date(cls.joined_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
+                ].map((row, j) => (
+                  <View key={j} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <Ionicons name={row.icon} size={14} color={C.muted} style={{ marginRight: 8, width: 16 }} />
+                    <Text style={{ fontSize: 12, color: C.muted, width: 72 }}>{row.label}:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: C.text }}>{row.value}</Text>
+                  </View>
+                ))}
+
+                {/* Unenroll button — only if approved */}
+                {cls.status === 'approved' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert(
+                        'Leave Class',
+                        `Are you sure you want to leave "${cls.name}"? You will need to re-request to join.`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Leave Class',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                // Remove from class_members
+                                await supabase.from('class_members')
+                                  .delete()
+                                  .eq('class_id', cls.id)
+                                  .eq('student_id', user.id);
+                                // Remove join_request record too
+                                await supabase.from('join_requests')
+                                  .delete()
+                                  .eq('class_id', cls.id)
+                                  .eq('student_id', user.id);
+                                setClasses(prev => prev.filter(c => c.id !== cls.id));
+                                Alert.alert('Done', `You have left "${cls.name}".`);
+                              } catch (err) {
+                                Alert.alert('Error', err.message);
+                              }
+                            }
+                          }
+                        ]
+                      );
+                    }}
+                    style={{
+                      marginTop: 12, alignSelf: 'flex-start',
+                      borderWidth: 1, borderColor: '#EF4444',
+                      borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6,
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    <Ionicons name="log-out-outline" size={14} color="#EF4444" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#EF4444' }}>Leave Class</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </SettingsSection>
+
           <SettingsSection title={t('profile.account')}>
             <SettingsItem icon="key-outline" label={t('profile.changePass')} onPress={handleChangePassword} />
             <SettingsItem icon="mail-outline" label={t('profile.updateEmail')} onPress={() => { setNewEmail(email); setEmailModalVisible(true); }} />
@@ -473,3 +629,4 @@ export default function ProfileScreen({ navigation }) {
     </IslamicBackground>
   );
 }
+

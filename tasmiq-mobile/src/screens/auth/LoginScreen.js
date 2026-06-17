@@ -5,8 +5,8 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loginUser, getUserProfile } from '../../services/authService';
+import PlatformStorage from '../../services/storage';
+import { loginUser } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import IslamicBackground from '../../components/IslamicBackground';
 
@@ -22,35 +22,26 @@ export default function LoginScreen({ navigation, route }) {
   const handleLogin = async () => {
     setError('');
     setSuccess('');
-
     if (!email.trim() || !password.trim()) {
       setError('Please enter your email and password.');
       return;
     }
     setLoading(true);
     try {
-      const user = await loginUser(email.trim(), password);
-      const profile = await getUserProfile(user.id);
-      const role = profile?.role || 'student';
-      
-      await AsyncStorage.setItem('user_role', role);
-
-      if (role === 'staff' || role === 'teacher') {
-        setSuccess('✅ Welcome back, Staff! Redirecting...');
-        setTimeout(() => navigation.replace('TeacherDashboard'), 1200);
+      const session = await loginUser(email.trim(), password);
+      const role = session.role || 'student';
+      await PlatformStorage.setItem('user_role', role);
+      // AppNavigator polls for session — it will auto-redirect
+      // Force immediate navigation just in case
+      if (role === 'staff' || role === 'teacher' || role === 'admin') {
+        setSuccess('✅ Welcome back, Staff! Loading...');
+        setTimeout(() => navigation.replace('TeacherDashboard'), 500);
       } else {
-        setSuccess('✅ Login successful! Redirecting...');
-        setTimeout(() => navigation.replace('MainTabs'), 1200);
+        setSuccess('✅ Login successful! Loading...');
+        setTimeout(() => navigation.replace('MainTabs'), 500);
       }
     } catch (err) {
-      const msg =
-        err.code === 'auth/invalid-credential' ? 'Incorrect email or password.' :
-        err.code === 'auth/user-not-found' ? 'No account found with this email.' :
-        err.code === 'auth/wrong-password' ? 'Incorrect password.' :
-        err.code === 'auth/invalid-email' ? 'Invalid email address.' :
-        err.code === 'auth/too-many-requests' ? 'Too many failed attempts. Try again later.' :
-        `Login failed: ${err.message}`;
-      setError(msg);
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -164,3 +155,4 @@ export default function LoginScreen({ navigation, route }) {
     </IslamicBackground>
   );
 }
+

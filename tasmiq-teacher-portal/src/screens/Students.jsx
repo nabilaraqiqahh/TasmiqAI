@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 const C = {
   bg: '#F5F2E9',
   card: '#FFFFFF',
-  primary: '#4A8C73',
+  primary: '#10B981',
   gold: '#C9A84C',
   lilac: '#9B8EC4',
   text: '#1E2A22',
@@ -18,7 +18,7 @@ const C = {
 const STATUS_COLORS = {
   'On Track': { bg: '#10B98120', text: '#10B981' },
   'At Risk': { bg: '#E0525220', text: '#E05252' },
-  'Improving': { bg: '#4A8C7320', text: '#4A8C73' },
+  'Improving': { bg: '#4A8C7320', text: '#10B981' },
   'Inactive': { bg: '#99999920', text: '#999999' },
 };
 
@@ -34,16 +34,19 @@ export default function Students() {
         .from('users')
         .select('*')
         .eq('role', 'student')
-        .order('displayName', { ascending: true });
+        .order('full_name', { ascending: true });  // actual DB column
         
       if (error) throw error;
       
       const studentsData = data.map(item => ({
-        id: item.uid,
+        id: item.id,
         ...item,
-        status: (item.avgScore || 0) < 60 ? 'At Risk' : (item.avgScore || 0) > 85 ? 'On Track' : 'Improving',
+        display_name: item.full_name || item.display_name || item.email,
+        status: (item.avg_score || 0) < 60 ? 'At Risk' : (item.avg_score || 0) > 85 ? 'On Track' : 'Improving',
         level: item.level || 'Intermediate',
-        lastActive: item.lastLogin ? new Date(item.lastLogin).toLocaleDateString() : 'Recently'
+        lastActive: item.last_login
+          ? new Date(item.last_login).toLocaleDateString()
+          : 'Recently'
       }));
       
       setStudents(studentsData);
@@ -59,7 +62,7 @@ export default function Students() {
   }, []);
 
   const filtered = students.filter(s =>
-    s.displayName?.toLowerCase().includes(search.toLowerCase())
+    (s.display_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) {
@@ -124,6 +127,7 @@ export default function Students() {
           {filtered.length > 0 ? filtered.map((s) => (
             <div
               key={s.id}
+              onClick={() => navigate(`/students/${s.id || s.id}`)}
               style={{
                 backgroundColor: C.card, 
                 borderRadius: '24px', 
@@ -145,11 +149,11 @@ export default function Students() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', 
                 marginRight: '20px' 
               }}>
-                <span style={{ fontSize: '24px', fontWeight: '900', color: C.lilac }}>{s.displayName?.[0] ?? 'S'}</span>
+                <span style={{ fontSize: '24px', fontWeight: '900', color: C.lilac }}>{s.display_name?.[0] ?? 'S'}</span>
               </div>
 
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: C.text, marginBottom: '4px' }}>{s.displayName || 'Unknown Student'}</div>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: C.text, marginBottom: '4px' }}>{s.display_name || 'Unknown Student'}</div>
                 <div style={{ fontSize: '14px', color: C.muted, marginBottom: '12px' }}>{s.level} • {s.lastActive}</div>
                 {/* Progress bar */}
                 <div style={{ height: '6px', backgroundColor: '#F0F0F0', borderRadius: '3px', width: '200px' }}>
@@ -158,8 +162,8 @@ export default function Students() {
               </div>
 
               <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                <div style={{ fontSize: '20px', fontWeight: '900', color: (s.avgScore || 0) >= 80 ? C.green : (s.avgScore || 0) >= 65 ? C.gold : C.red }}>
-                  {s.avgScore || 0}%
+                <div style={{ fontSize: '20px', fontWeight: '900', color: (s.avg_score || 0) >= 80 ? C.green : (s.avg_score || 0) >= 65 ? C.gold : C.red }}>
+                  {s.avg_score || 0}%
                 </div>
                 <div style={{ 
                   backgroundColor: STATUS_COLORS[s.status]?.bg || '#99999920', 
@@ -186,3 +190,6 @@ export default function Students() {
     </div>
   );
 }
+
+
+

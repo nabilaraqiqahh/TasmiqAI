@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   View, Text, TouchableOpacity, SafeAreaView, ScrollView,
   StatusBar, Alert, Modal, FlatList, TextInput, ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import quranData from '../../data/quran_data.json';
 import { uploadRecitation } from '../../services/recitationService';
-import { API_URL, analyzeRecitation } from '../../services/api';
+import { API_URL, analyzeRecitation, assessChunk } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -36,6 +37,8 @@ export default function RecitationModeScreen({ navigation, route }) {
   const [wordResults, setWordResults] = useState([]);
   const wordResultsRef = useRef([]); // always-current ref for stale closure fix
   const detectionTimerRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   // AI analysis summary (post-recording)
   const [aiAnalysis, setAiAnalysis] = useState(null);
@@ -186,37 +189,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') return;
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          metering: true,
-        }
-      );
       
-      newRecording.setOnRecordingStatusUpdate((status) => {
-        if (status.isRecording) {
-          const metering = status.metering;
-          if (metering !== undefined) {
-            const THRESHOLD = -50; 
-            const DURATION = 3000; 
-            
-            if (metering < THRESHOLD) {
-              if (!silenceStartRef.current) {
-                silenceStartRef.current = Date.now();
-              } else if (Date.now() - silenceStartRef.current > DURATION) {
-                console.log("Silence detected, stopping recording automatically.");
-                stopRecording();
-              }
-            } else {
-              silenceStartRef.current = null;
-            }
-          }
-        }
-      });
-
-      recordingRef.current = newRecording;
-      setRecording(newRecording);
       setIsRecording(true);
       setIsDone(false);
       setShowAIStatus(false);
@@ -226,7 +199,90 @@ export default function RecitationModeScreen({ navigation, route }) {
       wordResultsRef.current = freshResults;
       // Always show full ayah during recording
       setRevealedWords(ayahWords.length);
-      startWordDetection(ayahWords.length);
+
+      if (Platform.OS === 'web') {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioChunksRef.current = [];
+          
+          const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+          mediaRecorderRef.current = mediaRecorder;
+          
+          mediaRecorder.ondataavailable = async (event) => {
+            if (event.data && event.data.size > 0) {
+              audioChunksRef.current.push(event.data);
+              
+              // Send accumulated audio to backend for tracking word progress
+              const accumulatedBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+              try {
+                const res = await assessChunk(accumulatedBlob, fullAyahText);
+                if (res && typeof res.matched_word_count === 'number') {
+                  const matchedCount = res.matched_word_count;
+                  setDetectedWordIndex(matchedCount - 1);
+                  
+                  const newResults = [...wordResultsRef.current];
+                  for (let i = 0; i < ayahWords.length; i++) {
+                    if (i < matchedCount) {
+                      newResults[i] = 'correct';
+                    } else {
+                      newResults[i] = null;
+                    }
+                  }
+                  wordResultsRef.current = newResults;
+                  setWordResults(newResults);
+                }
+              } catch (err) {
+                console.error("Error assessing chunk:", err);
+              }
+            }
+          };
+          
+          mediaRecorder.start(2000); // Trigger data available every 2 seconds
+        } catch (webErr) {
+          console.error("Web MediaRecorder initialization failed:", webErr);
+        }
+        
+        // Also initialize expo-av recording so that processRecording flow remains unified
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+        const { recording: newRecording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
+        );
+        recordingRef.current = newRecording;
+        setRecording(newRecording);
+      } else {
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+        const { recording: newRecording } = await Audio.Recording.createAsync(
+          {
+            ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+            metering: true,
+          }
+        );
+        
+        newRecording.setOnRecordingStatusUpdate((status) => {
+          if (status.isRecording) {
+            const metering = status.metering;
+            if (metering !== undefined) {
+              const THRESHOLD = -50; 
+              const DURATION = 3000; 
+              
+              if (metering < THRESHOLD) {
+                if (!silenceStartRef.current) {
+                  silenceStartRef.current = Date.now();
+                } else if (Date.now() - silenceStartRef.current > DURATION) {
+                  console.log("Silence detected, stopping recording automatically.");
+                  stopRecording();
+                }
+              } else {
+                silenceStartRef.current = null;
+              }
+            }
+          }
+        });
+
+        recordingRef.current = newRecording;
+        setRecording(newRecording);
+        startWordDetection(ayahWords.length);
+      }
     } catch (err) {
       console.error('Recording start error:', err);
     }
@@ -235,6 +291,17 @@ export default function RecitationModeScreen({ navigation, route }) {
   const stopRecording = async () => {
     setIsRecording(false);
     if (detectionTimerRef.current) clearInterval(detectionTimerRef.current);
+    
+    if (Platform.OS === 'web' && mediaRecorderRef.current) {
+      const mediaRecorder = mediaRecorderRef.current;
+      if (mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+      mediaRecorderRef.current = null;
+    }
     
     if (recitationMode === 'continuous') {
       setStopAyahModalVisible(true);
@@ -266,7 +333,8 @@ export default function RecitationModeScreen({ navigation, route }) {
       // Analyze with AI using ranges
       const ayahRange = endAyah > selectedAyahNumber ? `${selectedAyahNumber}-${endAyah}` : `${selectedAyahNumber}`;
       const response = await analyzeRecitation(audioUri, selectedSurahIndex + 1, ayahRange);
-      const result = response?.data || {};
+      // Unwrap nested result: { status: "success", result: { overall_score, ... } }
+      const result = response?.result || response?.data || response || {};
 
       let actualText = "";
       for(let a = selectedAyahNumber; a <= endAyah; a++) {

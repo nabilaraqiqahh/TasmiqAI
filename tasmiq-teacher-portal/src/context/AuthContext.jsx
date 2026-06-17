@@ -2,105 +2,112 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
 const AuthContext = createContext(null);
+const SESSION_KEY = 'tasmiq_teacher_session';
+
+function buildSession(row) {
+  return {
+    uid:          row.uid,
+    id:           row.uid,
+    email:        row.email,
+    full_name:    row.full_name || row.display_name || row.email,
+    display_name: row.full_name || row.display_name || row.email,
+    role:         row.role || 'staff',
+    avg_score:    row.avg_score ?? null,
+  };
+}
 
 export function AuthProvider({ children }) {
   const [teacher, setTeacher] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        checkUserRole(session.user);
-      } else {
-        setLoading(false);
+    try {
+      const saved = localStorage.getItem(SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.uid) setTeacher(parsed);
       }
-    });
-
-    // Listen for changes on auth state (logged in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        checkUserRole(session.user);
-      } else {
-        setTeacher(null);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    } catch {
+      localStorage.removeItem(SESSION_KEY);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const getRoleFromEmail = (email) => {
+    if (!email) return null;
     const e = email.toLowerCase();
     if (e.endsWith('@staff.tahfiz.my') || e.endsWith('@ustaz.tasmiq.ai') || e.includes('admin')) return 'staff';
     if (e.endsWith('@student.tahfiz.my')) return 'student';
     return null;
   };
 
-  const checkUserRole = async (user) => {
-    try {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role, displayName')
-        .eq('uid', user.id)
-        .single();
-
-      if (profile && (profile.role === 'teacher' || profile.role === 'staff' || profile.role === 'admin')) {
-        setTeacher({ ...user, profile });
-      } else {
-        // If it's a student, we set teacher to null but keep the user session 
-        // We handle the "Access Denied" message in the UI
-        setTeacher(null);
-      }
-    } catch (err) {
-      console.error("Role check error:", err);
-      setTeacher(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const login = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    if (error) throw error;
-    return data;
+    const trimmed = email.trim().toLowerCase();
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', trimmed)
+      .maybeSingle();
+
+    if (error) throw new Error(`DB Error: ${error.message} (code: ${error.code})`);
+    if (!data)  throw new Error(`No account found for "${trimmed}". Check your email or register first.`);
+
+    const storedPwd = data.password_hash ?? data.password ?? null;
+    if (storedPwd === null) throw new Error('This account has no password set. Contact admin.');
+    if (storedPwd !== password) throw new Error('Incorrect password.');
+
+    const role = (data.role || '').toLowerCase();
+    if (role === 'student') throw new Error('Access denied. Students must use the mobile app.');
+
+    // PK is "id" in your actual DB
+    const session = {
+      uid:          data.id,       // alias for legacy code
+      id:           data.id,
+      email:        data.email,
+      full_name:    data.full_name || data.email,
+      display_name: data.full_name || data.email,
+      role:         data.role || 'staff',
+      avg_score:    data.avg_score ?? null,
+    };
+
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    setTeacher(session);
+    return session;
   };
 
-  const register = async (email, password, displayName, selectedRole) => {
-    // 1. Sign up in Supabase Auth
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { displayName } }
-    });
+  const register = async (email, password, displayName) => {
+    const trimmed = email.trim().toLowerCase();
 
-    if (authError) throw authError;
-    const user = data.user;
-    if (!user) throw new Error("Registration failed");
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', trimmed)
+      .maybeSingle();
 
-    // 2. Auto-detect role
-    const finalRole = getRoleFromEmail(email) || selectedRole || 'student';
+    if (existing) throw new Error('An account with this email already exists.');
 
-    // 3. Create profile in 'users' table
-    const { error: dbError } = await supabase
+    const role = getRoleFromEmail(trimmed) || 'staff';
+
+    const { data, error } = await supabase
       .from('users')
       .insert([{
-        uid: user.id,
-        displayName,
-        email: email.toLowerCase(),
-        role: finalRole,
-        avgScore: finalRole === 'student' ? 0 : null
-      }]);
+        email:         trimmed,
+        full_name:     displayName,
+        password_hash: password,
+        role,
+        progress_percentage: 0,
+      }])
+      .select()
+      .maybeSingle();
 
-    if (dbError) console.error("Profile creation error:", dbError);
+    if (error) throw new Error(error.message);
     return data;
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = () => {
+    localStorage.removeItem(SESSION_KEY);
     setTeacher(null);
   };
 

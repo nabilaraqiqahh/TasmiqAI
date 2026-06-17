@@ -7,8 +7,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { getPendingRecitations, submitReview } from '../../services/recitationService';
 import { useTheme } from '../../context/ThemeContext';
+
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+
+/* ── Score Ring ─────────────────────────────────────────────── */
+function MetricBar({ label, score, color }) {
+  const scoreNum = typeof score === 'number' ? score : 0;
+  const barColor = scoreNum >= 85 ? '#16A34A' : scoreNum >= 70 ? '#D4AF37' : '#DC2626';
+  const c = color || barColor;
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151' }}>{label}</Text>
+        <Text style={{ fontSize: 13, fontWeight: '900', color: c }}>{scoreNum}%</Text>
+      </View>
+      <View style={{ height: 8, borderRadius: 4, backgroundColor: '#F3F4F6', overflow: 'hidden' }}>
+        <View style={{ width: `${scoreNum}%`, height: '100%', backgroundColor: c, borderRadius: 4 }} />
+      </View>
+    </View>
+  );
+}
 
 export default function TeacherReview({ navigation, route }) {
   const { isDark, colors: C } = useTheme();
@@ -19,7 +38,7 @@ export default function TeacherReview({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
+
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -48,14 +67,19 @@ export default function TeacherReview({ navigation, route }) {
   }, [route.params]);
 
   const playSound = async () => {
-    if (!selected?.audioUrl) return;
+    const audioUrl = selected?.audio_url || selected?.audioUrl;
+    if (!audioUrl) return;
     try {
       if (sound) await sound.unloadAsync();
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri: selected.audioUrl }, { shouldPlay: true });
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: audioUrl }, { shouldPlay: true }
+      );
       setSound(newSound);
       setIsPlaying(true);
-      newSound.setOnPlaybackStatusUpdate((status) => { if (status.didJustFinish) setIsPlaying(false); });
-    } catch (error) { Alert.alert("Error", "Could not play recording."); }
+      newSound.setOnPlaybackStatusUpdate(status => {
+        if (status.didJustFinish) setIsPlaying(false);
+      });
+    } catch { Alert.alert('Error', 'Could not play recording.'); }
   };
 
   const handleSubmit = async (isRedo = false) => {
@@ -74,13 +98,37 @@ export default function TeacherReview({ navigation, route }) {
     return <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={C.primary} /></View>;
   }
 
+  /* ── Parse metrics — supports both old errors object and new dedicated columns ── */
+  const getMetrics = (s) => {
+    if (!s) return { memorization: 0, pronunciation: 0, tajwid: 0, fluency: 0 };
+    // New schema: dedicated score columns
+    if (s.memorization_score != null) return {
+      memorization:  s.memorization_score,
+      pronunciation: s.pronunciation_score || s.score || 0,
+      tajwid:        s.tajwid_score        || s.score || 0,
+      fluency:       s.fluency_score       || s.score || 0,
+    };
+    // Legacy: errors JSON object
+    const e = typeof s.errors === 'string' ? JSON.parse(s.errors || '{}') : (s.errors || {});
+    return {
+      memorization:  typeof e.memorization === 'number'  ? e.memorization  : (s.score || 0),
+      pronunciation: typeof e.pronunciation === 'number' ? e.pronunciation : (s.score || 0),
+      tajwid:        typeof e.tajwid === 'number'        ? e.tajwid        : (s.score || 0),
+      fluency:       typeof e.fluency === 'number'       ? e.fluency       : (s.score || 0),
+    };
+  };
+
+  const metrics = getMetrics(selected);
+  const overallScore = selected?.score || 0;
+  const scoreColor = overallScore >= 85 ? '#16A34A' : overallScore >= 70 ? '#D4AF37' : '#DC2626';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={C.bg} />
-      
+
       <View style={{ flex: 1, flexDirection: isWeb && width > 1000 ? 'row' : 'column', maxWidth: 1400, alignSelf: 'center', width: '100%' }}>
-        
-        {/* LEFT PANEL: Queue (Hidden on small screens mobile, but visible in our "WOW" web view) */}
+
+        {/* LEFT PANEL: Queue */}
         {(isWeb && width > 1000) && (
           <View style={{ width: 350, borderRightWidth: 1, borderRightColor: '#E0E0E0', backgroundColor: '#FFFFFF', padding: 24 }}>
             <Text style={{ fontSize: 24, fontWeight: '900', color: C.text, marginBottom: 24 }}>Review Queue</Text>
@@ -95,8 +143,18 @@ export default function TeacherReview({ navigation, route }) {
                     borderWidth: 1, borderColor: selected?.id === s.id ? C.primary : '#F0F0F0'
                   }}
                 >
-                  <Text style={{ fontWeight: '800', color: C.text }}>{s.studentName}</Text>
+                  <Text style={{ fontWeight: '800', color: C.text }}>
+                    {s.student_name || s.studentName || 'Unknown Student'}
+                  </Text>
                   <Text style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{s.surah} • Ayah {s.ayah}</Text>
+                  <View style={{
+                    marginTop: 8, backgroundColor: (s.score || 0) >= 70 ? '#DCFCE7' : '#FEE2E2',
+                    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start',
+                  }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: (s.score || 0) >= 70 ? '#166534' : '#991B1B' }}>
+                      {s.score || 0}%
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -105,7 +163,7 @@ export default function TeacherReview({ navigation, route }) {
 
         {/* MAIN CONTENT AREA */}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isWeb ? 40 : 20 }} showsVerticalScrollIndicator={false}>
-          
+
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 32 }}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', elevation: 2 }}>
               <Ionicons name="arrow-back" size={24} color={C.text} />
@@ -120,104 +178,152 @@ export default function TeacherReview({ navigation, route }) {
               <Text style={{ color: C.muted, marginTop: 8 }}>Your review queue is ready for action.</Text>
             </View>
           ) : (
-            <View style={{ gap: 24 }}>
-              
+            <View style={{ gap: 20 }}>
+
               {/* STUDENT HEADER CARD */}
-              <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 32, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                   <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: C.lilac, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 32, fontWeight: '900', color: 'white' }}>{(selected.studentName || 'S')[0]}</Text>
-                   </View>
-                   <View>
-                      <Text style={{ fontSize: 26, fontWeight: '900', color: C.text }}>{selected.studentName}</Text>
-                      <Text style={{ fontSize: 16, color: C.muted }}>{selected.surah} • Ayah {selected.ayah}</Text>
-                   </View>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                   <Text style={{ fontSize: 13, color: C.muted, fontWeight: '700' }}>AI SCORE</Text>
-                   <Text style={{ fontSize: 48, fontWeight: '900', color: selected.score > 85 ? C.green : C.gold }}>{selected.score}%</Text>
-                </View>
-              </View>
-
-              {/* STUDIO PLAYER */}
-              <View style={{ backgroundColor: C.text, borderRadius: 24, padding: 32, alignItems: 'center' }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '800', marginBottom: 24, letterSpacing: 2 }}>STUDIO AUDIO PLAYBACK</Text>
-                <TouchableOpacity 
-                  onPress={isPlaying ? () => sound?.pauseAsync() : playSound}
-                  style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Ionicons name={isPlaying ? "pause" : "play"} size={42} color="white" style={{ marginLeft: isPlaying ? 0 : 5 }} />
-                </TouchableOpacity>
-                <View style={{ width: '100%', height: 2, backgroundColor: 'rgba(255,255,255,0.1)', marginTop: 32, borderRadius: 1 }} />
-              </View>
-
-              {/* PHONETIC DIFF VIEW */}
-              <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 32, elevation: 2 }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: C.text, marginBottom: 20 }}>Refined AI Analysis</Text>
-                <View style={{ backgroundColor: '#F9F8F4', borderRadius: 16, padding: 24, marginBottom: 24 }}>
-                  <Text style={{ fontSize: 32, textAlign: 'right', color: C.text, lineHeight: 56, direction: 'rtl', fontWeight: '500' }}>
-                    {selected.transcription}
-                  </Text>
-                </View>
-                
-                <View style={{ gap: 12 }}>
-                  {selected.errors?.map((err, i) => (
-                    <View key={i} style={{ flexDirection: 'row', gap: 16, backgroundColor: C.red + '10', borderRadius: 16, padding: 20 }}>
-                      <Ionicons name="mic-off" size={24} color={C.red} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '900', color: C.red, fontSize: 18 }}>{err.word}</Text>
-                        <Text style={{ color: C.muted, fontSize: 15, marginTop: 4 }}>{err.tip}</Text>
+              <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 28, elevation: 4, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 }}>
+                    <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 28, fontWeight: '900', color: 'white' }}>
+                        {(selected.student_name || selected.studentName || 'S')[0].toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>
+                        {selected.student_name || selected.studentName || 'Unknown Student'}
+                      </Text>
+                      <Text style={{ fontSize: 14, color: C.muted, marginTop: 2 }}>
+                        {selected.surah} · Ayah {selected.ayah}
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                        <View style={{ backgroundColor: '#F5F2E9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>
+                            {selected.type || 'Tasmiq'}
+                          </Text>
+                        </View>
+                        <View style={{ backgroundColor: '#F9F9F9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#6B7280' }}>
+                            Pending Review
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  ))}
+                  </View>
+                  <View style={{ alignItems: 'center', backgroundColor: scoreColor + '12', borderRadius: 16, padding: 16, minWidth: 80 }}>
+                    <Text style={{ fontSize: 11, color: scoreColor, fontWeight: '800', letterSpacing: 0.5 }}>AI SCORE</Text>
+                    <Text style={{ fontSize: 44, fontWeight: '900', color: scoreColor, lineHeight: 52 }}>{overallScore}%</Text>
+                    <Text style={{ fontSize: 11, color: scoreColor, fontWeight: '700' }}>
+                      {overallScore >= 90 ? 'Excellent' : overallScore >= 70 ? 'Good' : 'Needs Work'}
+                    </Text>
+                  </View>
                 </View>
+              </View>
+
+              {/* AI METRIC BREAKDOWN */}
+              <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 24, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                  <Ionicons name="analytics-outline" size={18} color={C.primary} />
+                  <Text style={{ fontSize: 15, fontWeight: '900', color: C.text }}>AI Assessment Breakdown</Text>
+                </View>
+                <MetricBar label="📖 Memorization Accuracy" score={metrics.memorization} color="#0F6D3E" />
+                <MetricBar label="🗣️ Pronunciation" score={metrics.pronunciation} color="#D4AF37" />
+                <MetricBar label="✨ Tajwid Rules" score={metrics.tajwid} color="#4A90A4" />
+                <MetricBar label="🎵 Fluency & Flow" score={metrics.fluency} color="#9B7DC8" />
+              </View>
+
+              {/* TRANSCRIPTION / RECITED TEXT */}
+              {selected.transcription ? (
+                <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 24, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                    <Ionicons name="text-outline" size={18} color={C.primary} />
+                    <Text style={{ fontSize: 15, fontWeight: '900', color: C.text }}>Recited Text (Transcription)</Text>
+                  </View>
+                  <View style={{ backgroundColor: '#F8F9F4', borderRadius: 16, padding: 20 }}>
+                    <Text style={{ fontSize: 26, textAlign: 'right', color: C.text, lineHeight: 48, direction: 'rtl', fontWeight: '500', fontFamily: Platform.OS === 'ios' ? 'GeezaPro' : 'serif' }}>
+                      {selected.transcription}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* AI FEEDBACK TEXT */}
+              {selected.feedback ? (
+                <View style={{ backgroundColor: '#F5F2E9', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#BBF7D0' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Ionicons name="bulb-outline" size={18} color="#166534" />
+                    <Text style={{ fontSize: 15, fontWeight: '900', color: '#166534' }}>AI Feedback</Text>
+                  </View>
+                  <Text style={{ fontSize: 14, color: '#166534', lineHeight: 22 }}>{selected.feedback}</Text>
+                </View>
+              ) : null}
+
+              {/* STUDIO PLAYER */}
+              <View style={{ backgroundColor: C.text, borderRadius: 24, padding: 28, alignItems: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '800', marginBottom: 20, letterSpacing: 2, fontSize: 12 }}>STUDIO AUDIO PLAYBACK</Text>
+                {(selected.audio_url || selected.audioUrl) ? (
+                  <TouchableOpacity
+                    onPress={isPlaying ? () => sound?.pauseAsync() : playSound}
+                    style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="white" style={{ marginLeft: isPlaying ? 0 : 4 }} />
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="mic-off-outline" size={36} color="rgba(255,255,255,0.3)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>No audio recording available</Text>
+                  </View>
+                )}
+                <View style={{ width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 24, borderRadius: 1 }} />
               </View>
 
               {/* EVALUATION ACTION PANEL */}
-              <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 32, elevation: 2, marginBottom: 40 }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: C.text, marginBottom: 24 }}>Expert Evaluation</Text>
-                
-                <Text style={{ fontWeight: '700', color: C.muted, marginBottom: 12 }}>Proficiency Grade (1-5)</Text>
-                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-                  {[1,2,3,4,5].map(n => (
-                    <TouchableOpacity 
-                      key={n} 
+              <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 28, elevation: 2, marginBottom: 40, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 }}>
+                <Text style={{ fontSize: 16, fontWeight: '900', color: C.text, marginBottom: 20 }}>Expert Evaluation</Text>
+
+                <Text style={{ fontWeight: '700', color: C.muted, marginBottom: 10, fontSize: 13 }}>Proficiency Grade (1–5)</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <TouchableOpacity
+                      key={n}
                       onPress={() => setGrade(n)}
-                      style={{ flex: 1, height: 60, borderRadius: 16, backgroundColor: grade === n ? C.primary : C.bg, alignItems: 'center', justifyContent: 'center' }}
+                      style={{ flex: 1, height: 56, borderRadius: 14, backgroundColor: grade === n ? C.primary : C.bg, alignItems: 'center', justifyContent: 'center', borderWidth: grade === n ? 0 : 1, borderColor: '#E5E7EB' }}
                     >
-                      <Text style={{ fontSize: 20, fontWeight: '900', color: grade === n ? 'white' : C.text }}>{n}</Text>
+                      <Text style={{ fontSize: 18, fontWeight: '900', color: grade === n ? 'white' : C.text }}>{n}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
+                <Text style={{ fontWeight: '700', color: C.muted, marginBottom: 10, fontSize: 13 }}>Teacher's Feedback</Text>
                 <TextInput
                   multiline
-                  placeholder="Leave professional feedback..."
+                  placeholder="Leave professional feedback for the student..."
+                  placeholderTextColor="#9CA3AF"
                   value={feedback}
                   onChangeText={setFeedback}
-                  style={{ backgroundColor: C.bg, borderRadius: 16, padding: 20, height: 120, fontSize: 16, marginBottom: 24, textAlignVertical: 'top' }}
+                  style={{ backgroundColor: C.bg, borderRadius: 14, padding: 16, height: 110, fontSize: 15, marginBottom: 20, textAlignVertical: 'top', color: C.text, borderWidth: 1, borderColor: '#E5E7EB' }}
                 />
 
-                <View style={{ flexDirection: 'row', gap: 16 }}>
-                   <TouchableOpacity 
-                     onPress={() => handleSubmit(true)}
-                     style={{ flex: 1, height: 64, borderRadius: 20, backgroundColor: C.red + '10', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
-                   >
-                     <Ionicons name="refresh" size={20} color={C.red} />
-                     <Text style={{ color: C.red, fontWeight: '800', fontSize: 16 }}>Request Redo</Text>
-                   </TouchableOpacity>
-                   <TouchableOpacity 
-                     onPress={() => handleSubmit(false)}
-                     disabled={submitting}
-                     style={{ flex: 2, height: 64, borderRadius: 20, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
-                   >
-                     {submitting ? <ActivityIndicator color="white" /> : (
-                       <>
-                         <Ionicons name="send" size={20} color="white" />
-                         <Text style={{ color: 'white', fontWeight: '800', fontSize: 16 }}>Finalize Review</Text>
-                       </>
-                     )}
-                   </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => handleSubmit(true)}
+                    style={{ flex: 1, height: 58, borderRadius: 18, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+                  >
+                    <Ionicons name="refresh" size={18} color="#DC2626" />
+                    <Text style={{ color: '#DC2626', fontWeight: '800', fontSize: 14 }}>Request Redo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleSubmit(false)}
+                    disabled={submitting}
+                    style={{ flex: 2, height: 58, borderRadius: 18, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+                  >
+                    {submitting ? <ActivityIndicator color="white" /> : (
+                      <>
+                        <Ionicons name="send" size={18} color="white" />
+                        <Text style={{ color: 'white', fontWeight: '800', fontSize: 15 }}>Finalize Review</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -228,3 +334,4 @@ export default function TeacherReview({ navigation, route }) {
     </SafeAreaView>
   );
 }
+

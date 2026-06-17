@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 const C = {
   bg: '#F5F2E9',
   card: '#FFFFFF',
-  primary: '#4A8C73',
+  primary: '#10B981',
   gold: '#C9A84C',
   lilac: '#9B8EC4',
   text: '#1E2A22',
@@ -67,11 +67,13 @@ export default function ClassManagement() {
       const { data, error } = await supabase
         .from('classes')
         .insert([{
-          teacher_id: teacher.id,
-          name: newClass.name,
+          teacher_id:  teacher.id,
+          name:        newClass.name,
           description: newClass.description,
-          schedule: newClass.schedule,
-          unique_code: uniqueCode
+          schedule:    newClass.schedule,
+          class_code:  uniqueCode,   // actual DB column
+          unique_code: uniqueCode,   // our added alias column
+          is_active:   true,
         }])
         .select();
 
@@ -210,8 +212,10 @@ export default function ClassManagement() {
               <div style={{ backgroundColor: C.bg, borderRadius: '16px', padding: '16px', border: `2px dashed ${C.primary}50` }}>
                 <div style={{ fontSize: '12px', fontWeight: '800', color: C.primary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Join Code</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '24px', fontWeight: '900', color: C.text, letterSpacing: '2px' }}>{cls.unique_code}</span>
-                  <button onClick={() => copyToClipboard(cls.unique_code)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', backgroundColor: 'white', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <span style={{ fontSize: '24px', fontWeight: '900', color: C.text, letterSpacing: '2px' }}>
+                    {cls.unique_code || cls.class_code || '—'}
+                  </span>
+                  <button onClick={() => copyToClipboard(cls.unique_code || cls.class_code)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', backgroundColor: 'white', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                     <Copy size={18} color={C.primary} />
                   </button>
                 </div>
@@ -293,3 +297,6 @@ export default function ClassManagement() {
     </div>
   );
 }
+
+
+

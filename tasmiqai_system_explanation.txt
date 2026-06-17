@@ -1,0 +1,107 @@
+TasmiqAI: Quran Recitation Expert System - Detailed System Explanation
+======================================================================
+
+1. Overview
+TasmiqAI is an AI-driven educational ecosystem designed to assist students and teachers in Quranic recitation practice (Tasmiq). Traditionally, assessing Quranic recitation requires one-on-one sessions with human experts, which is subjective and difficult to scale. TasmiqAI addresses this by providing automated, differential phonetic assessment and Makhraj (articulation point) analysis. This gives learners immediate, objective feedback, helping them correct pronunciation mistakes before formal human assessment.
+
+2. System Architecture
+The system is built on a scalable Three-Tier Client-Server Architecture:
+- Presentation Tier:
+  - Student Mobile App: Built with React Native and Expo, it allows students to select specific Surahs/Ayahs, listen to expert reference audio, record their recitation, and view color-coded feedback.
+  - Teacher Web Portal: Built with React (Vite), it acts as a dashboard for educators to monitor student performance, view historical assessment scores, and give manual feedback.
+- Application Tier: A FastAPI backend server (Python 3.9+) that handles HTTP requests, manages temporary audio files, and orchestrates the core AI inference logic.
+- Data and AI Tier: 
+  - AI Engine: Uses PyTorch and Transformers to run a pre-trained Whisper Automatic Speech Recognition (ASR) model (`tarteel-ai/whisper-base-ar-quran`) tailored for Arabic phonetics.
+  - Databases: Uses a local filesystem for a structured Quran dataset (JSON metadata and reference MP3s) and Supabase (PostgreSQL) for storing relational data like user profiles, sessions, and assessment scores.
+
+3. Core Methodology & Algorithms
+- Audio Processing: The FastAPI backend intakes recorded audio, resamples it to 16kHz, trims silence using Librosa, and normalizes the waveform array to ensure clean input for the AI.
+- Speech Recognition (ASR): The AI engine transcribes both the expert reference audio and the user's recorded audio into distinct phonetic strings.
+- Differential Phonetic Assessment: Instead of just text-matching, the system uses Python's `difflib.SequenceMatcher` to compare the two phonetic sequences directly. It calculates an accuracy score and generates an HTML-based visual diff that highlights insertions, deletions, and replacements in green and red.
+- Makhraj Mapping: The system identifies missing or incorrect characters from the diff and looks them up in a predefined Knowledge Base (`MAKHRAJ_MAP`) to provide targeted, rule-based articulation tips to the user.
+
+4. End-to-End User Workflow
+1. The student selects a target Surah and Ayah in the mobile app.
+2. The system plays the expert reference audio for the chosen Ayah.
+3. The student records their recitation via the device microphone.
+4. The backend processes the audio and runs the ASR model.
+5. The differential algorithm compares the student's transcription against the reference.
+6. The system returns an accuracy percentage, color-coded phonetic feedback, and Makhraj correction tips.
+7. The data is saved to Supabase, making it instantly reviewable by teachers on the web portal.
+
+5. Strengths and Limitations
+- Strengths: Automates time-consuming preliminary assessments, provides precise visual feedback suitable for visual learners, and maps errors to specific pedagogical articulation tips.
+- Limitations: AI inference demands high computational power (GPU) for low-latency responses, making hosting resource-intensive. Models can also struggle with heavy background noise or long pauses.
+- Future Roadmap: Implementing WebSockets for real-time streaming feedback instead of post-recording analysis, and extending AI capabilities to assess advanced Tajweed rules like Madd (duration) and Ghunnah (nasal sounds).
+
+6. Deep Dive: Speech Recognition (ASR)
+Tools Used:
+- Audio Processing: `librosa` (resampling, silence trimming, normalization), `soundfile` (audio reading), and `numpy` (array manipulation).
+- AI Inference Engine: `PyTorch` (deep learning framework) and `Hugging Face Transformers` (`WhisperProcessor`, `WhisperForConditionalGeneration`, `pipeline`).
+- ASR Model: `tarteel-ai/whisper-base-ar-quran` (a specialized Whisper model fine-tuned for Arabic Quranic phonetics).
+
+Flow:
+1. Audio Input: The system intakes user audio and processes it using `librosa` to resample to 16kHz, trim silences, and normalize the waveform.
+2. Inference Pipeline: The processed audio array is passed to the Hugging Face pipeline initialized with the Tarteel AI Whisper model. 
+3. Output: The pipeline directly outputs a phonetic transcription of the Arabic recitation.
+
+Key Code Implementation:
+```python
+# Initializing the model
+model_id = "tarteel-ai/whisper-base-ar-quran"
+processor = WhisperProcessor.from_pretrained(model_id)
+model = WhisperForConditionalGeneration.from_pretrained(model_id)
+asr_pipeline = pipeline(
+    "automatic-speech-recognition",
+    model=model,
+    tokenizer=processor.tokenizer,
+    feature_extractor=processor.feature_extractor,
+    chunk_length_s=30,
+    stride_length_s=5
+)
+
+# Generating phonetics from audio array
+def get_phonetics(audio_arr):
+    if len(audio_arr) == 0: return ""
+    result = asr_pipeline(audio_arr)
+    return result["text"].strip()
+```
+
+7. Deep Dive: Expert System & Differential Analysis
+Tools Used:
+- Sequence Matching Algorithm: Python's built-in `difflib.SequenceMatcher`.
+- Knowledge Base: A hardcoded Python dictionary (`MAKHRAJ_MAP`) linking phonetic characters to their specific Tajweed/Makhraj rules.
+- UI Feedback formatting: standard HTML string formatting.
+
+Flow:
+1. Sequence Matching: The system uses `difflib.SequenceMatcher` to compare the Reference (expert) phonetics against the User phonetics.
+2. Accuracy Score: It computes an accuracy ratio (`ratio()`) based on the sequence similarity between the two phonetic strings.
+3. Visual Diff Generation: It iterates over the matching and differing sequences (`get_opcodes()`) to generate a color-coded HTML string (e.g., green for matches, red for missed/replaced phonemes).
+4. Makhraj Mapping: For every phoneme marked as `delete` or `replace` in the diff, the system extracts the character and queries the `MAKHRAJ_MAP` dictionary. It then appends the corresponding specific articulation tip (Makhraj) for those missed characters.
+
+Key Code Implementation:
+```python
+# Sequence matcher comparing reference and user phonemes
+ratio = difflib.SequenceMatcher(None, ref_ph, user_ph).ratio()
+score_pct = f"{ratio*100:.1f}%"
+
+# Generating Makhraj (Articulation) Tips
+def get_makhraj_tips(user_ph, ref_ph):
+    tips = []
+    errors = set()
+    s = difflib.SequenceMatcher(None, ref_ph, user_ph)
+    
+    for tag, i1, i2, j1, j2 in s.get_opcodes():
+        if tag in ('replace', 'delete'):
+            missing_chars = ref_ph[i1:i2].split()
+            for c in missing_chars:
+                if c.strip() in MAKHRAJ_MAP:
+                    errors.add(c.strip())
+    
+    if errors:
+        tips.append("<b>💡 Expert Makhraj Guidance:</b>")
+        for e in errors:
+            m = MAKHRAJ_MAP[e]
+            tips.append(f"- <b>{m['char']} ({e})</b>: {m['desc']}. <i>Rule: {m['rule']}</i>")
+    return "<br>".join(tips)
+```

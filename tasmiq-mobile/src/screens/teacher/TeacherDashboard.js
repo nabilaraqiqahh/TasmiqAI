@@ -86,25 +86,35 @@ export default function TeacherDashboard({ navigation }) {
         .select('*', { count: 'exact', head: true })
         .eq('reviewed', true);
 
-      // 4. Get Recent Recitations
-      const { data: recentData, error: recErr } = await supabase
+      // 4. Get Recent Recitations using snake_case column
+      const { data: recentData } = await supabase
         .from('recitations')
         .select('*')
-        .order('recordedAt', { ascending: false })
+        .order('recorded_at', { ascending: false })
         .limit(5);
+
+      // Calculate at-risk from DB (avg_score < 70)
+      const { count: atRiskCount } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'student')
+        .lt('avg_score', 70);
 
       if (recentData) {
         setRecent(recentData.map(d => ({
           ...d,
-          time: d.recordedAt ? new Date(d.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'
+          studentName: d.student_name || d.studentName || 'Student',
+          time: d.recorded_at
+            ? new Date(d.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'Just now',
         })));
       }
 
       setStats({
         students: studentCount || 0,
-        pending: pendingCount || 0,
+        pending:  pendingCount || 0,
         completed: completedCount || 0,
-        atRisk: Math.floor((studentCount || 0) * 0.12)
+        atRisk:   atRiskCount || 0,
       });
     } catch (error) {
       console.error("Dashboard error:", error);
@@ -232,10 +242,14 @@ export default function TeacherDashboard({ navigation }) {
               }}
             >
               <View style={{ width: 52, height: 52, borderRadius: 18, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', marginRight: 18 }}>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: C.primary }}>{(item.studentName || 'S')[0]}</Text>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: C.primary }}>
+                  {(item.student_name || item.studentName || 'S')[0].toUpperCase()}
+                </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 17, fontWeight: '800', color: C.text }}>{item.studentName || 'Student'}</Text>
+                <Text style={{ fontSize: 17, fontWeight: '800', color: C.text }}>
+                  {item.student_name || item.studentName || 'Student'}
+                </Text>
                 <Text style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{item.surah} • Ayah {item.ayah}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>

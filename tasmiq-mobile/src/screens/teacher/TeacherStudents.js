@@ -28,16 +28,22 @@ export default function TeacherStudents({ navigation }) {
         .from('users')
         .select('*')
         .eq('role', 'student')
-        .order('displayName', { ascending: true });
+        .order('full_name', { ascending: true });
         
       if (error) throw error;
       
-      const studentsData = data.map(data => ({
-        id: data.uid,
-        ...data,
-        status: (data.avgScore || 0) < 60 ? 'At Risk' : (data.avgScore || 0) > 85 ? 'On Track' : 'Improving',
-        level: data.level || 'Intermediate',
-        lastActive: data.lastLogin ? new Date(data.lastLogin).toLocaleDateString() : 'Recently'
+      const studentsData = (data || []).map(s => ({
+        id:         s.uid,
+        ...s,
+        displayName: s.full_name || s.display_name || s.email,
+        avgScore:   s.avg_score || 0,
+        status:     (s.avg_score || 0) < 60 ? 'At Risk'
+                  : (s.avg_score || 0) > 85 ? 'On Track'
+                  : 'Improving',
+        level:      s.level || 'Intermediate',
+        lastActive: s.last_login
+          ? new Date(s.last_login).toLocaleDateString()
+          : 'Recently',
       }));
       
       setStudents(studentsData);
@@ -54,7 +60,7 @@ export default function TeacherStudents({ navigation }) {
   }, []);
 
   const filtered = students.filter(s =>
-    s.displayName?.toLowerCase().includes(search.toLowerCase())
+    (s.displayName || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
