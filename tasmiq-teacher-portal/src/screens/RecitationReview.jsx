@@ -292,9 +292,9 @@ export default function RecitationReview() {
                   </div>
                   <div style={{
                     fontSize: '42px', fontWeight: '900',
-                    color: selected.score >= 85 ? C.green : selected.score >= 70 ? C.gold : C.red
+                    color: (selected.score||0) >= 85 ? C.green : (selected.score||0) >= 70 ? C.gold : C.red
                   }}>
-                    {selected.score}%
+                    {selected.score || 0}%
                   </div>
                 </div>
               </div>
@@ -363,11 +363,24 @@ export default function RecitationReview() {
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-                  {[{ label: 'Memorization', val: selected.errors?.memorization ?? selected.score },
-                    { label: 'Pronunciation', val: selected.errors?.pronunciation ?? selected.score },
-                    { label: 'Tajwid Rules', val: selected.errors?.tajwid ?? selected.score },
-                    { label: 'Fluency & Flow', val: selected.errors?.fluency ?? selected.score }
-                  ].map((metric, i) => (
+                  {(() => {
+                    // Parse errors JSON if stored as string
+                    let errObj = {};
+                    if (selected.errors) {
+                      try {
+                        errObj = typeof selected.errors === 'string'
+                          ? JSON.parse(selected.errors)
+                          : selected.errors;
+                      } catch { errObj = {}; }
+                    }
+                    const s = selected.score || 0;
+                    return [
+                      { label: 'Memorization',  val: selected.memorization_score  ?? errObj.memorization  ?? s },
+                      { label: 'Pronunciation',  val: selected.pronunciation_score ?? errObj.pronunciation ?? s },
+                      { label: 'Tajwid Rules',   val: selected.tajwid_score        ?? errObj.tajwid        ?? s },
+                      { label: 'Fluency & Flow', val: selected.fluency_score       ?? errObj.fluency       ?? s },
+                    ];
+                  })().map((metric, i) => (
                     <div key={i} style={{
                       backgroundColor: C.bg, borderRadius: '12px', padding: '16px',
                       border: `1px solid ${C.border}`
