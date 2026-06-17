@@ -279,7 +279,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
   const [isRecording, setIsRecording]   = useState(false);
   const [isAnalyzing, setIsAnalyzing]   = useState(false);
   const [saving, setSaving]             = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false); // show success screen
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError]   = useState('');
   const recordingRef                    = useRef(null);
   const mediaRecorderRef                = useRef(null);
   const audioChunksRef                  = useRef([]);
@@ -346,6 +347,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
     setActualEndAyah(null);
     setIsRecording(false);
     setIsAnalyzing(false);
+    setSubmitError('');
     setIsPlayingRecording(false);
     if (playbackSoundRef.current) {
       playbackSoundRef.current.unloadAsync().catch(() => {});
@@ -643,54 +645,53 @@ export default function TasmiqModeScreen({ navigation, route }) {
   };
   /* ── Submit to teacher ── */
   const handleSubmit = async () => {
-    // If score is low, warn but allow them to submit (teacher will review)
-    if (aiAnalysis?.score < 60) {
-      Alert.alert(
-        '⚠️ Low Score',
-        `Your score is ${aiAnalysis.score}%. Your teacher will still receive this attempt and can provide guidance.\n\nSubmit anyway?`,
-        [
-          { text: 'Retry Instead', style: 'cancel', onPress: resetAll },
-          { text: 'Submit Anyway', style: 'destructive', onPress: doSubmit },
-        ]
-      );
-      return;
-    }
+    // Go straight to submit — no blocking gate
     doSubmit();
   };
 
   const doSubmit = async () => {
     setSaving(true);
+    setSubmitError('');
     try {
       const { getCurrentUser } = await import('../../services/authService');
       const session = await getCurrentUser();
+
+      if (!session?.id) {
+        Alert.alert('Not Logged In', 'Please log in first to submit.');
+        setSaving(false);
+        return;
+      }
+
       const ayahRange = endAyahToAnalyze > selectedAyahNumber
         ? `${selectedAyahNumber}-${endAyahToAnalyze}`
         : `${selectedAyahNumber}`;
 
-      if (session?.id) {
-        await saveRecitationResult(session.id, {
-          studentName:         session.full_name || session.displayName,
-          surah:               currentSurah.name,
-          surahNumber:         selectedSurahIndex + 1,
-          ayah:                ayahRange,
-          score:               aiAnalysis.score,
-          memorization_score:  aiAnalysis.memorization,
-          pronunciation_score: aiAnalysis.pronunciation,
-          tajwid:              aiAnalysis.tajwid,
-          fluency_score:       aiAnalysis.fluency,
-          makhraj:             aiAnalysis.tajwid,
-          feedback:            aiAnalysis.feedbackText || aiAnalysis.motivation,
-          audioUri:            lastAudioUri,
-          transcription:       aiAnalysis.transcription || lastTranscription,
-        });
-        // Show success screen instead of Alert
-        setSubmitSuccess(true);
-      } else {
-        Alert.alert('Not Logged In', 'Please log in to submit your results.');
-      }
+      // Explicit, safe payload — no undefined values
+      const payload = {
+        studentName:         session.full_name || session.displayName || 'Student',
+        surah:               String(currentSurah.name || ''),
+        surahNumber:         selectedSurahIndex + 1,
+        ayah:                ayahRange,
+        score:               Number(aiAnalysis?.score)               || 0,
+        memorization_score:  Number(aiAnalysis?.memorization)        || 0,
+        pronunciation_score: Number(aiAnalysis?.pronunciation)       || 0,
+        tajwid:              Number(aiAnalysis?.tajwid)              || 0,
+        fluency_score:       Number(aiAnalysis?.fluency)             || 0,
+        makhraj:             Number(aiAnalysis?.tajwid)              || 0,
+        feedback:            String(aiAnalysis?.feedbackText || aiAnalysis?.motivation || ''),
+        transcription:       String(aiAnalysis?.transcription || lastTranscription || ''),
+        audioUri:            lastAudioUri || null,
+        word_alignments:     Array.isArray(aiAnalysis?.wordAlignments) ? aiAnalysis.wordAlignments : [],
+      };
+
+      await saveRecitationResult(session.id, payload);
+
+      // Show success screen
+      setSubmitSuccess(true);
+
     } catch (e) {
-      console.error('Submit error:', e);
-      Alert.alert('Submit Failed', 'Could not send results. Error: ' + (e?.message || String(e)));
+      console.error('[doSubmit] error:', e);
+      setSubmitError(e?.message || 'Unknown error. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1392,6 +1393,29 @@ export default function TasmiqModeScreen({ navigation, route }) {
               }}>
                 <Text style={{ fontSize: 13, fontWeight: '900', color: '#0F5132', marginBottom: 10 }}>AI Feedback</Text>
                 <Text style={{ fontSize: 14, color: '#0F5132', lineHeight: 22 }}>{aiAnalysis.feedbackText}</Text>
+              </View>
+            ) : null}
+
+            {/* ── Error Banner (shows inline if submit fails) ── */}
+            {submitError ? (
+              <View style={{
+                backgroundColor: '#FEE2E2', borderRadius: 14, padding: 16,
+                marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+                borderWidth: 1, borderColor: '#FECACA',
+              }}>
+                <Ionicons name="alert-circle" size={20} color={P.red} style={{ marginTop: 1, flexShrink: 0 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '800', color: P.red, fontSize: 14 }}>Submission Failed</Text>
+                  <Text style={{ color: P.red, fontSize: 13, marginTop: 3, lineHeight: 18 }}>
+                    {submitError}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setSubmitError('')}
+                    style={{ marginTop: 8 }}
+                  >
+                    <Text style={{ color: P.red, fontWeight: '700', fontSize: 12 }}>Dismiss</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : null}
 
