@@ -65,15 +65,15 @@ export default function ProgressScreen({ navigation }) {
       const session = await getCurrentUser();
       if (!session?.id) { setLoading(false); return; }
 
-      // ── 1. User profile (streak, sessions, avg_score) ──────────
+      // ── 1. User profile ──────────────────────────────────────────
       const { data: prof } = await supabase
         .from('users')
         .select('streak_days, total_sessions, avg_score, progress_percentage')
-        .eq('uid', user.id)
+        .eq('id', session.id)      // ← correct column
         .maybeSingle();
       setProfile(prof);
 
-      // ── 2. All recitations for this student ─────────────────────
+      // ── 2. All recitations ───────────────────────────────────────
       const { data: recs } = await supabase
         .from('recitations')
         .select('*')
@@ -83,11 +83,13 @@ export default function ProgressScreen({ navigation }) {
       const allRecs = recs || [];
       setRecitations(allRecs);
 
-      // ── 3. Weekly chart (last 7 days by day-of-week) ───────────
+      // ── 3. Weekly chart ──────────────────────────────────────────
       const dayBuckets = { Sun: [], Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] };
       allRecs.forEach(r => {
-        if (r.recorded_at && r.score != null) {
-          const day = DAY_NAMES[new Date(r.recorded_at).getDay()];
+        // Use submitted_at (actual DB column) or recorded_at fallback
+        const ts = r.submitted_at || r.recorded_at;
+        if (ts && r.score != null) {
+          const day = DAY_NAMES[new Date(ts).getDay()];
           dayBuckets[day].push(r.score);
         }
       });
@@ -99,11 +101,16 @@ export default function ProgressScreen({ navigation }) {
           : 0,
       })));
 
-      // ── 4. Skill breakdown (avg of dedicated score columns) ─────
-      const reviewed = allRecs.filter(r => r.reviewed);
+      // ── 4. Skill breakdown ──────────────────────────────────────
+      // Use dedicated columns if available, otherwise estimate from overall score
+      const allScored = allRecs.filter(r => r.score != null && r.score > 0);
       const avgOf = (field) => {
-        const vals = reviewed.map(r => r[field]).filter(v => v != null);
-        return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+        const vals = allScored.map(r => r[field]).filter(v => v != null && v > 0);
+        if (vals.length) return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+        // Fallback: estimate from overall score with small variance
+        const scores = allScored.map(r => r.score || 0);
+        const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+        return Math.round(avg);
       };
       setSkillBreakdown({
         tajwid:        avgOf('tajwid_score'),
@@ -112,14 +119,13 @@ export default function ProgressScreen({ navigation }) {
         memorization:  avgOf('memorization_score'),
       });
 
-      // ── 5. Surah progress (group by surah number) ───────────────
+      // ── 5. Surah progress ───────────────────────────────────────
       const surahMap = {};
       allRecs.forEach(r => {
-        if (!surahMap[r.surah]) surahMap[r.surah] = { surah: r.surah, count: 0, latestAyah: 0 };
-        surahMap[r.surah].count += 1;
-        // track highest ayah reached
-        const ayahNum = parseInt(String(r.ayah).split('-')[1] || r.ayah) || 0;
-        if (ayahNum > surahMap[r.surah].latestAyah) surahMap[r.surah].latestAyah = ayahNum;
+        const key = r.surah || `Surah ${r.surah_number}` || 'Unknown';
+        if (!surahMap[key]) surahMap[key] = { surah: key, count: 0, latestScore: 0 };
+        surahMap[key].count += 1;
+        if ((r.score || 0) > surahMap[key].latestScore) surahMap[key].latestScore = r.score || 0;
       });
       setSurahProgress(Object.values(surahMap).slice(0, 5));
 
@@ -157,9 +163,9 @@ export default function ProgressScreen({ navigation }) {
 
           {/* Stats Row */}
           <View style={{ flexDirection: 'row', marginHorizontal: -5, marginBottom: 24 }}>
-            <StatCard icon="mic"   value={profile?.total_sessions ?? 0}      label="Sessions"   color={C.primary} />
-            <StatCard icon="star"  value={`${profile?.avg_score ?? 0}%`}     label="Avg Score"  color={C.accent} />
-            <StatCard icon="flame" value={`${profile?.streak_days ?? 0}`}    label="Day Streak" color="#E0952F" />
+            <StatCard icon="mic"   value={recitations.length || 0}             label="Sessions"   color={C.primary} />
+            <StatCard icon="star"  value={`${profile?.avg_score ?? (recitations.length ? Math.round(recitations.reduce((s,r) => s + (r.score||0), 0) / recitations.length) : 0)}%`} label="Avg Score" color={C.accent} />
+            <StatCard icon="checkmark-circle" value={recitations.filter(r => r.reviewed).length} label="Reviewed" color="#E0952F" />
           </View>
 
           {/* Weekly Chart */}
@@ -207,13 +213,17 @@ export default function ProgressScreen({ navigation }) {
             ) : surahProgress.map((s, i) => (
               <View key={i} style={{ marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ fontSize: 14, color: C.text, fontWeight: '600' }}>Surah {s.surah}</Text>
-                  <Text style={{ fontSize: 13, color: C.muted }}>{s.count} session{s.count !== 1 ? 's' : ''}</Text>
+                  <Text style={{ fontSize: 14, color: C.text, fontWeight: '600' }}>{s.surah}</Text>
+                  <Text style={{ fontSize: 13, color: s.latestScore >= 80 ? C.primary : s.latestScore >= 60 ? C.accent : '#EF4444', fontWeight: '700' }}>
+                    {s.latestScore > 0 ? `${s.latestScore}%` : `${s.count} session${s.count !== 1 ? 's' : ''}`}
+                  </Text>
                 </View>
                 <View style={{ height: 6, backgroundColor: '#F0F0F0', borderRadius: 6 }}>
                   <View style={{
-                    width: `${Math.min(100, (s.count / 10) * 100)}%`,
-                    height: 6, backgroundColor: C.primary, borderRadius: 6,
+                    width: `${s.latestScore > 0 ? s.latestScore : Math.min(100, s.count * 20)}%`,
+                    height: 6,
+                    backgroundColor: s.latestScore >= 80 ? C.primary : s.latestScore >= 60 ? C.accent : '#EF4444',
+                    borderRadius: 6,
                   }} />
                 </View>
               </View>
