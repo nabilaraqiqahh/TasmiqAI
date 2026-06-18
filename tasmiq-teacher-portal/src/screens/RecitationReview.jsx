@@ -65,12 +65,16 @@ export default function RecitationReview() {
   const audioRef = useRef(null);
 
   const [submissions, setSubmissions] = useState([]);
+  const [history,     setHistory]     = useState([]);
+  const [activeTab,   setActiveTab]   = useState('queue'); // 'queue' | 'history'
   const [selected,    setSelected]    = useState(null);
   const [loading,     setLoading]     = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
   const [isPlaying,   setIsPlaying]   = useState(false);
   const [sortBy,      setSortBy]      = useState('newest');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [historyFilter, setHistoryFilter] = useState('all'); // 'all' | 'approved' | 'redo'
   const [feedback,    setFeedback]    = useState('');
   const [grade,       setGrade]       = useState('Good');
   const [saved,       setSaved]       = useState(false);
@@ -100,8 +104,33 @@ export default function RecitationReview() {
     }
   };
 
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('recitations')
+        .select('*, student:user_id(id, full_name, email)')
+        .eq('reviewed', true)
+        .order('reviewed_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setHistory((data || []).map(r => ({
+        ...r,
+        student_name:  r.student_name || r.student?.full_name || r.student?.email?.split('@')[0] || 'Student',
+        surahDisplay:  r.surah || `Surah ${r.surah_number}`,
+        ayahDisplay:   r.ayah  || `${r.start_verse}–${r.end_verse}`,
+        isRedo:        (r.feedback || '').toLowerCase().includes('re-record') || (r.teacher_grade || 0) <= 1,
+      })));
+    } catch (err) {
+      console.error('History load error:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   useEffect(() => { loadSubmissions(); }, []);
   useEffect(() => { if (location.state?.recitation) setSelected(location.state.recitation); }, [location.state]);
+  useEffect(() => { if (activeTab === 'history' && history.length === 0) loadHistory(); }, [activeTab]);
 
   // Sort + filter
   const displayed = submissions
@@ -147,6 +176,7 @@ export default function RecitationReview() {
       setTimeout(() => setSaved(false), 2500);
       setFeedback(''); setGrade('Good'); setSelected(null); setIsPlaying(false);
       loadSubmissions(true);
+      setHistory([]); // invalidate history cache so it reloads next time
     } catch (err) {
       alert('Error: ' + err.message);
     } finally {
@@ -182,15 +212,138 @@ export default function RecitationReview() {
   return (
     <div style={{ maxWidth:1300, margin:'0 auto' }}>
       {/* ── Page Header ── */}
-      <div style={{ marginBottom:28 }}>
+      <div style={{ marginBottom:24 }}>
         <div style={{ fontSize:11, fontWeight:800, color:D.emerald, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom:6 }}>AI Assessment Workspace</div>
         <h1 style={{ fontSize:28, fontWeight:900, color:D.text, margin:'0 0 4px' }}>Review Recitations</h1>
         <p style={{ fontSize:14, color:D.textSec, margin:0 }}>
-          {submissions.length} submission{submissions.length !== 1 ? 's' : ''} pending review
+          {submissions.length} pending · {history.length > 0 ? `${history.length} reviewed` : 'history not loaded'}
           {saved && <span style={{ marginLeft:12, color:D.emerald, fontWeight:700 }}>✓ Saved successfully</span>}
         </p>
       </div>
 
+      {/* ── Tab Switcher ── */}
+      <div style={{ display:'flex', gap:4, marginBottom:20, backgroundColor:D.bg, borderRadius:12, padding:4, width:'fit-content', border:`1px solid ${D.border}` }}>
+        {[
+          { key:'queue',   label:`Pending (${submissions.length})` },
+          { key:'history', label:'History' },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+            padding:'8px 20px', borderRadius:9, border:'none', cursor:'pointer',
+            fontWeight:700, fontSize:13,
+            backgroundColor: activeTab === tab.key ? D.emerald : 'transparent',
+            color: activeTab === tab.key ? 'white' : D.textSec,
+            boxShadow: activeTab === tab.key ? `0 2px 8px ${D.emerald}40` : 'none',
+            transition:'all 0.15s',
+          }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ══ HISTORY TAB ══ */}
+      {activeTab === 'history' && (
+        <div style={{ backgroundColor:D.card, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:'0 2px 10px rgba(0,0,0,0.05)', overflow:'hidden' }}>
+          {/* History header */}
+          <div style={{ padding:'16px 20px', borderBottom:`1px solid ${D.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div>
+              <span style={{ fontSize:14, fontWeight:800, color:D.text }}>Review History</span>
+              <span style={{ fontSize:12, color:D.textSec, marginLeft:8 }}>({history.length} records)</span>
+            </div>
+            <div style={{ display:'flex', gap:6 }}>
+              {['all','approved','redo'].map(f => (
+                <button key={f} onClick={() => setHistoryFilter(f)} style={{
+                  padding:'4px 12px', borderRadius:20, border:'none', cursor:'pointer', fontSize:12, fontWeight:700,
+                  backgroundColor: historyFilter === f ? D.emeraldDark : D.bg,
+                  color: historyFilter === f ? 'white' : D.textSec,
+                }}>
+                  {f === 'all' ? 'All' : f === 'approved' ? '✅ Approved' : '🔄 Re-record'}
+                </button>
+              ))}
+              <button onClick={loadHistory} style={{ padding:'4px 12px', borderRadius:20, border:`1px solid ${D.border}`, cursor:'pointer', fontSize:12, fontWeight:700, backgroundColor:'transparent', color:D.emerald }}>
+                ↻ Refresh
+              </button>
+            </div>
+          </div>
+
+          {historyLoading ? (
+            <div style={{ padding:40, textAlign:'center' }}>
+              <div style={{ width:32, height:32, borderRadius:'50%', border:`3px solid ${D.emeraldLight}`, borderTop:`3px solid ${D.emerald}`, animation:'spin 1s linear infinite', margin:'0 auto' }} />
+            </div>
+          ) : history.filter(r => historyFilter === 'all' || (historyFilter === 'redo' ? r.isRedo : !r.isRedo)).length === 0 ? (
+            <div style={{ padding:60, textAlign:'center', color:D.textSec }}>
+              <CheckCircle size={40} color={D.emeraldLight} style={{ margin:'0 auto 12px', display:'block' }} />
+              No history records found.
+            </div>
+          ) : (
+            <div>
+              {/* Table header */}
+              <div style={{ display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 80px 100px 120px', gap:0, backgroundColor:D.bg, padding:'10px 20px', borderBottom:`1px solid ${D.border}` }}>
+                {['Student','Surah / Ayah','Date','Score','Grade','Status'].map(h => (
+                  <span key={h} style={{ fontSize:11, fontWeight:700, color:D.textSec, textTransform:'uppercase', letterSpacing:0.5 }}>{h}</span>
+                ))}
+              </div>
+              <div style={{ maxHeight:'70vh', overflowY:'auto' }}>
+                {history
+                  .filter(r => historyFilter === 'all' || (historyFilter === 'redo' ? r.isRedo : !r.isRedo))
+                  .map((r, i) => {
+                    const gradeVal = r.teacher_grade || 0;
+                    const gradeLabel = gradeVal >= 5 ? 'Excellent' : gradeVal >= 4 ? 'Good' : gradeVal >= 3 ? 'Needs Improvement' : gradeVal >= 1 ? 'Re-record' : '—';
+                    const scoreColor = (r.score||0) >= 70 ? D.emerald : (r.score||0) >= 50 ? D.amber : D.red;
+                    return (
+                      <div key={r.id} style={{
+                        display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 80px 100px 120px',
+                        gap:0, padding:'14px 20px', alignItems:'center',
+                        borderBottom:`1px solid ${D.border}`,
+                        backgroundColor: i % 2 === 0 ? 'white' : D.bg,
+                        transition:'background 0.1s',
+                      }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = D.emeraldLight + '40'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = i % 2 === 0 ? 'white' : D.bg}
+                      >
+                        {/* Student */}
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <div style={{ width:32, height:32, borderRadius:8, backgroundColor:D.emeraldLight, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:D.emeraldDark, flexShrink:0 }}>
+                            {(r.student_name||'S')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:700, color:D.text }}>{r.student_name}</div>
+                            <div style={{ fontSize:11, color:D.textSec }}>{r.student?.email || ''}</div>
+                          </div>
+                        </div>
+                        {/* Surah */}
+                        <div>
+                          <div style={{ fontSize:13, fontWeight:600, color:D.text }}>{r.surahDisplay}</div>
+                          <div style={{ fontSize:11, color:D.textSec }}>Ayah {r.ayahDisplay}</div>
+                        </div>
+                        {/* Date */}
+                        <div style={{ fontSize:12, color:D.textSec }}>
+                          {r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'}
+                        </div>
+                        {/* Score */}
+                        <div style={{ fontSize:15, fontWeight:900, color:scoreColor }}>{r.score || 0}%</div>
+                        {/* Grade */}
+                        <div style={{ fontSize:12, fontWeight:700, color:D.textSec }}>{gradeLabel}</div>
+                        {/* Status */}
+                        <div>
+                          <span style={{
+                            padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800,
+                            backgroundColor: r.isRedo ? '#FEE2E2' : '#D1FAE5',
+                            color: r.isRedo ? '#991B1B' : '#065F46',
+                          }}>
+                            {r.isRedo ? '🔄 Re-record' : '✅ Approved'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ QUEUE TAB ══ */}
+      {activeTab === 'queue' && (
       <div style={{ display:'grid', gridTemplateColumns:'320px 1fr', gap:20, alignItems:'start' }}>
 
         {/* ══ LEFT PANEL — Review Queue ══ */}
@@ -435,6 +588,7 @@ export default function RecitationReview() {
           </div>
         )}
       </div>
+      )} {/* end queue tab */}
     </div>
   );
 }
