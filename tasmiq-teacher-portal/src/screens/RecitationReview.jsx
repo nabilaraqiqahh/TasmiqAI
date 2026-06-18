@@ -1,539 +1,440 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RefreshCw, Send, Sparkles, MicOff, ChevronRight, Clock, BookOpen, Star } from 'lucide-react';
+import { Play, Pause, RefreshCw, Send, CheckCircle, XCircle,
+         ChevronDown, Clock, BookOpen, Star, Filter, Volume2 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useLocation } from 'react-router-dom';
 
-const C = {
-  bg: '#F5F2E9',
-  card: '#FFFFFF',
-  primary: '#10B981',
-  gold: '#D4AF37',
-  lilac: '#9B8EC4',
-  text: '#1E2A22',
-  muted: '#5C6E65',
-  red: '#E05252',
-  green: '#10B981',
-  dark: '#111827',
-  border: '#EAE3D5',
+const D = {
+  emerald:      '#0B6E4F',
+  emeraldDark:  '#064E3B',
+  emeraldLight: '#D1FAE5',
+  gold:         '#D4AF37',
+  goldLight:    '#F8E7A1',
+  bg:           '#F8FAF8',
+  card:         '#FFFFFF',
+  text:         '#1F2937',
+  textSec:      '#6B7280',
+  border:       '#E5E7EB',
+  red:          '#EF4444',
+  amber:        '#F59E0B',
+  green:        '#10B981',
 };
 
-export default function RecitationReview() {
-  const location = useLocation();
-  const [submissions, setSubmissions] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [feedback, setFeedback] = useState('');
-  const [grade, setGrade] = useState(4);
-  const [recommendation, setRecommendation] = useState('Excellent');
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef(null);
-
-  const loadSubmissions = async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true);
+// ── Auto-approval logic ──────────────────────────────────────
+function getAutoStatus(r) {
+  const score   = r.score || 0;
+  const tajwid  = r.tajwid_score || score;
+  // Count tajwid errors from errors JSON if available
+  let tajwidErrors = 0;
+  if (r.errors) {
     try {
-      // Join with users to get real student name
-      const { data, error } = await supabase
-        .from('recitations')
-        .select(`
-          *,
-          student:user_id (
-            id,
-            full_name,
-            email
-          )
-        `)
-        .eq('reviewed', false)
-        .order('submitted_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Normalise: ensure student_name field is always populated
-      const list = (data || []).map(r => ({
-        ...r,
-        student_name:
-          r.student_name                        // stored at submission time
-          || r.student?.full_name               // joined from users table
-          || r.student?.email?.split('@')[0]    // email prefix fallback
-          || 'Unknown Student',
-        studentName:
-          r.student_name
-          || r.student?.full_name
-          || r.student?.email?.split('@')[0]
-          || 'Unknown Student',
-        // normalise surah/ayah for display
-        surahDisplay: r.surah || `Surah ${r.surah_number}`,
-        ayahDisplay:  r.ayah  || `${r.start_verse}–${r.end_verse}`,
-        audio_url:    r.audio_url || null,
-      }));
-
-      setSubmissions(list);
-      if (list.length > 0 && !selected) setSelected(list[0]);
-    } catch (err) {
-      console.error('Load submissions error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSubmissions();
-  }, []);
-
-  useEffect(() => {
-    if (location.state?.recitation) setSelected(location.state.recitation);
-  }, [location.state]);
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play().catch(() => {});
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleSubmit = async (isRedo = false) => {
-    if (!selected) return;
-    setSubmitting(true);
-    try {
-      const finalFeedback = isRedo
-        ? `REDO: [Recommendation: Needs Revision] ${feedback}`
-        : `[Recommendation: ${recommendation}] ${feedback}`;
-
-      const { error } = await supabase
-        .from('recitations')
-        .update({
-          reviewed:      true,
-          teacher_grade: isRedo ? 0 : grade,
-          feedback:      finalFeedback,
-          reviewed_at:   new Date().toISOString(),
-        })
-        .eq('id', selected.id);
-
-      if (error) throw error;
-
-      // Update student avg_score after review
-      if (selected.user_id) {
-        const { data: allRecs } = await supabase
-          .from('recitations')
-          .select('score')
-          .eq('user_id', selected.user_id)
-          .eq('reviewed', true);
-
-        if (allRecs?.length) {
-          const avg = Math.round(
-            allRecs.reduce((s, r) => s + (r.score || 0), 0) / allRecs.length
-          );
-          await supabase
-            .from('users')
-            .update({ avg_score: avg })
-            .eq('id', selected.user_id);
-        }
-      }
-
-      const studentName = selected.student_name || selected.studentName || 'Student';
-      const surahName   = selected.surahDisplay || selected.surah || `Surah ${selected.surah_number}`;
-      const action      = isRedo ? 'Redo requested' : 'Review submitted';
-
-      alert(`✅ ${action}!\n\n${studentName} — ${surahName}\nGrade: ${isRedo ? 'Redo' : `${grade}/5`}\nFeedback sent successfully.`);
-
-      setFeedback('');
-      setGrade(4);
-      setRecommendation('Excellent');
-      setSelected(null);
-      setIsPlaying(false);
-      loadSubmissions(true);
-    } catch (err) {
-      console.error('Submit error:', err);
-      alert('Error: Could not submit review. Please try again.\n' + err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '50%',
-          border: `4px solid ${C.primary}22`,
-          borderTop: `4px solid ${C.primary}`,
-          animation: 'spin 1s linear infinite'
-        }} />
-      </div>
-    );
+      const e = typeof r.errors === 'string' ? JSON.parse(r.errors) : r.errors;
+      if (Array.isArray(e)) tajwidErrors = e.length;
+    } catch { tajwidErrors = 0; }
   }
+  if (score >= 70 && tajwid >= 65 && tajwidErrors <= 5) return 'approved';
+  if (score < 50) return 'flagged';
+  return 'needs_review';
+}
 
+const STATUS_CONFIG = {
+  approved:     { label: 'AI Approved',   bg: '#D1FAE5', color: '#065F46', dot: '#10B981' },
+  needs_review: { label: 'Needs Review',  bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
+  flagged:      { label: 'Flagged',       bg: '#FEE2E2', color: '#991B1B', dot: '#EF4444' },
+};
+
+// ── Score card component ─────────────────────────────────────
+function ScoreCard({ label, value, color }) {
+  const pct = Math.min(100, Math.max(0, value || 0));
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-
-      {/* PAGE HEADER */}
-      <div style={{ marginBottom: '32px' }}>
-        <p style={{ fontSize: '12px', fontWeight: '800', color: C.primary, textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 6px 0' }}>
-          Review Studio
-        </p>
-        <h1 style={{ fontSize: '32px', fontWeight: '900', color: C.text, margin: '0 0 6px 0' }}>
-          Recitation Review
-        </h1>
-        <p style={{ fontSize: '15px', color: C.muted, margin: 0 }}>
-          {submissions.length > 0
-            ? `${submissions.length} submission${submissions.length > 1 ? 's' : ''} pending your review`
-            : 'All submissions have been reviewed — great work!'}
-        </p>
+    <div style={{ backgroundColor: D.bg, borderRadius: 12, padding: '14px 16px', border: `1px solid ${D.border}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: D.textSec }}>{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 900, color }}>{pct}%</span>
       </div>
-
-      {/* TWO-COLUMN LAYOUT */}
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px', alignItems: 'start' }}>
-
-        {/* LEFT: QUEUE LIST */}
-        <div style={{ backgroundColor: C.card, borderRadius: '20px', padding: '20px', border: `1px solid ${C.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '800', color: C.primary, textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Clock size={14} /> Review Queue ({submissions.length})
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '600px', overflowY: 'auto' }}>
-            {submissions.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setSelected(s);
-                  setFeedback('');
-                  setGrade(4);
-                  setRecommendation('Excellent');
-                  setIsPlaying(false);
-                }}
-                style={{
-                  backgroundColor: selected?.id === s.id ? `${C.primary}10` : 'transparent',
-                  border: `1px solid ${selected?.id === s.id ? C.primary : C.border}`,
-                  borderRadius: '14px',
-                  padding: '14px 16px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: '800', fontSize: '14px', color: C.text, marginBottom: '3px' }}>
-                    {s.student_name || s.studentName || 'Unknown Student'}
-                  </div>
-                  <div style={{ fontSize: '12px', color: C.muted }}>
-                    {s.surahDisplay || s.surah || `Surah ${s.surah_number}`} • Ayah {s.ayahDisplay || s.ayah || `${s.start_verse}–${s.end_verse}`}
-                  </div>
-                  <div style={{ fontSize: '11px', color: C.muted, marginTop: '2px' }}>
-                    Score: <span style={{ color: s.score >= 85 ? C.green : s.score >= 70 ? C.gold : C.red, fontWeight: '800' }}>{s.score}%</span>
-                  </div>
-                </div>
-                <ChevronRight size={16} color={selected?.id === s.id ? C.primary : C.muted} />
-              </button>
-            ))}
-            {submissions.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '32px 16px', color: C.muted }}>
-                <Sparkles size={32} color={C.gold} style={{ margin: '0 auto 12px', display: 'block' }} />
-                <div style={{ fontWeight: '700', fontSize: '14px' }}>All caught up!</div>
-                <div style={{ fontSize: '12px', marginTop: '4px' }}>No pending reviews.</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT: EVALUATION PANEL */}
-        <div>
-          {!selected ? (
-            <div style={{
-              backgroundColor: C.card, borderRadius: '20px', border: `1px solid ${C.border}`,
-              padding: '80px 40px', textAlign: 'center',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.04)'
-            }}>
-              <Sparkles size={56} color={C.lilac} style={{ margin: '0 auto 20px', display: 'block' }} />
-              <h2 style={{ fontSize: '22px', fontWeight: '900', color: C.text, margin: '0 0 8px 0' }}>
-                Select a Student to Begin
-              </h2>
-              <p style={{ color: C.muted, fontSize: '15px', margin: 0 }}>
-                Click any submission from the queue on the left to start your review.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-              {/* STUDENT HEADER */}
-              <div style={{
-                backgroundColor: C.card, borderRadius: '20px', padding: '24px 28px',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                border: `1px solid ${C.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.04)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-                  <div style={{
-                    width: '60px', height: '60px', borderRadius: '18px',
-                    background: `linear-gradient(135deg, ${C.primary}, #22c55e)`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
-                    <span style={{ fontSize: '26px', fontWeight: '900', color: 'white' }}>
-                      {(selected.student_name || selected.studentName || 'S')[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: '22px', fontWeight: '900', color: C.text, margin: '0 0 4px 0' }}>
-                      {selected.student_name || selected.studentName || 'Unknown Student'}
-                    </h2>
-                    <p style={{ fontSize: '14px', color: C.muted, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <BookOpen size={13} />
-                      {selected.surahDisplay || selected.surah || `Surah ${selected.surah_number}`} • Ayah {selected.ayahDisplay || selected.ayah || `${selected.start_verse}–${selected.end_verse}`}
-                    </p>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '11px', color: C.muted, fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>
-                    AI SCORE
-                  </div>
-                  <div style={{
-                    fontSize: '42px', fontWeight: '900',
-                    color: (selected.score||0) >= 85 ? C.green : (selected.score||0) >= 70 ? C.gold : C.red
-                  }}>
-                    {selected.score || 0}%
-                  </div>
-                </div>
-              </div>
-
-              {/* AUDIO PLAYER */}
-              <div style={{
-                background: `linear-gradient(135deg, #0F1723, #1a2940)`,
-                borderRadius: '20px', padding: '28px 32px',
-                display: 'flex', alignItems: 'center', gap: '24px',
-                border: `1px solid rgba(255,255,255,0.05)`,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.15)'
-              }}>
-                <button
-                  onClick={togglePlay}
-                  style={{
-                    width: '64px', height: '64px', borderRadius: '32px',
-                    backgroundColor: C.primary, border: 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', flexShrink: 0,
-                    boxShadow: `0 0 20px ${C.primary}55`,
-                    transition: 'transform 0.2s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  {isPlaying
-                    ? <Pause size={26} color="white" fill="white" />
-                    : <Play size={26} color="white" fill="white" style={{ marginLeft: '3px' }} />
-                  }
-                </button>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: 'white', marginBottom: '8px' }}>
-                    {selected.surahDisplay || selected.surah || `Surah ${selected.surah_number}`} — Ayah {selected.ayahDisplay || selected.ayah || `${selected.start_verse}–${selected.end_verse}`}
-                  </div>
-                  <div style={{ height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                    <div style={{ width: isPlaying ? '35%' : '0%', height: '100%', backgroundColor: C.primary, borderRadius: '2px', transition: 'width 0.3s' }} />
-                  </div>
-                  {!selected.audio_url && (
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>
-                      No audio file attached to this submission.
-                    </div>
-                  )}
-                </div>
-                <audio ref={audioRef} src={selected.audio_url} onEnded={() => setIsPlaying(false)} hidden />
-              </div>
-
-              {/* AI TRANSCRIPTION & ERRORS */}
-              <div style={{
-                backgroundColor: C.card, borderRadius: '20px', padding: '24px 28px',
-                border: `1px solid ${C.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.04)'
-              }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '900', color: C.text, margin: '0 0 16px 0' }}>
-                  AI Analysis & Transcription
-                </h3>
-
-                {selected.transcription && (
-                  <div style={{ backgroundColor: C.bg, borderRadius: '14px', padding: '20px', marginBottom: '16px' }}>
-                    <p style={{
-                      fontSize: '28px', textAlign: 'right', color: C.text,
-                      lineHeight: '2', direction: 'rtl', margin: 0, fontWeight: '500',
-                      fontFamily: 'serif'
-                    }}>
-                      {selected.transcription}
-                    </p>
-                  </div>
-                )}
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-                  {(() => {
-                    // Parse errors JSON if stored as string
-                    let errObj = {};
-                    if (selected.errors) {
-                      try {
-                        errObj = typeof selected.errors === 'string'
-                          ? JSON.parse(selected.errors)
-                          : selected.errors;
-                      } catch { errObj = {}; }
-                    }
-                    const s = selected.score || 0;
-                    return [
-                      { label: 'Memorization',  val: selected.memorization_score  ?? errObj.memorization  ?? s },
-                      { label: 'Pronunciation',  val: selected.pronunciation_score ?? errObj.pronunciation ?? s },
-                      { label: 'Tajwid Rules',   val: selected.tajwid_score        ?? errObj.tajwid        ?? s },
-                      { label: 'Fluency & Flow', val: selected.fluency_score       ?? errObj.fluency       ?? s },
-                    ];
-                  })().map((metric, i) => (
-                    <div key={i} style={{
-                      backgroundColor: C.bg, borderRadius: '12px', padding: '16px',
-                      border: `1px solid ${C.border}`
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: '800', color: C.muted }}>{metric.label}</span>
-                        <span style={{ fontSize: '13px', fontWeight: '900', color: metric.val >= 85 ? C.green : metric.val >= 70 ? C.gold : C.red }}>{Math.round(metric.val)}%</span>
-                      </div>
-                      <div style={{ height: '6px', backgroundColor: '#EAE3D5', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ 
-                          height: '100%', 
-                          width: `${metric.val}%`, 
-                          backgroundColor: metric.val >= 85 ? C.green : metric.val >= 70 ? C.gold : C.red,
-                          borderRadius: '3px'
-                        }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{
-                  backgroundColor: `${C.primary}08`, borderRadius: '12px', padding: '16px',
-                  border: `1px solid ${C.primary}15`
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <Sparkles size={16} color={C.primary} />
-                    <span style={{ fontWeight: '800', color: C.primary, fontSize: '14px' }}>AI Feedback</span>
-                  </div>
-                  <p style={{ color: C.text, fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
-                    {selected.feedback || 'No feedback generated.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* EVALUATION PANEL */}
-              <div style={{
-                backgroundColor: C.card, borderRadius: '20px', padding: '24px 28px',
-                border: `1px solid ${C.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.04)'
-              }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '900', color: C.text, margin: '0 0 20px 0' }}>
-                  Expert Evaluation
-                </h3>
-
-                {/* Grade Buttons */}
-                <label style={{ fontSize: '12px', fontWeight: '800', color: C.muted, display: 'block', marginBottom: '10px', letterSpacing: '0.5px' }}>
-                  PROFICIENCY GRADE (1–5)
-                </label>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <button
-                      key={n}
-                      onClick={() => setGrade(n)}
-                      style={{
-                        flex: 1, height: '52px', borderRadius: '14px',
-                        backgroundColor: grade === n ? C.primary : C.bg,
-                        border: `2px solid ${grade === n ? C.primary : C.border}`,
-                        cursor: 'pointer', fontSize: '18px', fontWeight: '900',
-                        color: grade === n ? 'white' : C.text,
-                        transition: 'all 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
-                      }}
-                    >
-                      <Star size={12} fill={grade === n ? 'white' : 'none'} color={grade === n ? 'white' : C.muted} />
-                      {n}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Recommendation */}
-                <label style={{ fontSize: '12px', fontWeight: '800', color: C.muted, display: 'block', marginBottom: '10px', letterSpacing: '0.5px' }}>
-                  TEACHER RECOMMENDATION
-                </label>
-                <div style={{ position: 'relative', marginBottom: '20px' }}>
-                  <select
-                    value={recommendation}
-                    onChange={e => setRecommendation(e.target.value)}
-                    style={{
-                      width: '100%', backgroundColor: C.bg, borderRadius: '14px',
-                      padding: '14px 16px', fontSize: '15px', fontWeight: '600', color: C.text,
-                      border: `1px solid ${C.border}`, outline: 'none',
-                      boxSizing: 'border-box', fontFamily: 'inherit',
-                      appearance: 'none', cursor: 'pointer'
-                    }}
-                  >
-                    <option value="Excellent">🌟 Excellent — Ready to progress</option>
-                    <option value="Good">👍 Good — Minor corrections needed</option>
-                    <option value="Needs Revision">🔄 Needs Revision — Practice before re-submitting</option>
-                    <option value="Practice Tajweed">📖 Practice Tajweed Rules</option>
-                    <option value="Focus on Makhraj">🗣️ Focus on Makhraj Articulation</option>
-                  </select>
-                  <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: C.muted }}>▼</div>
-                </div>
-
-                {/* Feedback Text */}
-                <label style={{ fontSize: '12px', fontWeight: '800', color: C.muted, display: 'block', marginBottom: '10px', letterSpacing: '0.5px' }}>
-                  WRITTEN FEEDBACK
-                </label>
-                <textarea
-                  placeholder="Write detailed, professional feedback for this student..."
-                  value={feedback}
-                  onChange={e => setFeedback(e.target.value)}
-                  style={{
-                    width: '100%', backgroundColor: C.bg, borderRadius: '14px',
-                    padding: '16px', height: '110px', fontSize: '15px',
-                    border: `1px solid ${C.border}`, outline: 'none',
-                    marginBottom: '20px', boxSizing: 'border-box', fontFamily: 'inherit',
-                    resize: 'vertical'
-                  }}
-                />
-
-                {/* Action Buttons */}
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button
-                    onClick={() => handleSubmit(true)}
-                    disabled={submitting}
-                    style={{
-                      flex: 1, height: '56px', borderRadius: '16px',
-                      backgroundColor: `${C.red}12`, border: `1px solid ${C.red}30`,
-                      cursor: submitting ? 'not-allowed' : 'pointer',
-                      color: C.red, fontWeight: '800', fontSize: '15px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                      transition: 'all 0.2s', opacity: submitting ? 0.6 : 1
-                    }}
-                  >
-                    <RefreshCw size={17} /> Request Redo
-                  </button>
-                  <button
-                    onClick={() => handleSubmit(false)}
-                    disabled={submitting}
-                    style={{
-                      flex: 2, height: '56px', borderRadius: '16px',
-                      backgroundColor: C.primary, border: 'none',
-                      cursor: submitting ? 'not-allowed' : 'pointer',
-                      color: 'white', fontWeight: '800', fontSize: '15px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                      boxShadow: `0 4px 14px ${C.primary}40`,
-                      transition: 'all 0.2s', opacity: submitting ? 0.7 : 1
-                    }}
-                  >
-                    {submitting
-                      ? 'Submitting...'
-                      : <><Send size={17} /> Finalize Review</>
-                    }
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          )}
-        </div>
+      <div style={{ height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, backgroundColor: color, borderRadius: 3, transition: 'width 0.5s ease' }} />
       </div>
     </div>
   );
 }
 
+// ── Main component ───────────────────────────────────────────
+export default function RecitationReview() {
+  const location = useLocation();
+  const audioRef = useRef(null);
 
+  const [submissions, setSubmissions] = useState([]);
+  const [selected,    setSelected]    = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [isPlaying,   setIsPlaying]   = useState(false);
+  const [sortBy,      setSortBy]      = useState('newest');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [feedback,    setFeedback]    = useState('');
+  const [grade,       setGrade]       = useState('Good');
+  const [saved,       setSaved]       = useState(false);
+
+  const loadSubmissions = async (refresh = false) => {
+    if (!refresh) setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('recitations')
+        .select('*, student:user_id(id, full_name, email)')
+        .eq('reviewed', false)
+        .order('submitted_at', { ascending: false });
+      if (error) throw error;
+      const list = (data || []).map(r => ({
+        ...r,
+        student_name: r.student_name || r.student?.full_name || r.student?.email?.split('@')[0] || 'Student',
+        surahDisplay: r.surah || `Surah ${r.surah_number}`,
+        ayahDisplay:  r.ayah  || `${r.start_verse}–${r.end_verse}`,
+        autoStatus:   getAutoStatus(r),
+      }));
+      setSubmissions(list);
+      if (list.length > 0 && !selected) setSelected(list[0]);
+    } catch (err) {
+      console.error('Load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadSubmissions(); }, []);
+  useEffect(() => { if (location.state?.recitation) setSelected(location.state.recitation); }, [location.state]);
+
+  // Sort + filter
+  const displayed = submissions
+    .filter(s => filterStatus === 'all' || s.autoStatus === filterStatus)
+    .sort((a, b) => {
+      if (sortBy === 'lowest') return (a.score || 0) - (b.score || 0);
+      if (sortBy === 'flagged') return a.autoStatus === 'flagged' ? -1 : 1;
+      return new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0);
+    });
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    isPlaying ? audioRef.current.pause() : audioRef.current.play().catch(() => {});
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleAction = async (action) => {
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      const feedbackText = action === 'redo'
+        ? `[Re-record Required] ${feedback}`
+        : `[${grade}] ${feedback}`;
+      const gradeMap = { Excellent: 5, Good: 4, 'Needs Improvement': 3, 'Re-record Required': 1 };
+
+      await supabase.from('recitations').update({
+        reviewed:      true,
+        teacher_grade: action === 'redo' ? 1 : (gradeMap[grade] || 4),
+        feedback:      feedbackText,
+        reviewed_at:   new Date().toISOString(),
+      }).eq('id', selected.id);
+
+      // Update student avg_score
+      if (selected.user_id) {
+        const { data: recs } = await supabase.from('recitations').select('score').eq('user_id', selected.user_id).eq('reviewed', true);
+        if (recs?.length) {
+          const avg = Math.round(recs.reduce((s, r) => s + (r.score || 0), 0) / recs.length);
+          await supabase.from('users').update({ avg_score: avg }).eq('id', selected.user_id);
+        }
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      setFeedback(''); setGrade('Good'); setSelected(null); setIsPlaying(false);
+      loadSubmissions(true);
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Parse score metrics from selected record
+  const getMetrics = (r) => {
+    if (!r) return { mem: 0, pron: 0, tajwid: 0, fluency: 0, overall: 0 };
+    let e = {};
+    if (r.errors) { try { e = typeof r.errors === 'string' ? JSON.parse(r.errors) : r.errors; } catch {} }
+    const s = r.score || 0;
+    return {
+      mem:     r.memorization_score  ?? e.memorization  ?? s,
+      pron:    r.pronunciation_score ?? e.pronunciation  ?? s,
+      tajwid:  r.tajwid_score        ?? e.tajwid         ?? s,
+      fluency: r.fluency_score       ?? e.fluency        ?? s,
+      overall: s,
+    };
+  };
+
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh' }}>
+      <div style={{ width:40, height:40, borderRadius:'50%', border:`3px solid ${D.emeraldLight}`, borderTop:`3px solid ${D.emerald}`, animation:'spin 1s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  const m = getMetrics(selected);
+  const st = selected ? STATUS_CONFIG[selected.autoStatus] : null;
+
+  return (
+    <div style={{ maxWidth:1300, margin:'0 auto' }}>
+      {/* ── Page Header ── */}
+      <div style={{ marginBottom:28 }}>
+        <div style={{ fontSize:11, fontWeight:800, color:D.emerald, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom:6 }}>AI Assessment Workspace</div>
+        <h1 style={{ fontSize:28, fontWeight:900, color:D.text, margin:'0 0 4px' }}>Review Recitations</h1>
+        <p style={{ fontSize:14, color:D.textSec, margin:0 }}>
+          {submissions.length} submission{submissions.length !== 1 ? 's' : ''} pending review
+          {saved && <span style={{ marginLeft:12, color:D.emerald, fontWeight:700 }}>✓ Saved successfully</span>}
+        </p>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'320px 1fr', gap:20, alignItems:'start' }}>
+
+        {/* ══ LEFT PANEL — Review Queue ══ */}
+        <div style={{ backgroundColor:D.card, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:'0 2px 10px rgba(0,0,0,0.05)', overflow:'hidden' }}>
+          {/* Queue header */}
+          <div style={{ padding:'16px 16px 12px', borderBottom:`1px solid ${D.border}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+              <span style={{ fontSize:13, fontWeight:800, color:D.text }}>Queue ({displayed.length})</span>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ fontSize:11, fontWeight:700, color:D.emerald, border:`1px solid ${D.emeraldLight}`, borderRadius:6, padding:'3px 6px', backgroundColor:D.card, cursor:'pointer', outline:'none' }}>
+                <option value="newest">Newest</option>
+                <option value="lowest">Lowest Score</option>
+                <option value="flagged">Flagged First</option>
+              </select>
+            </div>
+            {/* Filter chips */}
+            <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+              {['all','approved','needs_review','flagged'].map(f => (
+                <button key={f} onClick={() => setFilterStatus(f)} style={{
+                  padding:'3px 10px', borderRadius:20, border:'none', cursor:'pointer', fontSize:11, fontWeight:700,
+                  backgroundColor: filterStatus === f ? D.emerald : D.bg,
+                  color: filterStatus === f ? 'white' : D.textSec,
+                }}>
+                  {f === 'all' ? 'All' : STATUS_CONFIG[f]?.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Queue items */}
+          <div style={{ maxHeight:'68vh', overflowY:'auto' }}>
+            {displayed.length === 0 ? (
+              <div style={{ padding:40, textAlign:'center', color:D.textSec }}>
+                <BookOpen size={36} color={D.border} style={{ margin:'0 auto 12px', display:'block' }} />
+                No submissions match the filter.
+              </div>
+            ) : displayed.map(s => {
+              const cfg = STATUS_CONFIG[s.autoStatus];
+              const isActive = selected?.id === s.id;
+              return (
+                <button key={s.id} onClick={() => { setSelected(s); setFeedback(''); setGrade('Good'); setIsPlaying(false); }} style={{
+                  width:'100%', textAlign:'left', border:'none', cursor:'pointer',
+                  padding:'13px 16px',
+                  backgroundColor: isActive ? D.emeraldLight : 'transparent',
+                  borderLeft: `3px solid ${isActive ? D.emerald : 'transparent'}`,
+                  borderBottom:`1px solid ${D.border}`,
+                  transition:'all 0.15s',
+                }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
+                    <span style={{ fontSize:13, fontWeight:800, color:D.text }}>{s.student_name}</span>
+                    <span style={{ fontSize:11, fontWeight:800, color:cfg.color, backgroundColor:cfg.bg, padding:'2px 7px', borderRadius:20 }}>{cfg.label}</span>
+                  </div>
+                  <div style={{ fontSize:12, color:D.textSec, marginBottom:3 }}>{s.surahDisplay} • {s.ayahDisplay}</div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:11, color:D.textSec }}>{s.submitted_at ? new Date(s.submitted_at).toLocaleDateString('en-GB') : '—'}</span>
+                    <span style={{ fontSize:12, fontWeight:800, color: (s.score||0) >= 70 ? D.green : (s.score||0) >= 50 ? D.amber : D.red }}>{s.score || 0}%</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ══ CENTER PANEL — Assessment ══ */}
+        {!selected ? (
+          <div style={{ backgroundColor:D.card, borderRadius:16, border:`1px solid ${D.border}`, padding:80, textAlign:'center', boxShadow:'0 2px 10px rgba(0,0,0,0.05)' }}>
+            <BookOpen size={52} color={D.emeraldLight} style={{ margin:'0 auto 16px', display:'block' }} />
+            <h3 style={{ fontSize:18, fontWeight:800, color:D.text, margin:'0 0 6px' }}>Select a submission</h3>
+            <p style={{ color:D.textSec, margin:0, fontSize:14 }}>Choose a student from the queue to begin assessment.</p>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+
+            {/* Student Header Card */}
+            <div style={{ backgroundColor:D.card, borderRadius:16, padding:'20px 24px', border:`1px solid ${D.border}`, boxShadow:'0 2px 10px rgba(0,0,0,0.05)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                  <div style={{ width:52, height:52, borderRadius:14, background:`linear-gradient(135deg, ${D.emerald}, ${D.emeraldDark})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:900, color:'white', flexShrink:0 }}>
+                    {(selected.student_name || 'S')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize:20, fontWeight:900, color:D.text, margin:'0 0 2px' }}>{selected.student_name}</h2>
+                    <div style={{ fontSize:13, color:D.textSec, display:'flex', alignItems:'center', gap:8 }}>
+                      <BookOpen size={13} />
+                      {selected.surahDisplay} • Ayah {selected.ayahDisplay}
+                      <span>•</span>
+                      {selected.submitted_at ? new Date(selected.submitted_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign:'center', backgroundColor: st?.bg, borderRadius:12, padding:'10px 20px', border:`1px solid ${st?.color}30` }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:st?.color, letterSpacing:0.8, marginBottom:2 }}>AI STATUS</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', backgroundColor:st?.dot }} />
+                    <span style={{ fontSize:13, fontWeight:800, color:st?.color }}>{st?.label}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Audio Player */}
+            <div style={{ background:`linear-gradient(135deg, ${D.emeraldDark} 0%, #032D20 100%)`, borderRadius:16, padding:'22px 24px', boxShadow:'0 4px 16px rgba(6,78,59,0.25)' }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.55)', letterSpacing:1.5, marginBottom:14 }}>AUDIO PLAYBACK</div>
+              <div style={{ display:'flex', alignItems:'center', gap:18 }}>
+                <button onClick={togglePlay} style={{
+                  width:52, height:52, borderRadius:26, backgroundColor:D.emerald, border:'none', cursor:'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                  boxShadow:`0 0 18px ${D.emerald}60`, transition:'transform 0.15s',
+                }}
+                onMouseOver={e => e.currentTarget.style.transform='scale(1.08)'}
+                onMouseOut={e => e.currentTarget.style.transform='scale(1)'}
+                >
+                  {isPlaying ? <Pause size={22} color="white" fill="white" /> : <Play size={22} color="white" fill="white" style={{ marginLeft:2 }} />}
+                </button>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:'white', marginBottom:8 }}>
+                    {selected.surahDisplay} — Ayah {selected.ayahDisplay}
+                  </div>
+                  {/* Waveform bars */}
+                  <div style={{ display:'flex', alignItems:'center', gap:2, height:32 }}>
+                    {Array.from({ length: 40 }, (_, i) => (
+                      <div key={i} style={{
+                        width: 3, borderRadius: 2,
+                        height: `${20 + Math.sin(i * 0.8) * 12 + Math.sin(i * 0.3) * 8}px`,
+                        backgroundColor: isPlaying ? D.gold : 'rgba(255,255,255,0.25)',
+                        transition: 'background-color 0.3s',
+                      }} />
+                    ))}
+                  </div>
+                  {!selected.audio_url && <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:6 }}>No audio file attached</div>}
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <Volume2 size={16} color="rgba(255,255,255,0.5)" />
+                  <span style={{ fontSize:12, color:'rgba(255,255,255,0.5)' }}>Audio</span>
+                </div>
+              </div>
+              <audio ref={audioRef} src={selected.audio_url} onEnded={() => setIsPlaying(false)} hidden />
+            </div>
+
+            {/* AI Score Cards */}
+            <div style={{ backgroundColor:D.card, borderRadius:16, padding:'20px 24px', border:`1px solid ${D.border}`, boxShadow:'0 2px 10px rgba(0,0,0,0.05)' }}>
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:13, fontWeight:800, color:D.text, marginBottom:2 }}>AI Analysis</div>
+                <div style={{ fontSize:12, color:D.textSec }}>Automated assessment scores from recitation analysis</div>
+              </div>
+
+              {/* Overall score prominent display */}
+              <div style={{ display:'flex', alignItems:'center', gap:20, marginBottom:20, padding:'16px 20px', backgroundColor: D.bg, borderRadius:12, border:`1px solid ${D.border}` }}>
+                <div style={{ textAlign:'center' }}>
+                  <div style={{ fontSize:42, fontWeight:900, color: m.overall >= 70 ? D.emerald : m.overall >= 50 ? D.amber : D.red, lineHeight:1 }}>{m.overall}%</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:D.textSec, marginTop:4 }}>OVERALL SCORE</div>
+                </div>
+                <div style={{ flex:1, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  <ScoreCard label="Memorization Accuracy" value={m.mem}    color={D.emerald} />
+                  <ScoreCard label="Pronunciation"          value={m.pron}   color="#4A90A4" />
+                  <ScoreCard label="Tajwid Compliance"      value={m.tajwid} color={D.gold} />
+                  <ScoreCard label="Fluency Score"          value={m.fluency} color="#9B8EC4" />
+                </div>
+              </div>
+
+              {/* Transcription */}
+              {selected.transcription && (
+                <div style={{ backgroundColor:'#F9F7F0', borderRadius:12, padding:'16px 18px', marginBottom:16, border:`1px solid #EDE8D0` }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:D.textSec, marginBottom:8, letterSpacing:0.5 }}>RECITED TEXT</div>
+                  <p style={{ fontSize:22, textAlign:'right', color:D.text, lineHeight:1.9, direction:'rtl', margin:0, fontFamily:'serif', fontWeight:500 }}>
+                    {selected.transcription}
+                  </p>
+                </div>
+              )}
+
+              {/* AI Feedback structured */}
+              <div style={{ backgroundColor:`${D.emeraldLight}60`, borderRadius:12, padding:'14px 16px', border:`1px solid ${D.emeraldLight}` }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
+                  <span style={{ fontSize:16 }}>🤖</span>
+                  <span style={{ fontSize:13, fontWeight:800, color:D.emeraldDark }}>AI Feedback</span>
+                </div>
+                <p style={{ fontSize:13, color:D.text, lineHeight:1.7, margin:0 }}>
+                  {selected.feedback || 'No AI feedback generated for this submission.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Teacher Evaluation Panel */}
+            <div style={{ backgroundColor:D.card, borderRadius:16, padding:'20px 24px', border:`1px solid ${D.border}`, boxShadow:'0 2px 10px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize:13, fontWeight:800, color:D.text, marginBottom:16 }}>Expert Evaluation</div>
+
+              {/* Grade selector */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:D.textSec, marginBottom:8, letterSpacing:0.5 }}>TEACHER RECOMMENDATION</div>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  {['Excellent', 'Good', 'Needs Improvement', 'Re-record Required'].map(g => (
+                    <button key={g} onClick={() => setGrade(g)} style={{
+                      padding:'8px 14px', borderRadius:20, border:`1.5px solid ${grade === g ? D.emerald : D.border}`,
+                      backgroundColor: grade === g ? D.emeraldLight : 'transparent',
+                      color: grade === g ? D.emeraldDark : D.textSec,
+                      fontWeight: grade === g ? 800 : 600, fontSize:12, cursor:'pointer', transition:'all 0.15s',
+                    }}>
+                      {g === 'Excellent' ? '🌟' : g === 'Good' ? '👍' : g === 'Needs Improvement' ? '📖' : '🔄'} {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Feedback textarea */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:D.textSec, marginBottom:8, letterSpacing:0.5 }}>WRITTEN FEEDBACK</div>
+                <textarea
+                  placeholder="Write your professional feedback for the student…"
+                  value={feedback}
+                  onChange={e => setFeedback(e.target.value)}
+                  style={{
+                    width:'100%', height:90, borderRadius:10, padding:'10px 12px',
+                    border:`1px solid ${D.border}`, backgroundColor:D.bg,
+                    fontSize:13, color:D.text, fontFamily:'inherit', resize:'vertical', outline:'none',
+                    boxSizing:'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display:'flex', gap:10 }}>
+                <button onClick={() => handleAction('redo')} disabled={submitting} style={{
+                  flex:1, padding:'13px', borderRadius:12, border:`1.5px solid ${D.red}30`,
+                  backgroundColor:`${D.red}10`, color:D.red, fontWeight:800, fontSize:13,
+                  cursor:submitting ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+                  opacity: submitting ? 0.6 : 1,
+                }}>
+                  <RefreshCw size={15} /> Request Re-recording
+                </button>
+                <button onClick={() => handleAction('approve')} disabled={submitting} style={{
+                  flex:2, padding:'13px', borderRadius:12, border:'none',
+                  background:`linear-gradient(135deg, ${D.emerald}, ${D.emeraldDark})`,
+                  color:'white', fontWeight:800, fontSize:13,
+                  cursor:submitting ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+                  opacity: submitting ? 0.7 : 1,
+                  boxShadow:`0 4px 14px ${D.emerald}40`,
+                }}>
+                  {submitting ? '...' : <><CheckCircle size={15} /> Approve Assessment</>}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
