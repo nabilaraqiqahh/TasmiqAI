@@ -133,13 +133,6 @@ def load_model():
     logger.warning("No valid GEMINI_API_KEY — using acoustic fallback")
     print("Engine: Acoustic signal analysis (no API key)")
     return True
-        except Exception as e:
-            logger.error(f"Gemini client initialization failed: {e}")
-
-    logger.warning("No valid GEMINI_API_KEY found in environment variables.")
-    print("Engine: Acoustic signal analysis (instant local, no API key needed)")
-    print("Tip: Set GEMINI_API_KEY env var for higher accuracy")
-    return True   # Ensure system starts regardless
 
 
 # ── Audio helpers ─────────────────────────────────────────────────────────────
