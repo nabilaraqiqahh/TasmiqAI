@@ -195,15 +195,49 @@ async def root():
 async def health():
     gemini_ok = tasmiq_app.gemini_client is not None
     api_key = os.environ.get("GEMINI_API_KEY", "")
+
+    # Check ffmpeg
+    ffmpeg_path = os.path.join(os.path.dirname(__file__), 'deps', 'imageio_ffmpeg', 'binaries', 'ffmpeg.exe')
+    ffmpeg_ok = os.path.exists(ffmpeg_path)
+
     return {
         "status": "ok",
         "supabase_connected": supabase is not None,
         "dataset_loaded": bool(tasmiq_app.quran_data),
+        "dataset_surahs": len(tasmiq_app.quran_data),
         "gemini_ready": gemini_ok,
         "gemini_key_present": bool(api_key),
         "gemini_key_prefix": api_key[:8] + "..." if api_key else "NOT SET",
-        "engine": "Gemini Flash" if gemini_ok else "Acoustic Fallback (55% default)",
+        "ffmpeg_available": ffmpeg_ok,
+        "ffmpeg_path": ffmpeg_path if ffmpeg_ok else "NOT FOUND",
+        "engine": "Gemini Flash" if gemini_ok else "Acoustic (ffmpeg decode)",
     }
+
+
+@app.post("/api/debug-audio")
+async def debug_audio(audio: UploadFile = File(...)):
+    """Debug endpoint — test audio loading without full AI analysis."""
+    import tempfile, shutil
+    tmp = None
+    try:
+        ext = os.path.splitext(audio.filename or 'audio.wav')[1] or '.wav'
+        tmp = tempfile.mktemp(suffix=ext)
+        with open(tmp, 'wb') as f:
+            shutil.copyfileobj(audio.file, f)
+        file_size = os.path.getsize(tmp)
+        arr = tasmiq_app.process_audio(tmp)
+        return {
+            "file_size_bytes": file_size,
+            "audio_samples": len(arr),
+            "duration_seconds": round(len(arr) / 16000, 2) if len(arr) > 0 else 0,
+            "loaded_ok": len(arr) > 0,
+            "message": "Audio loaded successfully" if len(arr) > 0 else "Audio array is EMPTY — check file format/ffmpeg",
+        }
+    except Exception as e:
+        return {"error": str(e), "loaded_ok": False}
+    finally:
+        if tmp and os.path.exists(tmp):
+            os.remove(tmp)
 
 # ============================================================
 # AUTHENTICATION ENDPOINTS
@@ -1125,11 +1159,16 @@ async def analyze_recitation(
     """
     temp_audio_path = None
     try:
+        # Preserve original file extension so librosa/ffmpeg can decode correctly
+        # Web browser sends .webm, mobile sends .m4a/.wav
         filename = audio.filename or "recording.wav"
-        temp_audio_path = os.path.join(tempfile.gettempdir(), filename)
+        ext = os.path.splitext(filename)[1].lower() or '.wav'
+        temp_audio_path = tempfile.mktemp(suffix=ext)
         
         with open(temp_audio_path, "wb") as buf:
             shutil.copyfileobj(audio.file, buf)
+        
+        logger.info(f"/analyze received: filename={filename}, size={os.path.getsize(temp_audio_path)} bytes")
         
         result = tasmiq_app.assess_recitation_detailed(
             surah_label=str(surah),
