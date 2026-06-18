@@ -193,11 +193,16 @@ async def root():
 
 @app.get("/health")
 async def health():
+    gemini_ok = tasmiq_app.gemini_client is not None
+    api_key = os.environ.get("GEMINI_API_KEY", "")
     return {
         "status": "ok",
         "supabase_connected": supabase is not None,
         "dataset_loaded": bool(tasmiq_app.quran_data),
-        "gemini_ready": tasmiq_app.gemini_client is not None
+        "gemini_ready": gemini_ok,
+        "gemini_key_present": bool(api_key),
+        "gemini_key_prefix": api_key[:8] + "..." if api_key else "NOT SET",
+        "engine": "Gemini Flash" if gemini_ok else "Acoustic Fallback (55% default)",
     }
 
 # ============================================================

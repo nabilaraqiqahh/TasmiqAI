@@ -32,6 +32,16 @@ try:
 except ImportError:
     pass
 
+# ── Set bundled ffmpeg so librosa can decode m4a/mp4 from mobile ──────────────
+_BUNDLED_FFMPEG = Path(__file__).resolve().parent / 'deps' / 'imageio_ffmpeg' / 'binaries' / 'ffmpeg.exe'
+if _BUNDLED_FFMPEG.exists():
+    os.environ.setdefault('PATH', '')
+    os.environ['PATH'] = str(_BUNDLED_FFMPEG.parent) + os.pathsep + os.environ.get('PATH', '')
+    os.environ['IMAGEIO_FFMPEG_EXE'] = str(_BUNDLED_FFMPEG)
+    print(f"✅ ffmpeg set: {_BUNDLED_FFMPEG}")
+else:
+    print(f"⚠️ bundled ffmpeg not found at {_BUNDLED_FFMPEG}")
+
 # ── Gemini API Key — loaded from environment / .env file ─────────────────────
 # DO NOT hardcode API keys in source code.
 # Set GEMINI_API_KEY in your .env file or system environment variables.
@@ -83,20 +93,46 @@ def load_dataset():
 def load_model():
     """
     Initialise the Gemini SDK client if the API key is present in environment.
-    If no API key, gracefully fall back to local acoustic analysis.
     """
     global gemini_client
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    
+
+    if not api_key:
+        # Try loading from .env directly as fallback
+        env_path = Path(__file__).resolve().parent / '.env'
+        if env_path.exists():
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('GEMINI_API_KEY='):
+                        api_key = line.split('=', 1)[1].strip().strip('"').strip("'")
+                        os.environ["GEMINI_API_KEY"] = api_key
+                        break
+
     if api_key:
+        # Validate key format — Gemini keys start with AIza
+        if not api_key.startswith('AIza') and not api_key.startswith('AI'):
+            logger.warning(f"GEMINI_API_KEY looks invalid (should start with 'AIza'): {api_key[:12]}...")
+            logger.warning("Get a valid key from https://aistudio.google.com/app/apikey")
+            # Still try it — maybe new format
         try:
             from google import genai
-            gemini_client = genai.Client(http_options={'timeout': 15.0})
-            logger.info("Gemini client ready - fast cloud transcription enabled!")
-            print("Engine: Gemini Flash (fast cloud transcription)")
+            gemini_client = genai.Client(
+                api_key=api_key,
+                http_options={'timeout': 30.0}
+            )
+            logger.info(f"Gemini API key loaded: {api_key[:8]}...")
+            print(f"Engine: Gemini Flash (key: {api_key[:8]}...)")
             return True
         except ImportError:
-            logger.error("google-genai library not installed. Run: pip install google-genai")
+            logger.error("google-genai not installed. Run: pip install google-genai")
+        except Exception as e:
+            logger.error(f"Gemini client init failed: {e}")
+            gemini_client = None
+
+    logger.warning("No valid GEMINI_API_KEY — using acoustic fallback")
+    print("Engine: Acoustic signal analysis (no API key)")
+    return True
         except Exception as e:
             logger.error(f"Gemini client initialization failed: {e}")
 
@@ -117,16 +153,60 @@ def process_audio(audio_source, sr=16000):
             if arr.max() > 1.0: arr /= 32768.0
             if orig_sr != sr: arr = librosa.resample(arr, orig_sr=orig_sr, target_sr=sr)
         else:
+            path = str(audio_source)
+            loaded = False
+
+            # Try soundfile first (fast, handles wav/flac)
             try:
-                arr, s_rate = sf.read(str(audio_source), dtype='float32')
+                arr, s_rate = sf.read(path, dtype='float32')
                 if arr.ndim > 1: arr = arr.mean(axis=1)
                 if s_rate != sr: arr = librosa.resample(arr, orig_sr=s_rate, target_sr=sr)
+                loaded = True
             except Exception:
-                arr, _ = librosa.load(str(audio_source), sr=sr, mono=True)
+                pass
+
+            # Fall back to librosa (handles mp3, m4a, mp4 via ffmpeg)
+            if not loaded:
+                try:
+                    arr, _ = librosa.load(path, sr=sr, mono=True)
+                    loaded = True
+                    logger.info(f"librosa loaded: {len(arr)/sr:.2f}s")
+                except Exception as e:
+                    logger.warning(f"librosa.load failed for {path}: {e}")
+                    # Try renaming extension if it's actually m4a saved as wav
+                    if path.endswith('.wav'):
+                        m4a_path = path.replace('.wav', '.m4a')
+                        import shutil
+                        shutil.copy(path, m4a_path)
+                        try:
+                            arr, _ = librosa.load(m4a_path, sr=sr, mono=True)
+                            loaded = True
+                            logger.info(f"librosa loaded as m4a: {len(arr)/sr:.2f}s")
+                        except Exception as e2:
+                            logger.error(f"m4a rename attempt failed: {e2}")
+                        finally:
+                            if os.path.exists(m4a_path):
+                                os.remove(m4a_path)
+
+            # Last resort: try pydub if available
+            if not loaded:
+                try:
+                    from pydub import AudioSegment
+                    seg = AudioSegment.from_file(path)
+                    seg = seg.set_frame_rate(sr).set_channels(1)
+                    arr = np.array(seg.get_array_of_samples(), dtype=np.float32) / 32768.0
+                    loaded = True
+                except Exception as e:
+                    logger.error(f"pydub fallback failed: {e}")
+
+            if not loaded:
+                logger.error(f"Could not load audio: {path}")
+                return np.array([])
 
         arr, _ = librosa.effects.trim(arr, top_db=25)
         if len(arr) > 0:
             arr = librosa.util.normalize(arr)
+        logger.info(f"Audio loaded: {len(arr)/sr:.2f}s at {sr}Hz")
         return arr
     except Exception as e:
         logger.error(f"Audio processing error: {e}")
@@ -187,12 +267,15 @@ def get_expected_text_from_db(surah_idx: int, ayah_range_str: str) -> str:
 # ── Acoustic scoring (instant, no ML model) ───────────────────────────────────
 def _acoustic_score(audio_arr: np.ndarray, expected_text: str) -> dict:
     """
-    Derive realistic Quran recitation scores purely from audio signal features.
+    Derive realistic Quran recitation scores from audio signal features.
+    Only used when Gemini is unavailable.
     """
     sr = 16000
     if len(audio_arr) == 0:
-        base = 55.0
-        return _build_scores(base, base, base, base, expected_text, "acoustic")
+        # Truly empty audio — return a low score to signal no speech detected
+        logger.warning("Empty audio array — returning low acoustic score")
+        base = 30.0
+        return _build_scores(base, base, base, base, expected_text, "acoustic_empty")
 
     # -- Speech/silence ratio -------------------------------------------------
     rms = librosa.feature.rms(y=audio_arr, frame_length=512, hop_length=256)[0]
@@ -216,30 +299,41 @@ def _acoustic_score(audio_arr: np.ndarray, expected_text: str) -> dict:
     zcr_mean = float(np.mean(zcr))
     articulation = float(np.clip((zcr_mean - 0.01) / 0.10, 0, 1))
 
-    # -- Derive four scores --------------------------------------------------
-    mem_raw = (speech_ratio * 0.4 + duration_ratio * 0.6)
-    mem_score = float(np.clip(81.0 + mem_raw * 17, 81, 98))
+    # -- Derive four scores — wider range (50-95) based on features ----------
+    # mem: how much of expected duration was covered with speech
+    mem_raw = (speech_ratio * 0.5 + duration_ratio * 0.5)
+    mem_score = float(np.clip(50.0 + mem_raw * 45.0, 50, 95))
 
+    # pronunciation: articulation + smoothness
     pron_raw = (articulation * 0.5 + smoothness * 0.5)
-    pron_score = float(np.clip(80.5 + pron_raw * 16, 80.5, 97.5))
+    pron_score = float(np.clip(50.0 + pron_raw * 40.0, 50, 93))
 
-    fluency_raw = (smoothness * 0.6 + speech_ratio * 0.4)
-    fluency_score = float(np.clip(82.0 + fluency_raw * 15, 82, 97))
+    # fluency: smoothness of speech flow
+    fluency_raw = (smoothness * 0.65 + speech_ratio * 0.35)
+    fluency_score = float(np.clip(50.0 + fluency_raw * 42.0, 50, 94))
 
-    tajwid_raw = (articulation * 0.6 + smoothness * 0.4)
-    tajwid_score = float(np.clip(81.5 + tajwid_raw * 16, 81.5, 97.5))
+    # tajwid: correlates with articulation precision
+    tajwid_raw = (articulation * 0.7 + smoothness * 0.3)
+    tajwid_score = float(np.clip(50.0 + tajwid_raw * 38.0, 50, 92))
 
-    rng = random.Random(int(speech_ratio * 1000) + len(audio_arr))
-    jitter = lambda s: float(np.clip(s + rng.uniform(-3, 3), 80.0, 99.0))
+    # Add small random variation so repeated recordings feel different
+    rng = random.Random(int(speech_ratio * 10000) + int(duration_sec * 100))
+    jitter = lambda s: float(np.clip(s + rng.uniform(-4, 4), 45.0, 97.0))
     mem_score, pron_score, fluency_score, tajwid_score = (
         jitter(mem_score), jitter(pron_score),
         jitter(fluency_score), jitter(tajwid_score)
     )
 
     logger.info(
-        f"Acoustic scores -> Mem:{mem_score:.1f} Pron:{pron_score:.1f} "
+        f"Acoustic scores → Mem:{mem_score:.1f} Pron:{pron_score:.1f} "
         f"Tajwid:{tajwid_score:.1f} Fluency:{fluency_score:.1f} "
-        f"(speech_ratio={speech_ratio:.2f}, dur={duration_sec:.1f}s)"
+        f"(speech={speech_ratio:.2f}, dur={duration_sec:.1f}s, zcr={zcr_mean:.4f})"
+    )
+
+    logger.info(
+        f"Acoustic scores → Mem:{mem_score:.1f} Pron:{pron_score:.1f} "
+        f"Tajwid:{tajwid_score:.1f} Fluency:{fluency_score:.1f} "
+        f"(speech={speech_ratio:.2f}, dur={duration_sec:.1f}s, zcr={zcr_mean:.4f})"
     )
     return _build_scores(mem_score, pron_score, tajwid_score, fluency_score,
                          expected_text, "acoustic")
