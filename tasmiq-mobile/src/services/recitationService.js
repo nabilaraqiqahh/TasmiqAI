@@ -50,7 +50,7 @@ export const saveRecitationResult = async (studentId, dataObj) => {
     end_verse:           endVerse,
     audio_url:           finalAudioUrl,
     submitted_at:        new Date().toISOString(),
-    duration_seconds:    0,    // required NOT NULL — default 0
+    recorded_at:         new Date().toISOString(),
     recorded_at:         new Date().toISOString(),
     surah:               dataObj.surah   || '',
     ayah:                ayahStr,
