@@ -27,54 +27,79 @@ export default function MurajaahMonitoring() {
   const [search,        setSearch]        = useState('');
   const [tab,           setTab]           = useState('sessions'); // 'sessions' | 'roster'
 
+  const [error, setError] = useState('');
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
+    setError('');
     try {
       const [classRes, memberRes, studentRes, sessionRes] = await Promise.all([
         supabase.from('classes').select('*'),
         supabase.from('class_members').select('*'),
         supabase.from('users').select('*').eq('role', 'student'),
+        // Don't use FK join — fetch separately to avoid FK mismatch errors
         supabase.from('murajaah_sessions')
-          .select('*, student:student_id(id, full_name, email)')
+          .select('*')
           .order('session_date', { ascending: false })
           .limit(200),
       ]);
+
+      if (sessionRes.error) {
+        console.error('murajaah_sessions error:', sessionRes.error);
+        setError(`Sessions table error: ${sessionRes.error.message}`);
+      }
 
       const classesData  = classRes.data  || [];
       const membersData  = memberRes.data || [];
       const studentsData = studentRes.data || [];
       const sessionsData = sessionRes.data || [];
 
-      setClasses(classesData);
-
-      // Build student map with class info
-      const studentMap = {};
+      // Build student lookup by id
+      const studentById = {};
       studentsData.forEach(s => {
-        const membership = membersData.find(m => m.student_id === s.id);
-        const cls = membership ? classesData.find(c => c.id === membership.class_id) : null;
-        studentMap[s.id] = {
+        studentById[s.id] = {
           ...s,
-          name:      s.full_name || s.email?.split('@')[0] || 'Student',
-          className: cls?.name || 'Unassigned',
-          classId:   cls?.id || null,
+          name: s.full_name || s.email?.split('@')[0] || 'Student',
         };
       });
-      setStudents(Object.values(studentMap));
 
-      // Enrich sessions with student info
-      const enriched = sessionsData.map(sess => ({
-        ...sess,
-        studentName: sess.student?.full_name || sess.student?.email?.split('@')[0]
-                     || studentMap[sess.student_id]?.name || 'Student',
-        className:   studentMap[sess.student_id]?.className || '—',
-        classId:     studentMap[sess.student_id]?.classId || null,
+      // Build membership lookup
+      const membersByStudent = {};
+      membersData.forEach(m => {
+        membersByStudent[m.student_id] = m.class_id;
+      });
+
+      const classById = {};
+      classesData.forEach(c => { classById[c.id] = c; });
+
+      setClasses(classesData);
+
+      // Build student list with class info
+      const studentList = studentsData.map(s => ({
+        ...s,
+        name:      s.full_name || s.email?.split('@')[0] || 'Student',
+        classId:   membersByStudent[s.id] || null,
+        className: classById[membersByStudent[s.id]]?.name || 'Unassigned',
       }));
+      setStudents(studentList);
+
+      // Enrich sessions
+      const enriched = sessionsData.map(sess => {
+        const stu = studentById[sess.student_id] || {};
+        return {
+          ...sess,
+          studentName: stu.full_name || stu.email?.split('@')[0] || `Student`,
+          classId:     membersByStudent[sess.student_id] || null,
+          className:   classById[membersByStudent[sess.student_id]]?.name || '—',
+        };
+      });
       setSessions(enriched);
 
     } catch (err) {
       console.error('MurajaahMonitoring error:', err);
+      setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -105,7 +130,7 @@ export default function MurajaahMonitoring() {
 
   return (
     <div style={{ maxWidth:1200, margin:'0 auto' }}>
-      {/* Header */}
+      {/* ── Page Header ── */}
       <div style={{ marginBottom:24 }}>
         <div style={{ fontSize:11, fontWeight:800, color:D.emerald, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom:6 }}>Academic Module</div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
@@ -121,7 +146,12 @@ export default function MurajaahMonitoring() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Error banner */}
+      {error && (
+        <div style={{ backgroundColor:'#FEE2E2', borderRadius:12, padding:'12px 16px', marginBottom:16, color:'#991B1B', fontSize:13, fontWeight:600, border:'1px solid #FECACA' }}>
+          ⚠️ {error} — Run ADD_MURAJAAH_PROGRESS.sql in Supabase if table is missing columns.
+        </div>
+      )}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
         {[
           { label:'Total Sessions',  value: filteredSessions.length,      color: D.emerald,  bg: D.emeraldLight },
@@ -181,8 +211,16 @@ export default function MurajaahMonitoring() {
 
           {filteredSessions.length === 0 ? (
             <div style={{ padding:60, textAlign:'center', color:D.textSec }}>
-              <BookOpen size={36} color={D.emeraldLight} style={{ margin:'0 auto 12px', display:'block' }} />
-              No Murajaah sessions found.
+              <BookOpen size={36} color={D.emeraldLight} style={{ margin:'0 auto 14px', display:'block' }} />
+              <div style={{ fontSize:15, fontWeight:700, color:D.text, marginBottom:6 }}>No Murajaah Sessions Yet</div>
+              <div style={{ fontSize:13, color:D.textSec, maxWidth:340, margin:'0 auto' }}>
+                Sessions will appear here once students complete Murajaah in the mobile app.
+                {sessions.length === 0 && (
+                  <div style={{ marginTop:10, padding:'10px 14px', backgroundColor:'#FEF3C7', borderRadius:8, fontSize:12, color:'#92400E' }}>
+                    Make sure you ran <strong>ADD_MURAJAAH_PROGRESS.sql</strong> in Supabase to add the required columns.
+                  </div>
+                )}
+              </div>
             </div>
           ) : filteredSessions.map((sess, i) => {
             const badge = statusBadge(sess.status, sess.progress_percentage);
