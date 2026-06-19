@@ -324,22 +324,15 @@ export default function Reports() {
     setGenerating(true);
     try {
       const { generateReport: genPDF } = await import('../services/pdfGenerator');
-
-      // Get teacher name
-      const { data: teacherData } = await supabase
-        .from('users').select('full_name').eq('id', students.find(s => s.id === selectedStudentId)?.id || '').maybeSingle().catch(() => ({ data: null }));
-
       const pdf = await genPDF({
         ...reportData,
-        teacherName: 'TasmiqAI System',
+        teacherName: teacher?.full_name || 'TasmiqAI System',
       });
-
-      const filename = `TasmiqAI_${reportData.type?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+      const filename = `TasmiqAI_${(reportData.type || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
       pdf.save(filename);
     } catch (err) {
-      console.error('PDF generation error:', err);
-      // Fallback to print
-      window.print();
+      console.error('PDF error:', err);
+      alert('PDF generation failed: ' + err.message);
     } finally {
       setGenerating(false);
     }

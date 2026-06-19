@@ -1,420 +1,381 @@
 /**
- * TasmiqAI — Formal A4 PDF Report Generator
- * Uses jsPDF for proper A4 format, NOT screenshot export
+ * TasmiqAI — A4 PDF Report Generator
+ * Pure jsPDF — no HTML rendering, no screenshot, proper A4 layout
  */
 import jsPDF from 'jspdf';
 
-const E  = [11,  110, 79];   // #0B6E4F emerald
-const ED = [6,   78,  59];   // #064E3B dark emerald
-const G  = [212, 175, 55];   // #D4AF37 gold
-const TXT = [31, 41,  55];   // #1F2937
-const MUT = [107,114,128];   // #6B7280
-const LT  = [245,252,232];   // light yellow bg
+// ── Color helpers ─────────────────────────────────────────────
+const EMERALD  = [11,  110, 79];
+const DARK_EM  = [6,   78,  59];
+const GOLD     = [212, 175, 55];
+const TEXT     = [31,  41,  55];
+const MUTED    = [107, 114, 128];
+const LIGHT_BG = [245, 252, 232];
+const WHITE    = [255, 255, 255];
 
-// ── Helpers ──────────────────────────────────────────────────
-const r = ([r,g,b]) => [r,g,b];
-const hex2rgb = h => {
-  const v = parseInt(h.slice(1), 16);
-  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+const fmtDate = d => {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
+  catch { return '—'; }
 };
-const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
-const scoreLabel = s => s >= 85 ? 'Excellent' : s >= 70 ? 'Good' : s >= 60 ? 'Satisfactory' : 'Needs Revision';
-const scoreColor = s => s >= 85 ? E : s >= 70 ? G : [220,38,38];
 
-// ── Wrap long text into lines ─────────────────────────────────
-function splitText(pdf, text, maxWidth, fontSize = 10) {
-  pdf.setFontSize(fontSize);
-  return pdf.splitTextToSize(String(text || ''), maxWidth);
-}
+const scoreLabel = s => {
+  const n = Number(s) || 0;
+  if (n >= 85) return 'Excellent';
+  if (n >= 70) return 'Good';
+  if (n >= 60) return 'Satisfactory';
+  return 'Needs Revision';
+};
 
-// ── Draw page header ──────────────────────────────────────────
-function drawHeader(pdf, reportTitle, pageW) {
-  // Dark emerald header bar
-  pdf.setFillColor(...ED);
-  pdf.rect(0, 0, pageW, 28, 'F');
+// ── Page dimensions (A4 mm) ───────────────────────────────────
+const PW = 210;   // page width
+const PH = 297;   // page height
+const ML = 15;    // left margin
+const MR = 15;    // right margin
+const CW = PW - ML - MR;  // content width
 
-  // Gold accent line
-  pdf.setFillColor(...G);
-  pdf.rect(0, 28, pageW, 2, 'F');
-
-  // System name
-  pdf.setTextColor(255, 255, 255);
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('TASMIQAI', 15, 11);
-
-  pdf.setFontSize(8);
-  pdf.setFont('helvetica', 'normal');
-  pdf.text('AI-Based Quran Recitation Monitoring System', 15, 18);
-
-  // Report title (right aligned)
-  pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text(reportTitle.toUpperCase(), pageW - 15, 14, { align: 'right' });
-  pdf.setFontSize(8);
-  pdf.setFont('helvetica', 'normal');
-  pdf.text('Academic Report Document', pageW - 15, 21, { align: 'right' });
-
-  return 38; // y after header
-}
-
-// ── Draw page footer ──────────────────────────────────────────
-function drawFooter(pdf, pageNum, totalPages, pageW, pageH) {
-  pdf.setFillColor(...ED);
-  pdf.rect(0, pageH - 12, pageW, 12, 'F');
-
-  pdf.setTextColor(255, 255, 255);
-  pdf.setFontSize(7);
-  pdf.setFont('helvetica', 'normal');
-  pdf.text('TASMIQAI  |  Confidential – Academic Use Only', 15, pageH - 4);
-  pdf.text(`Page ${pageNum} of ${totalPages}`, pageW - 15, pageH - 4, { align: 'right' });
-}
-
-// ── Metadata block ────────────────────────────────────────────
-function drawMetadata(pdf, meta, y, pageW) {
-  const colW = (pageW - 30) / 2;
-  pdf.setFillColor(245, 252, 232);
-  pdf.roundedRect(14, y, pageW - 28, 28, 2, 2, 'F');
-  pdf.setDrawColor(...E);
-  pdf.setLineWidth(0.3);
-  pdf.roundedRect(14, y, pageW - 28, 28, 2, 2, 'S');
-
-  const items = [
-    ['Report Title',    meta.title        || '—'],
-    ['Report Period',   meta.period       || '—'],
-    ['Generated Date',  fmtDate(new Date())    ],
-    ['Class',          meta.className    || '—'],
-    ['Student',        meta.studentName  || '—'],
-    ['Teacher',        meta.teacherName  || '—'],
-  ];
-
-  let cx = 18;
-  let cy = y + 7;
-  items.forEach((item, i) => {
-    if (i === 3) { cx = 18 + colW + 6; cy = y + 7; }
-    pdf.setFontSize(7); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...MUT);
-    pdf.text(item[0].toUpperCase() + ':', cx, cy);
-    pdf.setFontSize(8); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...TXT);
-    pdf.text(String(item[1]).slice(0, 40), cx + 28, cy);
-    cy += 8;
-  });
-
-  return y + 32;
-}
-
-// ── Section title ─────────────────────────────────────────────
-function drawSection(pdf, title, y, pageW) {
-  pdf.setFillColor(...E);
-  pdf.rect(14, y, 3, 10, 'F');
-  pdf.setFontSize(11); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...ED);
-  pdf.text(title, 20, y + 7.5);
-  pdf.setDrawColor(...G); pdf.setLineWidth(0.4);
-  pdf.line(14, y + 12, pageW - 14, y + 12);
-  return y + 17;
-}
-
-// ── Stat card row ─────────────────────────────────────────────
-function drawStatCards(pdf, cards, y, pageW) {
-  const cW = (pageW - 28 - (cards.length - 1) * 5) / cards.length;
-  cards.forEach((card, i) => {
-    const cx = 14 + i * (cW + 5);
-    pdf.setFillColor(245, 252, 232);
-    pdf.roundedRect(cx, y, cW, 22, 2, 2, 'F');
-    pdf.setDrawColor(...E); pdf.setLineWidth(0.3);
-    pdf.roundedRect(cx, y, cW, 22, 2, 2, 'S');
-    // Top color bar
-    pdf.setFillColor(...(card.color || E));
-    pdf.roundedRect(cx, y, cW, 2, 1, 1, 'F');
-
-    pdf.setFontSize(14); pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(...(card.color || E));
-    pdf.text(String(card.value), cx + cW / 2, y + 13, { align: 'center' });
-
-    pdf.setFontSize(7); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...MUT);
-    pdf.text(card.label, cx + cW / 2, y + 19, { align: 'center' });
-  });
+// ── Draw header (every page) ──────────────────────────────────
+function header(doc, title, y = 0) {
+  // Dark emerald bar
+  doc.setFillColor(...DARK_EM);
+  doc.rect(0, y, PW, 22, 'F');
+  // Gold line
+  doc.setFillColor(...GOLD);
+  doc.rect(0, y + 22, PW, 1.5, 'F');
+  // Left: system name
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+  doc.text('TASMIQAI', ML, y + 9);
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+  doc.text('AI-Based Quran Recitation Monitoring System', ML, y + 15);
+  // Right: report title
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text(title.toUpperCase(), PW - MR, y + 9, { align: 'right' });
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+  doc.text('Academic Report — Confidential', PW - MR, y + 15, { align: 'right' });
   return y + 26;
 }
 
-// ── Table ─────────────────────────────────────────────────────
-function drawTable(pdf, headers, rows, y, pageW, pageH) {
-  const margin = 14;
-  const tableW = pageW - margin * 2;
-  const colWidths = headers.map(h => h.width || (tableW / headers.length));
+// ── Draw footer (every page) ──────────────────────────────────
+function footer(doc, pageNum, total) {
+  doc.setFillColor(...DARK_EM);
+  doc.rect(0, PH - 10, PW, 10, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+  doc.text('TasmiqAI  |  For Academic Use Only', ML, PH - 3.5);
+  doc.text(`Page ${pageNum} of ${total}`, PW - MR, PH - 3.5, { align: 'right' });
+}
 
-  // Header row
-  pdf.setFillColor(...ED);
-  pdf.rect(margin, y, tableW, 8, 'F');
-  pdf.setFontSize(7.5); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(255,255,255);
-  let cx = margin + 3;
-  headers.forEach((h, i) => {
-    pdf.text(h.label.toUpperCase(), cx, y + 5.5);
-    cx += colWidths[i];
+// ── Section heading ───────────────────────────────────────────
+function section(doc, text, y) {
+  doc.setFillColor(...EMERALD);
+  doc.rect(ML, y, 3, 8, 'F');
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...DARK_EM);
+  doc.text(text, ML + 5, y + 6);
+  doc.setDrawColor(...GOLD); doc.setLineWidth(0.3);
+  doc.line(ML, y + 10, PW - MR, y + 10);
+  return y + 14;
+}
+
+// ── Metadata table ────────────────────────────────────────────
+function metaBlock(doc, items, y) {
+  doc.setFillColor(...LIGHT_BG);
+  doc.roundedRect(ML, y, CW, 6 * Math.ceil(items.length / 2) + 8, 2, 2, 'F');
+  doc.setDrawColor(...EMERALD); doc.setLineWidth(0.2);
+  doc.roundedRect(ML, y, CW, 6 * Math.ceil(items.length / 2) + 8, 2, 2, 'S');
+
+  const col = CW / 2 - 4;
+  let cx = ML + 4, cy = y + 7;
+  items.forEach((item, i) => {
+    if (i > 0 && i % 2 === 0) { cx = ML + 4; cy += 7; }
+    if (i % 2 === 1) cx = ML + CW / 2 + 4;
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...MUTED);
+    doc.text(item[0].toUpperCase() + ':', cx, cy);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...TEXT);
+    const val = doc.splitTextToSize(String(item[1] || '—'), col - 28)[0];
+    doc.text(val, cx + 26, cy);
   });
-  y += 8;
+  return y + 6 * Math.ceil(items.length / 2) + 12;
+}
+
+// ── Stat row ──────────────────────────────────────────────────
+function statRow(doc, cards, y) {
+  const w = CW / cards.length - 3;
+  cards.forEach((c, i) => {
+    const x = ML + i * (w + 3);
+    doc.setFillColor(...LIGHT_BG);
+    doc.roundedRect(x, y, w, 18, 2, 2, 'F');
+    doc.setFillColor(...(c.color || EMERALD));
+    doc.roundedRect(x, y, w, 2, 1, 1, 'F');
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...(c.color || EMERALD));
+    doc.text(String(c.value), x + w / 2, y + 11, { align: 'center' });
+    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...MUTED);
+    doc.text(c.label, x + w / 2, y + 16, { align: 'center' });
+  });
+  return y + 22;
+}
+
+// ── Progress bar ──────────────────────────────────────────────
+function progressBar(doc, label, value, color, y) {
+  const pct = Math.min(100, Math.max(0, Number(value) || 0));
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...TEXT); doc.text(label, ML, y);
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...(color || EMERALD));
+  doc.text(`${pct}%`, PW - MR, y, { align: 'right' });
+  doc.setFillColor(220, 235, 220);
+  doc.roundedRect(ML, y + 2, CW, 4, 1, 1, 'F');
+  doc.setFillColor(...(color || EMERALD));
+  if (pct > 0) doc.roundedRect(ML, y + 2, CW * pct / 100, 4, 1, 1, 'F');
+  return y + 10;
+}
+
+// ── Table ─────────────────────────────────────────────────────
+function table(doc, cols, rows, y) {
+  const rowH = 7;
+  // Header
+  doc.setFillColor(...DARK_EM);
+  doc.rect(ML, y, CW, rowH + 1, 'F');
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...WHITE);
+  let cx = ML + 2;
+  cols.forEach(c => {
+    doc.text(c.h.toUpperCase(), cx, y + rowH - 1);
+    cx += c.w;
+  });
+  y += rowH + 1;
 
   rows.forEach((row, ri) => {
-    // Check if we need a new page
-    if (y > pageH - 25) return; // handled outside
-
-    pdf.setFillColor(ri % 2 === 0 ? 255 : 250, ri % 2 === 0 ? 255 : 252, ri % 2 === 0 ? 255 : 232);
-    pdf.rect(margin, y, tableW, 7, 'F');
-
-    pdf.setFontSize(7.5); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TXT);
-    cx = margin + 3;
-    headers.forEach((h, i) => {
-      const val = String(row[h.key] ?? '—').slice(0, 30);
-      if (h.isScore) {
-        const s = parseFloat(row[h.key] || 0);
-        pdf.setTextColor(...scoreColor(s));
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(val + '%', cx, y + 5);
-        pdf.setTextColor(...TXT); pdf.setFont('helvetica', 'normal');
+    if (y + rowH > PH - 16) return; // skip if no space
+    doc.setFillColor(ri % 2 === 0 ? 255 : 245, ri % 2 === 0 ? 255 : 252, ri % 2 === 0 ? 255 : 232);
+    doc.rect(ML, y, CW, rowH, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    cx = ML + 2;
+    cols.forEach(c => {
+      const raw = row[c.k] ?? '—';
+      const val = doc.splitTextToSize(String(raw), c.w - 3)[0] || '—';
+      if (c.score) {
+        const n = Number(raw) || 0;
+        doc.setTextColor(...(n >= 85 ? EMERALD : n >= 70 ? GOLD : [192,57,43]));
+        doc.setFont('helvetica', 'bold');
+        doc.text(val + '%', cx, y + rowH - 1.5);
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(...TEXT);
       } else {
-        pdf.text(val, cx, y + 5);
+        doc.setTextColor(...TEXT);
+        doc.text(val, cx, y + rowH - 1.5);
       }
-      cx += colWidths[i];
+      cx += c.w;
     });
-
-    // Row border
-    pdf.setDrawColor(230, 230, 220); pdf.setLineWidth(0.1);
-    pdf.line(margin, y + 7, margin + tableW, y + 7);
-    y += 7;
+    // row separator
+    doc.setDrawColor(220, 220, 210); doc.setLineWidth(0.1);
+    doc.line(ML, y + rowH, ML + CW, y + rowH);
+    y += rowH;
   });
-
-  // Outer border
-  pdf.setDrawColor(...E); pdf.setLineWidth(0.3);
-  pdf.rect(margin, y - rows.length * 7 - 8, tableW, rows.length * 7 + 8, 'S');
-
+  // outer border
+  doc.setDrawColor(...EMERALD); doc.setLineWidth(0.3);
+  doc.rect(ML, y - rows.length * rowH - rowH - 1, CW, rows.length * rowH + rowH + 1, 'S');
   return y + 4;
 }
 
-// ── MAIN EXPORT FUNCTION ─────────────────────────────────────────────────────
-export async function generateReport(reportData) {
-  const pdf   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-
+// ── MAIN GENERATOR ────────────────────────────────────────────
+export async function generateReport(data) {
   const {
-    reportType, scope, period, student, classObj,
-    classStudents = [], stats, recitations = [],
-    weeklyTrend = [], monthlyTrend = [], tajwidErrors = [],
-    recommendations = [], feedbackRecs = [], classRank,
-    generatedAt, teacherName,
-  } = reportData;
+    reportType = 'Academic Report',
+    scope = 'single',
+    period = {},
+    student,
+    classObj,
+    classStudents = [],
+    stats = {},
+    recitations = [],
+    tajwidErrors = [],
+    recommendations = [],
+    feedbackRecs = [],
+    classRank,
+    teacherName = 'TasmiqAI',
+  } = data;
 
-  let currentPage = 1;
-  const allPages = []; // will update footers at end
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const title = reportType;
+  const reviewedRecs = recitations.filter(r => r.reviewed && r.score != null);
 
-  const newPage = (title) => {
-    if (currentPage > 1) pdf.addPage();
-    currentPage++;
-    const y = drawHeader(pdf, title || reportType, pageW);
-    return y;
+  const avgOf = field => {
+    const v = reviewedRecs.map(r => r[field]).filter(x => x != null && x > 0);
+    return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : (stats.avgScore || 0);
   };
 
-  // ── PAGE 1: COVER + METADATA + EXECUTIVE SUMMARY ──────────────
-  let y = drawHeader(pdf, reportType, pageW);
+  // ════════════════════════════════════════════════
+  // PAGE 1 — Summary
+  // ════════════════════════════════════════════════
+  let y = header(doc, title);
 
-  // Metadata
-  y = drawMetadata(pdf, {
-    title:       reportType,
-    period:      period?.label || '',
-    className:   classObj?.name || '',
-    studentName: student ? (student.full_name || student.email) : (scope === 'class' ? 'All Students' : '—'),
-    teacherName: teacherName || 'TasmiqAI System',
-  }, y + 4, pageW);
+  y = metaBlock(doc, [
+    ['Report Type',    title],
+    ['Period',         period.label || fmtDate(period.start) + ' – ' + fmtDate(period.end)],
+    ['Generated',      fmtDate(new Date())],
+    ['Class',          classObj?.name || '—'],
+    ['Student',        student ? (student.full_name || student.email || '—') : 'All Students'],
+    ['Prepared By',    teacherName || 'TasmiqAI System'],
+  ], y + 2);
 
-  // Executive Summary section
-  y = drawSection(pdf, '1. EXECUTIVE SUMMARY', y + 4, pageW);
+  y = section(doc, '1. Executive Summary', y + 2);
+  y = statRow(doc, [
+    { label: 'Avg Score',      value: `${stats.avgScore || 0}%`,   color: EMERALD },
+    { label: 'Best Score',     value: `${stats.bestScore || 0}%`,  color: GOLD },
+    { label: 'Total Sessions', value: stats.totalRecs || 0,        color: DARK_EM },
+    { label: 'Reviewed',       value: stats.reviewedCount || 0,    color: EMERALD },
+    { label: 'Review Rate',    value: `${stats.attendanceRate || 0}%`, color: GOLD },
+  ], y);
 
-  y = drawStatCards(pdf, [
-    { label: 'Avg Score',       value: `${stats.avgScore}%`,      color: E },
-    { label: 'Best Score',      value: `${stats.bestScore}%`,     color: G },
-    { label: 'Total Sessions',  value: stats.totalRecs,           color: ED },
-    { label: 'Reviewed',        value: stats.reviewedCount,       color: E },
-    { label: 'Review Rate',     value: `${stats.attendanceRate}%`, color: G },
-  ], y, pageW);
-
-  // Summary info table
-  const summaryRows = [
-    { field: 'Subject',           value: student ? (student.full_name || student.email) : classObj?.name || '—' },
-    { field: 'Performance Status', value: scoreLabel(stats.avgScore) },
-    { field: 'Report Period',      value: period?.label || '—' },
-    { field: 'Class',              value: classObj?.name || '—' },
-    classRank ? { field: 'Class Rank', value: `#${classRank.rank} of ${classRank.total} students` } : null,
-  ].filter(Boolean);
-
-  y += 4;
-  summaryRows.forEach(row => {
-    pdf.setFontSize(8); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...MUT);
-    pdf.text(row.field + ':', 16, y);
-    pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TXT);
-    pdf.text(String(row.value), 60, y);
+  // Info rows
+  [
+    ['Subject',           student ? (student.full_name || student.email) : classObj?.name || '—'],
+    ['Performance Status', scoreLabel(stats.avgScore || 0)],
+    ['Report Period',      period.label || '—'],
+    ...(classRank ? [['Class Rank', `#${classRank.rank} of ${classRank.total}`]] : []),
+  ].forEach(row => {
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...MUTED);
+    doc.text(row[0] + ':', ML, y);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...TEXT);
+    doc.text(String(row[1]).slice(0, 60), ML + 38, y);
     y += 6;
   });
 
-  // ── PAGE 2: RECITATION RECORDS ────────────────────────────────
+  // ════════════════════════════════════════════════
+  // PAGE 2 — Recitation Records
+  // ════════════════════════════════════════════════
   if (recitations.length > 0) {
-    y = newPage('Recitation Records');
-    y = drawSection(pdf, '2. RECITATION RECORDS', y + 4, pageW);
+    doc.addPage();
+    y = header(doc, title);
+    y = section(doc, '2. Recitation Records', y + 2);
 
-    const recRows = recitations.slice(0, 30).map((r, i) => ({
-      num:     i + 1,
-      date:    fmtDate(r.submitted_at || r.recorded_at),
-      surah:   r.surah || `Surah ${r.surah_number}`,
-      ayah:    r.ayah || `${r.start_verse}–${r.end_verse}`,
-      score:   r.score || 0,
-      status:  scoreLabel(r.score || 0),
-      reviewed: r.reviewed ? 'Yes' : 'Pending',
-    }));
-
-    y = drawTable(pdf,
+    y = table(doc,
       [
-        { label: '#',       key: 'num',      width: 10 },
-        { label: 'Date',    key: 'date',     width: 28 },
-        { label: 'Surah',   key: 'surah',    width: 35 },
-        { label: 'Ayah',    key: 'ayah',     width: 22 },
-        { label: 'Score',   key: 'score',    width: 20, isScore: true },
-        { label: 'Status',  key: 'status',   width: 35 },
-        { label: 'Reviewed', key: 'reviewed', width: 20 },
+        { h: '#',       k: 'num',      w: 10 },
+        { h: 'Date',    k: 'date',     w: 26 },
+        { h: 'Surah',   k: 'surah',    w: 38 },
+        { h: 'Ayah',    k: 'ayah',     w: 20 },
+        { h: 'Score',   k: 'score',    w: 18, score: true },
+        { h: 'Status',  k: 'status',   w: 34 },
+        { h: 'Reviewed',k: 'reviewed', w: 34 },
       ],
-      recRows, y, pageW, pageH
+      recitations.slice(0, 30).map((r, i) => ({
+        num:      i + 1,
+        date:     fmtDate(r.submitted_at || r.recorded_at),
+        surah:    r.surah || `Surah ${r.surah_number}`,
+        ayah:     r.ayah || `${r.start_verse}–${r.end_verse}`,
+        score:    r.score || 0,
+        status:   scoreLabel(r.score || 0),
+        reviewed: r.reviewed ? 'Reviewed' : 'Pending',
+      })), y
     );
   }
 
-  // ── PAGE 3: AI ASSESSMENT BREAKDOWN ──────────────────────────
-  y = newPage('AI Assessment');
-  y = drawSection(pdf, '3. AI ASSESSMENT BREAKDOWN', y + 4, pageW);
+  // ════════════════════════════════════════════════
+  // PAGE 3 — AI Assessment
+  // ════════════════════════════════════════════════
+  doc.addPage();
+  y = header(doc, title);
+  y = section(doc, '3. AI Assessment Breakdown', y + 2);
 
-  // Score breakdown cards
-  const reviewedRecs = recitations.filter(r => r.reviewed && r.score);
-  const avgOf = field => {
-    const v = reviewedRecs.map(r => r[field]).filter(x => x != null && x > 0);
-    return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : stats.avgScore;
-  };
-  const mem   = avgOf('memorization_score');
-  const pron  = avgOf('pronunciation_score');
-  const taj   = avgOf('tajwid_score');
-  const flu   = avgOf('fluency_score');
+  const mem  = avgOf('memorization_score');
+  const pron = avgOf('pronunciation_score');
+  const taj  = avgOf('tajwid_score');
+  const flu  = avgOf('fluency_score');
 
-  y = drawStatCards(pdf, [
-    { label: 'Memorization', value: `${mem}%`,   color: E },
-    { label: 'Pronunciation', value: `${pron}%`, color: [74, 144, 164] },
-    { label: 'Tajwid',       value: `${taj}%`,   color: G },
-    { label: 'Fluency',      value: `${flu}%`,   color: [155, 142, 196] },
-  ], y, pageW);
+  y = statRow(doc, [
+    { label: 'Memorization',  value: `${mem}%`,   color: EMERALD },
+    { label: 'Pronunciation', value: `${pron}%`,  color: [74,144,164] },
+    { label: 'Tajwid',        value: `${taj}%`,   color: GOLD },
+    { label: 'Fluency',       value: `${flu}%`,   color: [155,142,196] },
+  ], y);
+  y += 4;
 
-  y += 8;
+  y = progressBar(doc, 'Memorization Accuracy',   mem,  EMERALD,         y);
+  y = progressBar(doc, 'Pronunciation Accuracy',   pron, [74,144,164],    y);
+  y = progressBar(doc, 'Tajwid Compliance',        taj,  GOLD,            y);
+  y = progressBar(doc, 'Fluency & Flow',           flu,  [155,142,196],   y);
 
-  // Draw score bars
-  [
-    { label: 'Memorization Accuracy', val: mem,  color: E },
-    { label: 'Pronunciation',         val: pron, color: [74,144,164] },
-    { label: 'Tajwid Compliance',     val: taj,  color: G },
-    { label: 'Fluency & Flow',        val: flu,  color: [155,142,196] },
-  ].forEach(s => {
-    pdf.setFontSize(8); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...TXT);
-    pdf.text(s.label, 16, y);
-    pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...MUT);
-    pdf.text(`${s.val}%`, pageW - 16, y, { align: 'right' });
+  // ════════════════════════════════════════════════
+  // PAGE 4 — Tajwid + Recommendations
+  // ════════════════════════════════════════════════
+  if (tajwidErrors.length > 0 || recommendations.length > 0) {
+    doc.addPage();
+    y = header(doc, title);
 
-    pdf.setFillColor(220, 252, 231);
-    pdf.roundedRect(16, y + 2, pageW - 32, 4, 1, 1, 'F');
-    pdf.setFillColor(...s.color);
-    pdf.roundedRect(16, y + 2, (pageW - 32) * s.val / 100, 4, 1, 1, 'F');
+    if (tajwidErrors.length > 0) {
+      y = section(doc, '4. Tajwid Error Analysis', y + 2);
+      y = table(doc,
+        [
+          { h: 'Tajwid Rule', k: 'rule',     w: 50 },
+          { h: 'Count',       k: 'count',    w: 20 },
+          { h: 'Severity',    k: 'severity', w: 25 },
+          { h: 'Guidance',    k: 'tip',      w: 85 },
+        ],
+        tajwidErrors.map(e => ({
+          rule:     e.rule || e.label || '—',
+          count:    e.count || 0,
+          severity: (e.count||0) >= 5 ? 'High' : (e.count||0) >= 2 ? 'Medium' : 'Low',
+          tip:      (e.tip || 'Practice this rule regularly.').slice(0, 60),
+        })), y
+      );
+    }
 
-    y += 12;
-  });
-
-  // ── PAGE 4: TAJWID ERROR ANALYSIS ────────────────────────────
-  if (tajwidErrors.length > 0) {
-    y = newPage('Tajwid Analysis');
-    y = drawSection(pdf, '4. TAJWID ERROR ANALYSIS', y + 4, pageW);
-
-    const tajRows = tajwidErrors.map(e => ({
-      rule:     e.rule || e.label || '—',
-      count:    e.count || 0,
-      severity: (e.count || 0) >= 5 ? 'High' : (e.count || 0) >= 2 ? 'Medium' : 'Low',
-      tip:      e.tip || 'Practice this rule regularly.',
-    }));
-
-    y = drawTable(pdf,
-      [
-        { label: 'Tajwid Rule', key: 'rule',     width: 45 },
-        { label: 'Count',      key: 'count',     width: 20 },
-        { label: 'Severity',   key: 'severity',  width: 25 },
-        { label: 'Guidance',   key: 'tip',       width: 95 },
-      ],
-      tajRows, y, pageW, pageH
-    );
-  }
-
-  // ── PAGE 5: CLASS ROSTER (if class scope) ────────────────────
-  if (scope === 'class' && classStudents.length > 0) {
-    y = newPage('Class Performance');
-    y = drawSection(pdf, '5. CLASS STUDENT ROSTER', y + 4, pageW);
-
-    const classRows = classStudents.map((s, i) => ({
-      num:    i + 1,
-      name:   s.full_name || s.email?.split('@')[0] || '—',
-      email:  s.email || '—',
-      score:  s.avg_score || 0,
-      status: scoreLabel(s.avg_score || 0),
-    }));
-
-    y = drawTable(pdf,
-      [
-        { label: '#',      key: 'num',    width: 12 },
-        { label: 'Student Name', key: 'name', width: 55 },
-        { label: 'Email',  key: 'email',  width: 65 },
-        { label: 'Avg Score', key: 'score', width: 22, isScore: true },
-        { label: 'Status', key: 'status', width: 32 },
-      ],
-      classRows, y, pageW, pageH
-    );
-  }
-
-  // ── PAGE 6: RECOMMENDATIONS ──────────────────────────────────
-  if (recommendations.length > 0 || feedbackRecs.length > 0) {
-    y = newPage('Recommendations');
-    y = drawSection(pdf, '6. RECOMMENDATIONS & FEEDBACK', y + 4, pageW);
-
-    recommendations.forEach((rec, i) => {
-      if (y > pageH - 30) return;
-      pdf.setFillColor(245, 252, 232);
-      pdf.roundedRect(14, y, pageW - 28, 14, 2, 2, 'F');
-      pdf.setFontSize(8); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...E);
-      pdf.text(`${i+1}. ${rec.error || 'Recommendation'}`, 18, y + 5);
-      pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TXT);
-      const lines = splitText(pdf, rec.tip || '', pageW - 40, 7.5);
-      lines.forEach((l, li) => { pdf.text(l, 18, y + 10 + li * 4); });
-      y += 18 + (lines.length - 1) * 4;
-    });
-
-    if (feedbackRecs.length > 0) {
-      y += 6;
-      pdf.setFontSize(9); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...ED);
-      pdf.text('Teacher Feedback Notes:', 16, y);
-      y += 6;
-      feedbackRecs.forEach(f => {
-        if (y > pageH - 20) return;
-        const lines = splitText(pdf, (f.feedback || '').slice(0, 200), pageW - 36, 7.5);
-        pdf.setFontSize(7); pdf.setFont('helvetica', 'italic'); pdf.setTextColor(...MUT);
-        pdf.text(`• ${fmtDate(f.reviewed_at || f.submitted_at)}:`, 16, y);
-        pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TXT);
-        lines.forEach((l, li) => { pdf.text(l, 22, y + (li+1) * 4); });
-        y += 6 + lines.length * 4;
+    if (recommendations.length > 0) {
+      y = section(doc, '5. Recommendations', y + 4);
+      recommendations.forEach((rec, i) => {
+        if (y > PH - 30) return;
+        doc.setFillColor(...LIGHT_BG);
+        doc.roundedRect(ML, y, CW, 12, 1.5, 1.5, 'F');
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...EMERALD);
+        doc.text(`${i+1}. ${(rec.error || '').slice(0, 40)}`, ML + 3, y + 5);
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(...TEXT);
+        const lines = doc.splitTextToSize((rec.tip || '').slice(0, 150), CW - 6);
+        lines.slice(0,1).forEach(l => doc.text(l, ML + 3, y + 9.5));
+        y += 15;
       });
     }
   }
 
-  // ── Add footers to all pages ──────────────────────────────────
-  const total = pdf.internal.getNumberOfPages();
-  for (let p = 1; p <= total; p++) {
-    pdf.setPage(p);
-    drawFooter(pdf, p, total, pageW, pageH);
+  // ════════════════════════════════════════════════
+  // PAGE 5 — Class Roster (if class scope)
+  // ════════════════════════════════════════════════
+  if (scope === 'class' && classStudents.length > 0) {
+    doc.addPage();
+    y = header(doc, title);
+    y = section(doc, '5. Class Student Roster', y + 2);
+    y = table(doc,
+      [
+        { h: '#',     k: 'num',    w: 12 },
+        { h: 'Name',  k: 'name',   w: 55 },
+        { h: 'Email', k: 'email',  w: 63 },
+        { h: 'Score', k: 'score',  w: 20, score: true },
+        { h: 'Status',k: 'status', w: 30 },
+      ],
+      classStudents.map((s, i) => ({
+        num:    i + 1,
+        name:   (s.full_name || s.email?.split('@')[0] || '—').slice(0,28),
+        email:  (s.email || '—').slice(0,30),
+        score:  s.avg_score || 0,
+        status: scoreLabel(s.avg_score || 0),
+      })), y
+    );
   }
 
-  return pdf;
+  // ════════════════════════════════════════════════
+  // Add footers to ALL pages
+  // ════════════════════════════════════════════════
+  const total = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    footer(doc, p, total);
+  }
+
+  return doc;
 }
