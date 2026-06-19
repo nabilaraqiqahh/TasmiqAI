@@ -26,14 +26,19 @@ export default function Announcements() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const loadData = async () => {
     try {
+      console.log('[Announcements] loadData called, teacher.id:', teacher?.id);
+
       // Load teacher's classes
       const { data: classData, error: classError } = await supabase
         .from('classes')
         .select('*')
         .eq('teacher_id', teacher.id);
+
+      console.log('[Announcements] classes:', classData?.length, 'error:', classError?.message);
         
       if (!classError && classData) {
         setClasses(classData);
@@ -42,18 +47,30 @@ export default function Announcements() {
         }
       }
 
-      // Load past announcements
+      // Load past announcements — select '*' to avoid relationship cache error
       const { data: annData, error: annError } = await supabase
         .from('announcements')
-        .select('*, classes(name)')
+        .select('*')
         .eq('teacher_id', teacher.id)
         .order('created_at', { ascending: false });
 
+      console.log('[Announcements] announcements:', annData?.length, 'error:', annError?.message);
+
       if (!annError && annData) {
-        setAnnouncements(annData);
+        // Map class name in-memory
+        const mappedAnns = annData.map(ann => {
+          const cls = classData?.find(c => c.id === ann.class_id);
+          return {
+            ...ann,
+            classes: cls ? { name: cls.name } : null
+          };
+        });
+        setAnnouncements(mappedAnns);
+      } else if (annError) {
+        console.error('[Announcements] DB error:', annError);
       }
     } catch (error) {
-      console.error('Error loading announcements:', error);
+      console.error('[Announcements] loadData catch:', error);
     } finally {
       setLoading(false);
     }
@@ -71,6 +88,8 @@ export default function Announcements() {
 
     setSubmitting(true);
     try {
+      console.log('[Announcements] submitting:', { title, selectedClassId, teacherId: teacher?.id });
+
       // 1. Save announcement to DB
       const { data: annData, error } = await supabase
         .from('announcements')
@@ -94,8 +113,8 @@ export default function Announcements() {
       if (members?.length > 0) {
         const notifications = members.map(m => ({
           user_id:    m.student_id,
-          title:      `New Announcement: ${title.trim()}`,
-          body:       content.trim().slice(0, 120) + (content.length > 120 ? '…' : ''),
+          title:      'New class announcement has been posted.',
+          body:       title.trim(),
           type:       'info',
           is_read:    false,
         }));
@@ -109,7 +128,8 @@ export default function Announcements() {
       setTimeout(() => setSuccessMsg(''), 4000);
       loadData();
     } catch (error) {
-      alert('Error sending announcement: ' + error.message);
+      console.error('[Announcements] submit error:', error);
+      setErrorMsg('Error: ' + error.message);
     } finally {
       setSubmitting(false);
     }
@@ -207,6 +227,14 @@ export default function Announcements() {
             {successMsg && (
               <div style={{ marginTop: '12px', padding: '12px 16px', borderRadius: '10px', backgroundColor: '#D1FAE5', color: '#065F46', fontWeight: '700', fontSize: '14px', border: '1px solid #A7F3D0' }}>
                 {successMsg}
+              </div>
+            )}
+
+            {/* Error banner */}
+            {errorMsg && (
+              <div style={{ marginTop: '12px', padding: '12px 16px', borderRadius: '10px', backgroundColor: '#FEE2E2', color: '#991B1B', fontWeight: '600', fontSize: '13px', border: '1px solid #FECACA' }}>
+                ⚠️ {errorMsg}
+                <button onClick={() => setErrorMsg('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', color: '#991B1B', fontWeight: '800' }}>×</button>
               </div>
             )}
           </form>

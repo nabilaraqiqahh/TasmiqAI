@@ -111,8 +111,17 @@ export function AuthProvider({ children }) {
     setTeacher(null);
   };
 
+  const updateTeacher = (updatedFields) => {
+    setTeacher(prev => {
+      if (!prev) return null;
+      const next = { ...prev, ...updatedFields };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ teacher, login, register, logout, loading, getRoleFromEmail }}>
+    <AuthContext.Provider value={{ teacher, login, register, logout, updateTeacher, loading, getRoleFromEmail }}>
       {!loading && children}
     </AuthContext.Provider>
   );

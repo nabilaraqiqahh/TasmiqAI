@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, StatusBar, ActivityIndicator, Modal, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getUserProfile, getStudentAnnouncements, getCurrentUser } from '../../services/authService';
@@ -46,6 +46,66 @@ export default function DashboardScreen({ navigation }) {
   const [announcements, setAnnouncements] = useState([]);
   const [backendOnline, setBackendOnline] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (notificationModalVisible && user?.id) {
+      const loadNotifs = async () => {
+        setNotifLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          if (!error && data) {
+            setNotifications(data);
+          }
+        } catch (err) {
+          console.error('[Dashboard] loadNotifs error:', err);
+        } finally {
+          setNotifLoading(false);
+        }
+      };
+      loadNotifs();
+    }
+  }, [notificationModalVisible, user]);
+
+  const handleNotifClick = async (notif) => {
+    if (!notif.is_read) {
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notif.id);
+        if (!error) {
+          setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        }
+      } catch (err) {
+        console.error('Failed to mark notification as read:', err);
+      }
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user?.id) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+      if (!error) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
+  };
 
   const hour = new Date().getHours();
   
@@ -127,12 +187,38 @@ export default function DashboardScreen({ navigation }) {
         )}
 
         {/* Greeting Header */}
-        <View style={{ marginBottom: 28 }}>
-          <Text style={{ fontSize: 13, color: C.muted, fontWeight: '500', marginBottom: 4 }}>السلام عليكم</Text>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: C.text }}>
-            {greeting}, {loading ? '...' : firstName} 👋
-          </Text>
-          <Text style={{ fontSize: 14, color: C.muted, marginTop: 4 }}>{t('dashboard.ready')}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, color: C.muted, fontWeight: '500', marginBottom: 4 }}>السلام عليكم</Text>
+            <Text style={{ fontSize: 26, fontWeight: '800', color: C.text }}>
+              {greeting}, {loading ? '...' : firstName} 👋
+            </Text>
+            <Text style={{ fontSize: 14, color: C.muted, marginTop: 4 }}>{t('dashboard.ready')}</Text>
+          </View>
+          
+          <TouchableOpacity
+            onPress={() => setNotificationModalVisible(true)}
+            activeOpacity={0.8}
+            style={{
+              width: 48, height: 48, borderRadius: 24,
+              backgroundColor: C.card, alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+              position: 'relative', marginTop: 10
+            }}
+          >
+            <Ionicons name="notifications-outline" size={24} color={C.text} />
+            {unreadCount > 0 && (
+              <View style={{
+                position: 'absolute', top: -2, right: -2,
+                backgroundColor: '#EF4444', borderRadius: 10,
+                minWidth: 20, height: 20, paddingHorizontal: 5,
+                alignItems: 'center', justifyContent: 'center',
+                borderWidth: 2, borderColor: C.bg
+              }}>
+                <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Nudge Card — replaces streak */}
@@ -186,7 +272,9 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={{ fontSize: 14, color: C.muted, lineHeight: 20, marginBottom: 10 }}>{ann.content}</Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 11, color: '#AAAAAA', fontWeight: '600' }}>{ann.classes?.name}</Text>
+                  <Text style={{ fontSize: 11, color: '#AAAAAA', fontWeight: '600' }}>
+                    {ann.classes?.name} • {ann.classes?.teacher_name || 'Teacher'}
+                  </Text>
                   <Text style={{ fontSize: 11, color: '#AAAAAA' }}>{new Date(ann.created_at).toLocaleDateString()}</Text>
                 </View>
               </View>
@@ -215,6 +303,89 @@ export default function DashboardScreen({ navigation }) {
         </View>
 
         </ScrollView>
+
+        {/* 🔔 Notification Center Modal */}
+        <Modal
+          visible={notificationModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setNotificationModalVisible(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            <View style={{
+              backgroundColor: C.card,
+              borderTopLeftRadius: 30, borderTopRightRadius: 30,
+              padding: 24, maxHeight: '80%', minHeight: '50%',
+              shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10
+            }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <Text style={{ fontSize: 20, fontWeight: '900', color: C.text }}>Notification Center</Text>
+                <TouchableOpacity onPress={() => setNotificationModalVisible(false)} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={24} color={C.text} />
+                </TouchableOpacity>
+              </View>
+
+              {unreadCount > 0 && (
+                <TouchableOpacity
+                  onPress={handleMarkAllAsRead}
+                  style={{ alignSelf: 'flex-end', marginBottom: 12 }}
+                >
+                  <Text style={{ color: C.primary, fontSize: 13, fontWeight: '700' }}>Mark all as read</Text>
+                </TouchableOpacity>
+              )}
+
+              {notifLoading ? (
+                <ActivityIndicator size="large" color={C.primary} style={{ marginVertical: 40 }} />
+              ) : notifications.length === 0 ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
+                  <Ionicons name="notifications-off-outline" size={48} color={C.muted} style={{ marginBottom: 12 }} />
+                  <Text style={{ color: C.muted, fontSize: 14 }}>No notifications yet</Text>
+                </View>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {notifications.map((notif) => (
+                    <TouchableOpacity
+                      key={notif.id}
+                      onPress={() => handleNotifClick(notif)}
+                      activeOpacity={0.8}
+                      style={{
+                        padding: 16, borderRadius: 14, marginBottom: 12,
+                        backgroundColor: notif.is_read ? C.bg + '50' : C.primary + '08',
+                        borderLeftWidth: 4,
+                        borderLeftColor: notif.is_read ? '#CCCCCC' : C.primary,
+                        flexDirection: 'row', alignItems: 'flex-start', gap: 12
+                      }}
+                    >
+                      <View style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        backgroundColor: notif.is_read ? '#EAE3D5' : C.primary + '18',
+                        alignItems: 'center', justifyContent: 'center', marginTop: 2
+                      }}>
+                        <Ionicons name="megaphone-outline" size={18} color={notif.is_read ? '#999999' : C.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: notif.is_read ? '600' : '800', color: C.text, marginBottom: 4 }}>
+                          {notif.title}
+                        </Text>
+                        {notif.body && (
+                          <Text style={{ fontSize: 13, color: C.muted, lineHeight: 18, marginBottom: 6 }}>
+                            {notif.body}
+                          </Text>
+                        )}
+                        <Text style={{ fontSize: 11, color: '#AAAAAA' }}>
+                          {new Date(notif.created_at).toLocaleString()}
+                        </Text>
+                      </View>
+                      {!notif.is_read && (
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary, marginTop: 6 }} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </IslamicBackground>
   );

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RefreshCw, Send, CheckCircle, XCircle,
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, Pause, RefreshCw, RotateCcw, RotateCw, Send, CheckCircle, XCircle,
          ChevronDown, Clock, BookOpen, Star, Filter, Volume2 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useLocation } from 'react-router-dom';
@@ -72,6 +72,9 @@ export default function RecitationReview() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
   const [isPlaying,   setIsPlaying]   = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration,    setDuration]    = useState(0);
+  const [audioError,  setAudioError]  = useState(false);
   const [sortBy,      setSortBy]      = useState('newest');
   const [filterStatus, setFilterStatus] = useState('all');
   const [historyFilter, setHistoryFilter] = useState('all'); // 'all' | 'approved' | 'redo'
@@ -132,6 +135,21 @@ export default function RecitationReview() {
   useEffect(() => { if (location.state?.recitation) setSelected(location.state.recitation); }, [location.state]);
   useEffect(() => { if (activeTab === 'history' && history.length === 0) loadHistory(); }, [activeTab]);
 
+  // ── Stop & reset audio whenever selected submission changes ──────
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setAudioError(false);
+    if (selected?.audio_url) {
+      audio.load(); // force reload the new source
+    }
+  }, [selected?.id]); // only fire when the selected record changes
+
   // Sort + filter
   const displayed = submissions
     .filter(s => filterStatus === 'all' || s.autoStatus === filterStatus)
@@ -142,9 +160,55 @@ export default function RecitationReview() {
     });
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
-    isPlaying ? audioRef.current.pause() : audioRef.current.play().catch(() => {});
-    setIsPlaying(!isPlaying);
+    const audio = audioRef.current;
+    if (!audio || audioError) return;
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      audio.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setAudioError(true));
+    }
+  };
+
+  const handleRestart = () => {
+    const audio = audioRef.current;
+    if (!audio || audioError) return;
+    audio.currentTime = 0;
+    audio.play()
+      .then(() => setIsPlaying(true))
+      .catch(() => setAudioError(true));
+  };
+
+  const handleSkip = (seconds) => {
+    const audio = audioRef.current;
+    if (!audio || audioError) return;
+    audio.currentTime = Math.min(audio.duration || 0, Math.max(0, audio.currentTime + seconds));
+  };
+
+  // Seek when clicking on the waveform
+  const waveformRef = useRef(null);
+  const handleWaveformClick = useCallback((e) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration || audioError) return;
+    const rect = waveformRef.current.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = ratio * audio.duration;
+    setCurrentTime(audio.currentTime);
+    if (!isPlaying) {
+      audio.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setAudioError(true));
+    }
+  }, [isPlaying, audioError]);
+
+  // Format seconds → m:ss
+  const fmt = (secs) => {
+    if (!secs || isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   const handleAction = async (action) => {
@@ -175,6 +239,7 @@ export default function RecitationReview() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       setFeedback(''); setGrade('Good'); setSelected(null); setIsPlaying(false);
+      setCurrentTime(0); setDuration(0); setAudioError(false);
       loadSubmissions(true);
       setHistory([]); // invalidate history cache so it reloads next time
     } catch (err) {
@@ -383,7 +448,7 @@ export default function RecitationReview() {
               const cfg = STATUS_CONFIG[s.autoStatus];
               const isActive = selected?.id === s.id;
               return (
-                <button key={s.id} onClick={() => { setSelected(s); setFeedback(''); setGrade('Good'); setIsPlaying(false); }} style={{
+                <button key={s.id} onClick={() => { setSelected(s); setFeedback(''); setGrade('Good'); }} style={{
                   width:'100%', textAlign:'left', border:'none', cursor:'pointer',
                   padding:'13px 16px',
                   backgroundColor: isActive ? D.emeraldLight : 'transparent',
@@ -446,40 +511,102 @@ export default function RecitationReview() {
             {/* Audio Player */}
             <div style={{ background:`linear-gradient(135deg, ${D.emeraldDark} 0%, #032D20 100%)`, borderRadius:16, padding:'22px 24px', boxShadow:'0 4px 16px rgba(6,78,59,0.25)' }}>
               <div style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.55)', letterSpacing:1.5, marginBottom:14 }}>AUDIO PLAYBACK</div>
-              <div style={{ display:'flex', alignItems:'center', gap:18 }}>
-                <button onClick={togglePlay} style={{
-                  width:52, height:52, borderRadius:26, backgroundColor:D.emerald, border:'none', cursor:'pointer',
-                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-                  boxShadow:`0 0 18px ${D.emerald}60`, transition:'transform 0.15s',
-                }}
-                onMouseOver={e => e.currentTarget.style.transform='scale(1.08)'}
-                onMouseOut={e => e.currentTarget.style.transform='scale(1)'}
-                >
-                  {isPlaying ? <Pause size={22} color="white" fill="white" /> : <Play size={22} color="white" fill="white" style={{ marginLeft:2 }} />}
-                </button>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:14, fontWeight:700, color:'white', marginBottom:8 }}>
-                    {selected.surahDisplay} — Ayah {selected.ayahDisplay}
-                  </div>
-                  {/* Waveform bars */}
-                  <div style={{ display:'flex', alignItems:'center', gap:2, height:32 }}>
-                    {Array.from({ length: 40 }, (_, i) => (
-                      <div key={i} style={{
-                        width: 3, borderRadius: 2,
-                        height: `${20 + Math.sin(i * 0.8) * 12 + Math.sin(i * 0.3) * 8}px`,
-                        backgroundColor: isPlaying ? D.gold : 'rgba(255,255,255,0.25)',
-                        transition: 'background-color 0.3s',
-                      }} />
-                    ))}
-                  </div>
-                  {!selected.audio_url && <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:6 }}>No audio file attached</div>}
+
+              {/* Error or missing audio fallback */}
+              {(!selected.audio_url || audioError) ? (
+                <div style={{ backgroundColor:'rgba(239,68,68,0.12)', borderRadius:12, padding:'14px 18px', border:'1px solid rgba(239,68,68,0.25)', display:'flex', alignItems:'center', gap:10 }}>
+                  <Volume2 size={18} color="#EF4444" />
+                  <span style={{ fontSize:13, fontWeight:700, color:'#FCA5A5' }}>
+                    Audio file unavailable. Please check submission.
+                  </span>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <Volume2 size={16} color="rgba(255,255,255,0.5)" />
-                  <span style={{ fontSize:12, color:'rgba(255,255,255,0.5)' }}>Audio</span>
-                </div>
-              </div>
-              <audio ref={audioRef} src={selected.audio_url} onEnded={() => setIsPlaying(false)} hidden />
+              ) : (
+                <>
+                  {/* Controls row */}
+                  <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
+                    {/* Restart */}
+                    <button onClick={handleRestart} title="Restart" style={{
+                      width:36, height:36, borderRadius:18, backgroundColor:'rgba(255,255,255,0.08)', border:'none', cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.15s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.backgroundColor='rgba(255,255,255,0.16)'}
+                    onMouseOut={e => e.currentTarget.style.backgroundColor='rgba(255,255,255,0.08)'}
+                    >
+                      <RotateCcw size={16} color="white" />
+                    </button>
+
+                    {/* Play / Pause */}
+                    <button onClick={togglePlay} style={{
+                      width:52, height:52, borderRadius:26, backgroundColor:D.emerald, border:'none', cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                      boxShadow:`0 0 18px ${D.emerald}60`, transition:'transform 0.15s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.transform='scale(1.08)'}
+                    onMouseOut={e => e.currentTarget.style.transform='scale(1)'}
+                    >
+                      {isPlaying ? <Pause size={22} color="white" fill="white" /> : <Play size={22} color="white" fill="white" style={{ marginLeft:2 }} />}
+                    </button>
+
+                    {/* Skip +5s */}
+                    <button onClick={() => handleSkip(5)} title="Forward 5s" style={{
+                      width:36, height:36, borderRadius:18, backgroundColor:'rgba(255,255,255,0.08)', border:'none', cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.15s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.backgroundColor='rgba(255,255,255,0.16)'}
+                    onMouseOut={e => e.currentTarget.style.backgroundColor='rgba(255,255,255,0.08)'}
+                    >
+                      <RotateCw size={16} color="white" />
+                    </button>
+
+                    {/* Track info */}
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:'white', marginBottom:2 }}>
+                        {selected.surahDisplay} — Ayah {selected.ayahDisplay}
+                      </div>
+                      <div style={{ fontSize:12, color:'rgba(255,255,255,0.5)' }}>
+                        {fmt(currentTime)} / {fmt(duration)}
+                      </div>
+                    </div>
+
+                    <Volume2 size={16} color="rgba(255,255,255,0.35)" />
+                  </div>
+
+                  {/* Seekable Waveform */}
+                  <div
+                    ref={waveformRef}
+                    onClick={handleWaveformClick}
+                    style={{ display:'flex', alignItems:'center', gap:2, height:36, cursor:'pointer', userSelect:'none' }}
+                    title="Click to seek"
+                  >
+                    {Array.from({ length: 48 }, (_, i) => {
+                      const barProgress = duration > 0 ? currentTime / duration : 0;
+                      const barRatio = i / 47;
+                      const isPast = barRatio <= barProgress;
+                      return (
+                        <div key={i} style={{
+                          flex:1, borderRadius: 2,
+                          height: `${22 + Math.sin(i * 0.75) * 10 + Math.sin(i * 0.28) * 7}px`,
+                          backgroundColor: isPast ? D.gold : 'rgba(255,255,255,0.22)',
+                          transition: 'background-color 0.08s',
+                        }} />
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Hidden audio element with all event listeners */}
+              <audio
+                ref={audioRef}
+                src={selected.audio_url || ''}
+                onEnded={() => { setIsPlaying(false); setCurrentTime(duration); }}
+                onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+                onLoadedMetadata={(e) => setDuration(e.target.duration)}
+                onError={() => { setAudioError(true); setIsPlaying(false); }}
+                onPause={() => setIsPlaying(false)}
+                preload="metadata"
+                hidden
+              />
             </div>
 
             {/* AI Score Cards */}

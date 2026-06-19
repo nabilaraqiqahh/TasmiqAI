@@ -23,17 +23,40 @@ export const saveRecitationResult = async (studentId, dataObj) => {
   let finalAudioUrl = '';
   if (dataObj.audioUri) {
     try {
+      const { Platform } = require('react-native');
       const fileName = `${studentId}/${Date.now()}.m4a`;
-      const response = await fetch(dataObj.audioUri);
-      if (!response.ok) throw new Error('fetch failed');
-      const blob = await response.blob();
+      let blob;
+
+      if (Platform.OS === 'web') {
+        // Web: fetch() works fine on blob/object URLs
+        const response = await fetch(dataObj.audioUri);
+        if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
+        blob = await response.blob();
+      } else {
+        // Native (Android / iOS): use expo-file-system to read raw bytes,
+        // then wrap in a Blob so the Supabase JS SDK can upload it.
+        const FileSystem = require('expo-file-system');
+        const base64 = await FileSystem.readAsStringAsync(dataObj.audioUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        // Convert base64 → Uint8Array → Blob
+        const binary = atob(base64);
+        const bytes  = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        blob = new Blob([bytes], { type: 'audio/m4a' });
+      }
+
       const { error: uploadError } = await supabase.storage
         .from('recitations')
         .upload(fileName, blob, { contentType: 'audio/m4a', upsert: true });
-      if (!uploadError) {
+
+      if (uploadError) {
+        console.warn('Supabase storage upload error:', uploadError.message);
+      } else {
         const { data: urlData } = supabase.storage
           .from('recitations').getPublicUrl(fileName);
         finalAudioUrl = urlData?.publicUrl || '';
+        console.log('[Audio uploaded]', finalAudioUrl);
       }
     } catch (storageErr) {
       // Non-fatal — submission continues without audio URL

@@ -14,7 +14,6 @@ import Analytics from './screens/Analytics';
 import Reports from './screens/Reports';
 import Announcements from './screens/Announcements';
 import Settings from './screens/Settings';
-import ProfileSettings from './screens/ProfileSettings';
 import DbTest from './screens/DbTest';
 
 // Protected route wrapper — redirects to /login if not authenticated
@@ -72,7 +71,7 @@ function AppRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="profile" element={<ProfileSettings />} />
+        <Route path="profile" element={<Navigate to="/settings" replace />} />
       </Route>
 
       {/* Fallback */}

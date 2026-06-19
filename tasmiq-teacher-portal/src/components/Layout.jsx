@@ -115,7 +115,7 @@ export default function Layout() {
         {/* User + Logout */}
         <div style={{ padding:'12px 10px 16px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
           <div
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/settings')}
             style={{ display:'flex', alignItems:'center', gap:10, backgroundColor:'rgba(255,255,255,0.07)', borderRadius:12, padding:'10px 12px', cursor:'pointer', marginBottom:8, transition:'background 0.15s' }}
             onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'}
             onMouseOut={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'}

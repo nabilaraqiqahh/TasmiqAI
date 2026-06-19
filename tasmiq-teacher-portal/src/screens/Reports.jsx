@@ -319,8 +319,30 @@ export default function Reports() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!reportData) return;
+    setGenerating(true);
+    try {
+      const { generateReport: genPDF } = await import('../services/pdfGenerator');
+
+      // Get teacher name
+      const { data: teacherData } = await supabase
+        .from('users').select('full_name').eq('id', students.find(s => s.id === selectedStudentId)?.id || '').maybeSingle().catch(() => ({ data: null }));
+
+      const pdf = await genPDF({
+        ...reportData,
+        teacherName: 'TasmiqAI System',
+      });
+
+      const filename = `TasmiqAI_${reportData.type?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+      pdf.save(filename);
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      // Fallback to print
+      window.print();
+    } finally {
+      setGenerating(false);
+    }
   };
 
   /* ════════════════════════════════════════════════════════════ */
@@ -425,14 +447,17 @@ export default function Reports() {
           {reportReady && (
             <button
               onClick={handlePrint}
+              disabled={generating}
               style={{
                 width: '100%', padding: '12px', borderRadius: '14px',
                 border: `1px solid ${C.border}`, backgroundColor: 'white',
                 color: C.primary, fontWeight: '800', fontSize: '14px',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                cursor: generating ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                opacity: generating ? 0.7 : 1,
               }}
             >
-              <Printer size={16} /> Export PDF / Print
+              <Printer size={16} /> {generating ? 'Generating PDF...' : '⬇ Download PDF (A4)'}
             </button>
           )}
         </div>

@@ -237,12 +237,132 @@ export const updateUserProfile = async (userId, updates) => {
   return data;
 };
 
-export const changePassword = async (userId, newPassword) => {
-  const { error } = await supabase
+export const changePassword = async (userId, currentPassword, newPassword) => {
+  // 1. Fetch current password hash from DB
+  const { data: userRow, error: fetchErr } = await supabase
+    .from('users')
+    .select('password_hash')
+    .eq('id', userId)
+    .single();
+  
+  if (fetchErr || !userRow) {
+    throw new Error('User account not found.');
+  }
+  
+  if (userRow.password_hash !== currentPassword) {
+    throw new Error('Current password is incorrect.');
+  }
+  
+  // 2. Update to new password
+  const { error: updateErr } = await supabase
     .from('users')
     .update({ password_hash: newPassword })
     .eq('id', userId);
-  if (error) throw new Error(error.message);
+    
+  if (updateErr) {
+    throw new Error(updateErr.message);
+  }
+};
+
+// ── STUDENT SETTINGS (DB with AsyncStorage Fallback) ─────────────
+export const getStudentSettings = async (studentId) => {
+  const localKey = `tasmiq_student_settings_${studentId}`;
+  
+  // Load local fallbacks
+  let localSettings = {
+    notify_announcement: true,
+    notify_feedback:     true,
+    notify_nudge:        true,
+    notify_tasmiq:       true,
+    notify_murajaah:     true,
+    language:            'en'
+  };
+  try {
+    const savedLocal = await storage.get(localKey);
+    if (savedLocal) localSettings = JSON.parse(savedLocal);
+  } catch (e) {
+    console.error('Error loading local settings:', e);
+  }
+
+  try {
+    // Fetch from database
+    const { data, error } = await supabase
+      .from('student_settings')
+      .select('*')
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        return { ...localSettings, source: 'local' };
+      }
+      throw error;
+    }
+
+    if (data) {
+      await storage.set(localKey, JSON.stringify(data));
+      return { ...data, source: 'db' };
+    } else {
+      try {
+        const { data: inserted, error: insertErr } = await supabase
+          .from('student_settings')
+          .insert({
+            student_id: studentId,
+            notify_announcement: localSettings.notify_announcement,
+            notify_feedback:     localSettings.notify_feedback,
+            notify_nudge:        localSettings.notify_nudge,
+            notify_tasmiq:       localSettings.notify_tasmiq,
+            notify_murajaah:     localSettings.notify_murajaah,
+            language:            localSettings.language
+          })
+          .select()
+          .single();
+        if (!insertErr && inserted) {
+          await storage.set(localKey, JSON.stringify(inserted));
+          return { ...inserted, source: 'db' };
+        }
+      } catch (e) {
+        console.error('Failed to create student_settings row:', e);
+      }
+      return { ...localSettings, source: 'local' };
+    }
+  } catch (err) {
+    console.error('Error fetching student settings from DB, using fallback:', err);
+    return { ...localSettings, source: 'local' };
+  }
+};
+
+export const updateStudentSettings = async (studentId, patch) => {
+  const localKey = `tasmiq_student_settings_${studentId}`;
+  
+  let localSettings = {};
+  try {
+    const savedLocal = await storage.get(localKey);
+    if (savedLocal) localSettings = JSON.parse(savedLocal);
+  } catch (e) {}
+  
+  const merged = { ...localSettings, ...patch };
+  await storage.set(localKey, JSON.stringify(merged));
+
+  try {
+    const dbPayload = {
+      student_id: studentId,
+      ...patch,
+      updated_at: new Date().toISOString()
+    };
+    
+    const { error } = await supabase
+      .from('student_settings')
+      .upsert([dbPayload], { onConflict: 'student_id' });
+
+    if (error) {
+      console.warn('DB settings upsert failed (expected if table missing):', error.message);
+    }
+  } catch (err) {
+    console.error('Error saving settings to database:', err);
+  }
+  
+  return merged;
 };
 
 // ── SUBSCRIBE TO AUTH STATE ───────────────────────────────────────
@@ -265,23 +385,52 @@ export const getStudentAnnouncements = async (studentId) => {
 
     const classIds = memberships.map(m => m.class_id);
 
-    // Fetch announcements with teacher info
-    const { data, error } = await supabase
+    // Fetch announcements without joins to avoid missing relationship cache error
+    const { data: announcements, error: annError } = await supabase
       .from('announcements')
-      .select('*, classes(name, teacher_id)')
+      .select('*')
       .in('class_id', classIds)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (annError) throw annError;
+    if (!announcements || announcements.length === 0) return [];
 
-    // Mark notification-type announcements as read (fire-and-forget)
-    supabase.from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', studentId)
-      .eq('is_read', false)
-      .then(() => {}).catch(() => {});
+    // Fetch classes corresponding to these classIds
+    const { data: classes, error: classError } = await supabase
+      .from('classes')
+      .select('id, name, teacher_id')
+      .in('id', classIds);
 
-    return data || [];
+    if (classError) throw classError;
+
+    // Fetch teachers corresponding to these classes from the users table
+    const teacherIds = [...new Set(classes?.map(c => c.teacher_id).filter(Boolean) || [])];
+    let teachers = [];
+    if (teacherIds.length > 0) {
+      const { data: teacherData, error: teacherError } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .in('id', teacherIds);
+      if (!teacherError && teacherData) {
+        teachers = teacherData;
+      }
+    }
+
+    // Join them together in memory
+    const joined = announcements.map(ann => {
+      const cls = classes?.find(c => c.id === ann.class_id);
+      const teacher = teachers?.find(t => t.id === cls?.teacher_id);
+      return {
+        ...ann,
+        classes: cls ? {
+          name: cls.name,
+          teacher_id: cls.teacher_id,
+          teacher_name: teacher?.full_name || 'Teacher'
+        } : null
+      };
+    });
+
+    return joined;
   } catch (err) {
     console.error('[getStudentAnnouncements] error:', err);
     return [];
