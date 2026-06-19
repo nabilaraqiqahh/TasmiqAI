@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 const C = {
-  primary: '#10B981',
+  primary: '#0B6E4F',
   gold: '#D4AF37',
   text: '#1E2A22',
   muted: '#5C6E65',
-  bg: '#F5F2E9',
+  bg: '#FEFCE8',
   border: '#EAE3D5'
 };
 
@@ -171,5 +171,7 @@ export default function ReportModal({ isOpen, onClose, onGenerate }) {
     </div>
   );
 }
+
+
 
 

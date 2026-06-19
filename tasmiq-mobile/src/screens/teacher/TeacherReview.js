@@ -14,7 +14,7 @@ const isWeb = Platform.OS === 'web';
 /* ── Score Ring ─────────────────────────────────────────────── */
 function MetricBar({ label, score, color }) {
   const scoreNum = typeof score === 'number' ? score : 0;
-  const barColor = scoreNum >= 85 ? '#16A34A' : scoreNum >= 70 ? '#D4AF37' : '#DC2626';
+  const barColor = scoreNum >= 85 ? '#0B6E4F' : scoreNum >= 70 ? '#D4AF37' : '#DC2626';
   const c = color || barColor;
   return (
     <View style={{ marginBottom: 14 }}>
@@ -120,7 +120,7 @@ export default function TeacherReview({ navigation, route }) {
 
   const metrics = getMetrics(selected);
   const overallScore = selected?.score || 0;
-  const scoreColor = overallScore >= 85 ? '#16A34A' : overallScore >= 70 ? '#D4AF37' : '#DC2626';
+  const scoreColor = overallScore >= 85 ? '#0B6E4F' : overallScore >= 70 ? '#D4AF37' : '#DC2626';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
@@ -151,7 +151,7 @@ export default function TeacherReview({ navigation, route }) {
                     marginTop: 8, backgroundColor: (s.score || 0) >= 70 ? '#DCFCE7' : '#FEE2E2',
                     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start',
                   }}>
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: (s.score || 0) >= 70 ? '#166534' : '#991B1B' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: (s.score || 0) >= 70 ? '#0B6E4F' : '#991B1B' }}>
                       {s.score || 0}%
                     </Text>
                   </View>
@@ -197,8 +197,8 @@ export default function TeacherReview({ navigation, route }) {
                         {selected.surah} · Ayah {selected.ayah}
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-                        <View style={{ backgroundColor: '#F5F2E9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>
+                        <View style={{ backgroundColor: '#FEFCE8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#0B6E4F' }}>
                             {selected.type || 'Tasmiq'}
                           </Text>
                         </View>
@@ -226,7 +226,7 @@ export default function TeacherReview({ navigation, route }) {
                   <Ionicons name="analytics-outline" size={18} color={C.primary} />
                   <Text style={{ fontSize: 15, fontWeight: '900', color: C.text }}>AI Assessment Breakdown</Text>
                 </View>
-                <MetricBar label="📖 Memorization Accuracy" score={metrics.memorization} color="#0F6D3E" />
+                <MetricBar label="📖 Memorization Accuracy" score={metrics.memorization} color="#0B6E4F" />
                 <MetricBar label="🗣️ Pronunciation" score={metrics.pronunciation} color="#D4AF37" />
                 <MetricBar label="✨ Tajwid Rules" score={metrics.tajwid} color="#4A90A4" />
                 <MetricBar label="🎵 Fluency & Flow" score={metrics.fluency} color="#9B7DC8" />
@@ -239,7 +239,7 @@ export default function TeacherReview({ navigation, route }) {
                     <Ionicons name="text-outline" size={18} color={C.primary} />
                     <Text style={{ fontSize: 15, fontWeight: '900', color: C.text }}>Recited Text (Transcription)</Text>
                   </View>
-                  <View style={{ backgroundColor: '#F8F9F4', borderRadius: 16, padding: 20 }}>
+                  <View style={{ backgroundColor: '#FEFCE8', borderRadius: 16, padding: 20 }}>
                     <Text style={{ fontSize: 26, textAlign: 'right', color: C.text, lineHeight: 48, direction: 'rtl', fontWeight: '500', fontFamily: Platform.OS === 'ios' ? 'GeezaPro' : 'serif' }}>
                       {selected.transcription}
                     </Text>
@@ -249,12 +249,12 @@ export default function TeacherReview({ navigation, route }) {
 
               {/* AI FEEDBACK TEXT */}
               {selected.feedback ? (
-                <View style={{ backgroundColor: '#F5F2E9', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#BBF7D0' }}>
+                <View style={{ backgroundColor: '#FEFCE8', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#BBF7D0' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <Ionicons name="bulb-outline" size={18} color="#166534" />
-                    <Text style={{ fontSize: 15, fontWeight: '900', color: '#166534' }}>AI Feedback</Text>
+                    <Ionicons name="bulb-outline" size={18} color="#0B6E4F" />
+                    <Text style={{ fontSize: 15, fontWeight: '900', color: '#0B6E4F' }}>AI Feedback</Text>
                   </View>
-                  <Text style={{ fontSize: 14, color: '#166534', lineHeight: 22 }}>{selected.feedback}</Text>
+                  <Text style={{ fontSize: 14, color: '#0B6E4F', lineHeight: 22 }}>{selected.feedback}</Text>
                 </View>
               ) : null}
 
@@ -334,4 +334,6 @@ export default function TeacherReview({ navigation, route }) {
     </SafeAreaView>
   );
 }
+
+
 

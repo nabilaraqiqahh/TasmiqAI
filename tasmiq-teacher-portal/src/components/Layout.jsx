@@ -16,7 +16,7 @@ const D = {
   emeraldLight: '#D1FAE5',
   gold:         '#D4AF37',
   goldLight:    '#F8E7A1',
-  bg:           '#F8FAF8',
+  bg:           '#FEFCE8',
   card:         '#FFFFFF',
   textDark:     '#1F2937',
   textSec:      '#6B7280',
@@ -188,3 +188,5 @@ export default function Layout() {
     </div>
   );
 }
+
+

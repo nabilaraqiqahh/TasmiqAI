@@ -8,7 +8,7 @@ const D = {
   emeraldDark:  '#064E3B',
   emeraldLight: '#D1FAE5',
   gold:         '#D4AF37',
-  bg:           '#F8FAF8',
+  bg:           '#FEFCE8',
   card:         '#FFFFFF',
   text:         '#1F2937',
   textSec:      '#6B7280',
@@ -313,3 +313,4 @@ export default function MurajaahMonitoring() {
     </div>
   );
 }
+

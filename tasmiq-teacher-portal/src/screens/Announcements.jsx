@@ -4,9 +4,9 @@ import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 
 const C = {
-  bg: '#F5F2E9',
+  bg: '#FEFCE8',
   card: '#FFFFFF',
-  primary: '#10B981',
+  primary: '#0B6E4F',
   gold: '#C9A84C',
   lilac: '#9B8EC4',
   text: '#1E2A22',
@@ -224,6 +224,8 @@ export default function Announcements() {
     </div>
   );
 }
+
+
 
 
 

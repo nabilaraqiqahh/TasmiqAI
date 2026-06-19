@@ -25,7 +25,7 @@ function ProtectedRoute({ children }) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', backgroundColor: '#F5F2E9'
+        minHeight: '100vh', backgroundColor: '#FEFCE8'
       }}>
         <div style={{
           border: '4px solid #14532D33', borderTop: '4px solid #14532D',
@@ -90,3 +90,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+

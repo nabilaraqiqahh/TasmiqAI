@@ -349,7 +349,7 @@ export default function ProfileScreen({ navigation }) {
                   <Text style={{ fontSize: 15, fontWeight: '800', color: C.text, flex: 1 }}>{cls.name}</Text>
                   <View style={{
                     paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8,
-                    backgroundColor: cls.status === 'pending' ? '#FEF3C7' : '#F5F2E9',
+                    backgroundColor: cls.status === 'pending' ? '#FEF3C7' : '#FEFCE8',
                   }}>
                     <Text style={{
                       fontSize: 11, fontWeight: '700',
@@ -629,4 +629,5 @@ export default function ProfileScreen({ navigation }) {
     </IslamicBackground>
   );
 }
+
 

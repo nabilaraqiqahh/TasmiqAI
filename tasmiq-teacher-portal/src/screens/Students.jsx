@@ -4,21 +4,21 @@ import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
 
 const C = {
-  bg: '#F5F2E9',
+  bg: '#FEFCE8',
   card: '#FFFFFF',
-  primary: '#10B981',
+  primary: '#0B6E4F',
   gold: '#C9A84C',
   lilac: '#9B8EC4',
   text: '#1E2A22',
   muted: '#5C6E65',
   red: '#E05252',
-  green: '#10B981',
+  green: '#0B6E4F',
 };
 
 const STATUS_COLORS = {
-  'On Track': { bg: '#10B98120', text: '#10B981' },
+  'On Track': { bg: '#10B98120', text: '#0B6E4F' },
   'At Risk': { bg: '#E0525220', text: '#E05252' },
-  'Improving': { bg: '#4A8C7320', text: '#10B981' },
+  'Improving': { bg: '#4A8C7320', text: '#0B6E4F' },
   'Inactive': { bg: '#99999920', text: '#999999' },
 };
 
@@ -190,6 +190,8 @@ export default function Students() {
     </div>
   );
 }
+
+
 
 
 

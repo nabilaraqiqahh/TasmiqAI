@@ -4,10 +4,10 @@ import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 
 const T = {
-  primary: '#10B981', primaryDark: '#047857', primaryLight: '#D1FAE5',
-  gold: '#D4AF37', bg: '#F5F2E9', card: '#FFFFFF',
+  primary: '#0B6E4F', primaryDark: '#047857', primaryLight: '#D1FAE5',
+  gold: '#D4AF37', bg: '#FEFCE8', card: '#FFFFFF',
   text: '#064E3B', muted: '#6B7280', red: '#EF4444',
-  green: '#10B981', border: '#EAE3D5',
+  green: '#0B6E4F', border: '#EAE3D5',
 };
 
 export default function PendingRequests() {
@@ -236,4 +236,6 @@ export default function PendingRequests() {
     </div>
   );
 }
+
+
 

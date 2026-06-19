@@ -5,15 +5,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const C = {
-  bg: '#F5F2E9',
+  bg: '#FEFCE8',
   card: '#FFFFFF',
-  primary: '#10B981',
+  primary: '#0B6E4F',
   gold: '#C9A84C',
   lilac: '#9B8EC4',
   text: '#1E2A22',
   muted: '#5C6E65',
   red: '#E05252',
-  green: '#10B981',
+  green: '#0B6E4F',
 };
 
 const generateUniqueCode = () => {
@@ -297,6 +297,8 @@ export default function ClassManagement() {
     </div>
   );
 }
+
+
 
 
 

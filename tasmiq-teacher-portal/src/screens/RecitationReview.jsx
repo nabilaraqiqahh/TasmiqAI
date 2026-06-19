@@ -10,14 +10,14 @@ const D = {
   emeraldLight: '#D1FAE5',
   gold:         '#D4AF37',
   goldLight:    '#F8E7A1',
-  bg:           '#F8FAF8',
+  bg:           '#FEFCE8',
   card:         '#FFFFFF',
   text:         '#1F2937',
   textSec:      '#6B7280',
   border:       '#E5E7EB',
   red:          '#EF4444',
   amber:        '#F59E0B',
-  green:        '#10B981',
+  green:        '#0B6E4F',
 };
 
 // ── Auto-approval logic ──────────────────────────────────────
@@ -38,7 +38,7 @@ function getAutoStatus(r) {
 }
 
 const STATUS_CONFIG = {
-  approved:     { label: 'AI Approved',   bg: '#D1FAE5', color: '#065F46', dot: '#10B981' },
+  approved:     { label: 'AI Approved',   bg: '#D1FAE5', color: '#065F46', dot: '#0B6E4F' },
   needs_review: { label: 'Needs Review',  bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
   flagged:      { label: 'Flagged',       bg: '#FEE2E2', color: '#991B1B', dot: '#EF4444' },
 };
@@ -592,3 +592,5 @@ export default function RecitationReview() {
     </div>
   );
 }
+
+

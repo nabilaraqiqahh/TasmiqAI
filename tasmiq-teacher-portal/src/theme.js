@@ -5,12 +5,15 @@ export const T = {
   emeraldLight: '#D1FAE5',
   gold:         '#D4AF37',
   goldLight:    '#F8E7A1',
-  bg:           '#F8FAF8',
+  bg:           '#FEFCE8',
   card:         '#FFFFFF',
   textDark:     '#1F2937',
   textSecondary:'#6B7280',
   border:       '#E5E7EB',
   red:          '#EF4444',
-  green:        '#10B981',
+  green:        '#0B6E4F',
   amber:        '#F59E0B',
 };
+
+
+

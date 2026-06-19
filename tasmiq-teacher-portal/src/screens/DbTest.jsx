@@ -68,7 +68,7 @@ export default function DbTest() {
     setRunning(false);
   };
 
-  const C = { bg: '#F5F2E9', card: '#fff', primary: '#10B981', text: '#1E2A22', muted: '#5C6E65', red: '#E05252', green: '#10B981', gold: '#D4AF37' };
+  const C = { bg: '#FEFCE8', card: '#fff', primary: '#0B6E4F', text: '#1E2A22', muted: '#5C6E65', red: '#E05252', green: '#0B6E4F', gold: '#D4AF37' };
 
   return (
     <div style={{ padding: '40px', maxWidth: '900px', margin: '0 auto', fontFamily: 'monospace' }}>
@@ -105,5 +105,7 @@ export default function DbTest() {
     </div>
   );
 }
+
+
 
 

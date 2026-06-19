@@ -24,7 +24,7 @@ const E  = '#0B6E4F';
 const ED = '#064E3B';
 const EL = '#D1FAE5';
 const G  = '#D4AF37';
-const BG = '#F8FAF8';
+const BG = '#FEFCE8';
 
 export default function MurajaahModeScreen({ navigation }) {
   const { isDark } = useTheme();
@@ -345,10 +345,26 @@ export default function MurajaahModeScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Home')} style={{ width:'100%', padding:17, borderRadius:16, backgroundColor:E, alignItems:'center', marginBottom:10, shadowColor:E, shadowOpacity:0.3, shadowRadius:10, elevation:5 }}>
+          <TouchableOpacity
+            onPress={() => {
+              // Navigate back to the main tab navigator, then to Home tab
+              navigation.navigate('MainTabs', { screen: 'Home' });
+            }}
+            style={{ width:'100%', padding:17, borderRadius:16, backgroundColor:E, alignItems:'center', marginBottom:10, shadowColor:E, shadowOpacity:0.3, shadowRadius:10, elevation:5 }}
+          >
             <Text style={{ color:'white', fontSize:16, fontWeight:'900' }}>Return to Dashboard</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { setDone(false); setRevealed({}); setCycles({}); setSessionId(null); startTimeRef.current = Date.now(); setElapsed(0); }} style={{ width:'100%', padding:14, borderRadius:16, alignItems:'center', borderWidth:1.5, borderColor:E }}>
+          <TouchableOpacity
+            onPress={() => {
+              setDone(false);
+              setRevealed({});
+              setCycles({});
+              setSessionId(null);
+              startTimeRef.current = Date.now();
+              setElapsed(0);
+            }}
+            style={{ width:'100%', padding:14, borderRadius:16, alignItems:'center', borderWidth:1.5, borderColor:E }}
+          >
             <Text style={{ color:E, fontSize:14, fontWeight:'700' }}>Start New Session</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -521,3 +537,4 @@ export default function MurajaahModeScreen({ navigation }) {
     </SafeAreaView>
   );
 }
+

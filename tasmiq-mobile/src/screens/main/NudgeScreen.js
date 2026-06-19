@@ -24,7 +24,7 @@ export default function NudgeScreen({ navigation }) {
   const [sending, setSending]         = useState(null);
   const [tab, setTab]                 = useState('send');
 
-  const E = '#10B981';
+  const E = '#0B6E4F';
   const ED = '#047857';
 
   useEffect(() => { init(); }, []);
@@ -167,13 +167,13 @@ export default function NudgeScreen({ navigation }) {
   };
 
   if (loading) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F2E9', alignItems: 'center', justifyContent: 'center' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FEFCE8', alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator size="large" color={E} />
     </SafeAreaView>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F2E9' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FEFCE8' }}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
@@ -222,14 +222,14 @@ export default function NudgeScreen({ navigation }) {
               marginBottom: 12, borderWidth: 1, borderColor: '#EAE3D5',
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#F5F2E9', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#FEFCE8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <Text style={{ fontSize: 18, fontWeight: '900', color: ED }}>{mate.name[0]?.toUpperCase()}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '800', color: '#064E3B', fontSize: 15 }}>{mate.name}</Text>
                   <Text style={{ fontSize: 12, color: '#6B7280' }}>{mate.className}</Text>
                 </View>
-                <View style={{ backgroundColor: mate.nudgesToday >= 3 ? '#FEE2E2' : '#F5F2E9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <View style={{ backgroundColor: mate.nudgesToday >= 3 ? '#FEE2E2' : '#FEFCE8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: mate.nudgesToday >= 3 ? '#991B1B' : ED }}>
                     {mate.nudgesToday}/3 today
                   </Text>
@@ -245,7 +245,7 @@ export default function NudgeScreen({ navigation }) {
                     style={{
                       flex: 1, minWidth: 90, paddingVertical: 8, paddingHorizontal: 10,
                       borderRadius: 10, alignItems: 'center',
-                      backgroundColor: mate.nudgesToday >= 3 ? '#F3F4F6' : '#F5F2E9',
+                      backgroundColor: mate.nudgesToday >= 3 ? '#F3F4F6' : '#FEFCE8',
                       opacity: mate.nudgesToday >= 3 ? 0.5 : 1,
                     }}
                   >
@@ -281,7 +281,7 @@ export default function NudgeScreen({ navigation }) {
             const nudgeType  = NUDGE_TYPES.find(t => t.id === item.type);
             return (
               <TouchableOpacity onPress={() => markRead(item.id)} style={{
-                backgroundColor: item.is_read ? 'white' : '#F5F2E9',
+                backgroundColor: item.is_read ? 'white' : '#FEFCE8',
                 borderRadius: 16, padding: 16, marginBottom: 10,
                 borderWidth: 1, borderColor: item.is_read ? '#EAE3D5' : E,
                 flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -322,7 +322,7 @@ export default function NudgeScreen({ navigation }) {
                   {user.name} {user.id === session?.id ? '(You)' : ''}
                 </Text>
               </View>
-              <View style={{ backgroundColor: '#F5F2E9', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <View style={{ backgroundColor: '#FEFCE8', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
                 <Text style={{ fontWeight: '900', color: ED, fontSize: 14 }}>{user.count} nudges</Text>
               </View>
             </View>
@@ -337,5 +337,7 @@ export default function NudgeScreen({ navigation }) {
     </SafeAreaView>
   );
 }
+
+
 
 

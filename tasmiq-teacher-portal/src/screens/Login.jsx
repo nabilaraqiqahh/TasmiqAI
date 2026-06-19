@@ -55,13 +55,13 @@ const Login = () => {
   const detectedRole = getRoleFromEmail(email);
 
   const C = {
-    primary: '#10B981',
-    bg: '#F5F2E9',
+    primary: '#0B6E4F',
+    bg: '#FEFCE8',
     card: '#FFFFFF',
     text: '#2C2C2C',
     muted: '#6B6B6B',
     red: '#E05252',
-    green: '#10B981'
+    green: '#0B6E4F'
   };
 
   return (
@@ -259,5 +259,7 @@ const Login = () => {
 };
 
 export default Login;
+
+
 
 

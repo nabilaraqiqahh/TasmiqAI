@@ -4,8 +4,8 @@ import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 
 const T = {
-  primary: '#10B981', primaryDark: '#047857', primaryLight: '#F5F2E9',
-  gold: '#D4AF37', bg: '#F5F2E9', card: '#FFFFFF',
+  primary: '#0B6E4F', primaryDark: '#047857', primaryLight: '#FEFCE8',
+  gold: '#D4AF37', bg: '#FEFCE8', card: '#FFFFFF',
   text: '#1E2A22', muted: '#6B7280', red: '#EF4444', border: '#EAE3D5',
 };
 
@@ -258,7 +258,7 @@ export default function Settings() {
             <div style={{
               padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
               backgroundColor:
-                item.status === 'online'   ? '#F5F2E9' :
+                item.status === 'online'   ? '#FEFCE8' :
                 item.status === 'offline'  ? '#FEE2E2' :
                 item.status === 'checking' ? '#FEF9C3' : '#E0E7FF',
               color:
@@ -287,5 +287,7 @@ export default function Settings() {
     </div>
   );
 }
+
+
 
 

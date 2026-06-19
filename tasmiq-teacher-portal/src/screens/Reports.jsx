@@ -13,8 +13,8 @@ import logoImg from '../assets/logo.png';
 
 /* ── Design tokens ─────────────────────────────────────────── */
 const C = {
-  bg: '#F5F2E9', card: '#FFFFFF',
-  primary: '#10B981', primaryLight: '#1A6B38',
+  bg: '#FEFCE8', card: '#FFFFFF',
+  primary: '#0B6E4F', primaryLight: '#1A6B38',
   gold: '#D4AF37', goldLight: '#F0D060',
   text: '#1E2A22', muted: '#5C6E65',
   red: '#C0392B', green: '#1A7A4A',
@@ -1015,6 +1015,8 @@ function EmptyMsg({ children }) {
     </div>
   );
 }
+
+
 
 
 

@@ -7,15 +7,15 @@ import {
 import { TrendingUp, BarChart3, AlertTriangle, CheckCircle, Percent, RefreshCw } from 'lucide-react';
 
 const C = {
-  bg: '#F5F2E9',
+  bg: '#FEFCE8',
   card: '#FFFFFF',
-  primary: '#10B981',
+  primary: '#0B6E4F',
   gold: '#D4AF37',
   lilac: '#9B8EC4',
   text: '#1E2A22',
   muted: '#5C6E65',
   red: '#E05252',
-  green: '#10B981',
+  green: '#0B6E4F',
   border: '#EAE3D5',
 };
 
@@ -444,6 +444,8 @@ function EmptyState({ message, icon = '📭' }) {
     </div>
   );
 }
+
+
 
 
 

@@ -18,13 +18,13 @@ const { width: SCREEN_W } = Dimensions.get('window');
 
 /* ── Colour palette ─────────────────────────────────────────── */
 const P = {
-  primary:  '#14532D',
+  primary:  '#0B6E4F',
   gold:     '#D4AF37',
   goldBg:   '#FDF8E7',
-  green:    '#16A34A',
+  green:    '#0B6E4F',
   red:      '#DC2626',
   amber:    '#D97706',
-  bg:       '#F5F2E9',
+  bg:       '#FEFCE8',
   card:     '#FFFFFF',
   muted:    '#6B7280',
   text:     '#1A2E1C',
@@ -92,7 +92,7 @@ function AnimatedQuranIcon() {
         alignItems: 'center', justifyContent: 'center',
         borderWidth: 3, borderColor: '#0F6D3E30',
       }}>
-        <Ionicons name="book" size={56} color="#0F6D3E" />
+        <Ionicons name="book" size={56} color="#0B6E4F" />
       </View>
     </Animated.View>
   );
@@ -746,7 +746,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
               </Text>
               <Text style={{
                 fontSize: 56, fontWeight: '900', textAlign: 'center',
-                color: aiAnalysis?.score >= 85 ? '#16A34A' : aiAnalysis?.score >= 70 ? P.gold : P.red,
+                color: aiAnalysis?.score >= 85 ? '#0B6E4F' : aiAnalysis?.score >= 70 ? P.gold : P.red,
                 lineHeight: 64,
               }}>
                 {aiAnalysis?.score ?? 0}%
@@ -796,7 +796,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => { setSubmitSuccess(false); navigation.goBack(); }}
+              onPress={() => { setSubmitSuccess(false); navigation.navigate('MainTabs', { screen: 'Home' }); }}
               style={{
                 width: '100%', padding: 18, borderRadius: 16,
                 backgroundColor: 'white', alignItems: 'center',
@@ -1097,7 +1097,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
             <AnimatedQuranIcon />
 
-            <Text style={{ fontSize: 24, fontWeight: '900', color: '#0F6D3E', marginBottom: 8, textAlign: 'center' }}>
+            <Text style={{ fontSize: 24, fontWeight: '900', color: '#0B6E4F', marginBottom: 8, textAlign: 'center' }}>
               Analyzing Your Recitation
             </Text>
             
@@ -1129,7 +1129,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                       alignItems: 'center', justifyContent: 'center', marginRight: 14,
                     }}>
                       {done
-                        ? <Ionicons name="checkmark" size={18} color="#0F6D3E" />
+                        ? <Ionicons name="checkmark" size={18} color="#0B6E4F" />
                         : active 
                         ? <ActivityIndicator size="small" color="#D4AF37" />
                         : <Ionicons name={stage.icon} size={16} color={P.muted} />
@@ -1137,7 +1137,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                     </View>
                     <Text style={{
                       fontSize: 14, flex: 1,
-                      color: done ? '#0F6D3E' : active ? '#D4AF37' : P.muted,
+                      color: done ? '#0B6E4F' : active ? '#D4AF37' : P.muted,
                       fontWeight: done || active ? '700' : '400',
                     }}>
                       {stage.label}
@@ -1180,10 +1180,10 @@ export default function TasmiqModeScreen({ navigation, route }) {
           >
             {/* Overall Score card */}
             <View style={{
-              backgroundColor: '#0F6D3E',
+              backgroundColor: '#0B6E4F',
               borderRadius: 24, padding: 28,
               alignItems: 'center', marginBottom: 16,
-              shadowColor: '#0F6D3E', shadowOpacity: 0.35,
+              shadowColor: '#0B6E4F', shadowOpacity: 0.35,
               shadowRadius: 16, elevation: 8,
             }}>
               <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: '700', marginBottom: 4, letterSpacing: 1 }}>
@@ -1196,7 +1196,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                 {aiAnalysis.score}%
               </Text>
               <View style={{
-                backgroundColor: aiAnalysis.score >= 90 ? '#16A34A' : aiAnalysis.score >= 70 ? '#D4AF37' : '#DC2626',
+                backgroundColor: aiAnalysis.score >= 90 ? '#0B6E4F' : aiAnalysis.score >= 70 ? '#D4AF37' : '#DC2626',
                 borderRadius: 20, paddingHorizontal: 24, paddingVertical: 8, marginTop: 8,
               }}>
                 <Text style={{ color: 'white', fontWeight: '800', fontSize: 16 }}>
@@ -1213,14 +1213,14 @@ export default function TasmiqModeScreen({ navigation, route }) {
               backgroundColor: P.card, borderRadius: 20, padding: 22, marginBottom: 14,
               shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
             }}>
-              <Text style={{ fontSize: 14, fontWeight: '900', color: '#0F6D3E', marginBottom: 20, letterSpacing: 0.5 }}>
+              <Text style={{ fontSize: 14, fontWeight: '900', color: '#0B6E4F', marginBottom: 20, letterSpacing: 0.5 }}>
                 DETAILED ASSESSMENT
               </Text>
               
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 }}>
                 {/* 1. Memorization */}
                 <View style={{ width: '47%', alignItems: 'center', paddingVertical: 10 }}>
-                  <ScoreRing score={aiAnalysis.memorization} label="Memorization Accuracy" color="#0F6D3E" size={68} />
+                  <ScoreRing score={aiAnalysis.memorization} label="Memorization Accuracy" color="#0B6E4F" size={68} />
                 </View>
                 {/* 2. Pronunciation */}
                 <View style={{ width: '47%', alignItems: 'center', paddingVertical: 10 }}>
@@ -1262,7 +1262,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
               backgroundColor: P.card, borderRadius: 20, padding: 20, marginBottom: 14,
               shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
             }}>
-              <Text style={{ fontSize: 14, fontWeight: '900', color: '#0F6D3E', marginBottom: 16, letterSpacing: 0.5 }}>
+              <Text style={{ fontSize: 14, fontWeight: '900', color: '#0B6E4F', marginBottom: 16, letterSpacing: 0.5 }}>
                 RECITED TEXT COMPARISON
               </Text>
               
@@ -1426,7 +1426,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                 style={{
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                   gap: 10, padding: 16, borderRadius: 16, marginBottom: 12,
-                  backgroundColor: isPlayingRecording ? '#FEF3C7' : '#F5F2E9',
+                  backgroundColor: isPlayingRecording ? '#FEF3C7' : '#FEFCE8',
                   borderWidth: 1.5,
                   borderColor: isPlayingRecording ? P.gold : '#E5E7EB',
                 }}
@@ -1525,3 +1525,5 @@ export default function TasmiqModeScreen({ navigation, route }) {
     </IslamicBackground>
   );
 }
+
+

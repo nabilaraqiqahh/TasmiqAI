@@ -9,15 +9,15 @@ import {
 } from 'recharts';
 
 const C = {
-  bg: '#F5F2E9',
+  bg: '#FEFCE8',
   card: '#FFFFFF',
-  primary: '#10B981', // Modern Islamic Green
+  primary: '#0B6E4F', // Modern Islamic Green
   primaryLight: '#E8F5E9',
   gold: '#D4AF37', // Gold
   text: '#1E2A22',
   muted: '#5C6E65',
   red: '#E05252',
-  green: '#10B981',
+  green: '#0B6E4F',
   border: '#EAE3D5',
 };
 
@@ -422,5 +422,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
 
 

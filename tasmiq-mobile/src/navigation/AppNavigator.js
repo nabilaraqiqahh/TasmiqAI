@@ -45,7 +45,7 @@ function MainTabNavigator() {
           };
           return <Ionicons name={icons[route.name] || 'help'} size={size} color={color} />;
         },
-        tabBarActiveTintColor:   '#14532D',
+        tabBarActiveTintColor:   '#0B6E4F',
         tabBarInactiveTintColor: '#AAAAAA',
         headerShown: false,
         tabBarStyle: {
@@ -103,8 +103,8 @@ export default function AppNavigator() {
   // Loading splash
   if (session === undefined) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F5F2E9', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#14532D" />
+      <View style={{ flex: 1, backgroundColor: '#FEFCE8', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#0B6E4F" />
       </View>
     );
   }
@@ -145,3 +145,5 @@ export default function AppNavigator() {
     </Stack.Navigator>
   );
 }
+
+

@@ -11,7 +11,7 @@ import { supabase } from '../../services/supabaseClient';
 import quranData from '../../data/quran_data.json';
 
 /* ── Design constants ───────────────────────────────────────── */
-const PRIMARY  = '#14532D';
+const PRIMARY  = '#0B6E4F';
 const GOLD     = '#D4AF37';
 const GOLD_BG  = '#FDF8E7';
 const LIGHT_GREEN = '#E8F5EC';
@@ -436,4 +436,5 @@ export default function TasmiqPrepScreen({ navigation }) {
     </IslamicBackground>
   );
 }
+
 

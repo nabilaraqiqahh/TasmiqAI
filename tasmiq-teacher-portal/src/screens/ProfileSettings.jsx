@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const C = {
-  bg: '#F5F2E9', card: '#FFFFFF', primary: '#10B981',
-  text: '#1E2A22', muted: '#5C6E65', red: '#E05252', green: '#10B981',
+  bg: '#FEFCE8', card: '#FFFFFF', primary: '#0B6E4F',
+  text: '#1E2A22', muted: '#5C6E65', red: '#E05252', green: '#0B6E4F',
 };
 
 const SESSION_KEY = 'tasmiq_teacher_session';
@@ -140,5 +140,7 @@ export default function ProfileSettings() {
     </div>
   );
 }
+
+
 
 
