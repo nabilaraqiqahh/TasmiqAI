@@ -264,13 +264,23 @@ export const getStudentAnnouncements = async (studentId) => {
     if (!memberships?.length) return [];
 
     const classIds = memberships.map(m => m.class_id);
+
+    // Fetch announcements with teacher info
     const { data, error } = await supabase
       .from('announcements')
-      .select('*, classes(name)')
+      .select('*, classes(name, teacher_id)')
       .in('class_id', classIds)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
+    // Mark notification-type announcements as read (fire-and-forget)
+    supabase.from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', studentId)
+      .eq('is_read', false)
+      .then(() => {}).catch(() => {});
+
     return data || [];
   } catch (err) {
     console.error('[getStudentAnnouncements] error:', err);

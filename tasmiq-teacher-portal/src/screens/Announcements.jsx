@@ -25,6 +25,7 @@ export default function Announcements() {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const loadData = async () => {
     try {
@@ -59,7 +60,7 @@ export default function Announcements() {
   };
 
   useEffect(() => {
-    if (teacher?.uid) {
+    if (teacher?.id) {   // ← was teacher?.uid — wrong field
       loadData();
     }
   }, [teacher]);
@@ -70,20 +71,42 @@ export default function Announcements() {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
+      // 1. Save announcement to DB
+      const { data: annData, error } = await supabase
         .from('announcements')
         .insert([{
-          title: title.trim(),
-          content: content.trim(),
-          class_id: selectedClassId,
-          teacher_id: teacher.id
-        }]);
+          title:      title.trim(),
+          content:    content.trim(),
+          class_id:   selectedClassId,
+          teacher_id: teacher.id,
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
-      
-      alert('Announcement sent successfully!');
+
+      // 2. Create notifications for all students in the class
+      const { data: members } = await supabase
+        .from('class_members')
+        .select('student_id')
+        .eq('class_id', selectedClassId);
+
+      if (members?.length > 0) {
+        const notifications = members.map(m => ({
+          user_id:    m.student_id,
+          title:      `New Announcement: ${title.trim()}`,
+          body:       content.trim().slice(0, 120) + (content.length > 120 ? '…' : ''),
+          type:       'info',
+          is_read:    false,
+        }));
+        await supabase.from('notifications').insert(notifications)
+          .then(() => {}).catch(e => console.warn('Notifications insert:', e?.message));
+      }
+
       setTitle('');
       setContent('');
+      setSuccessMsg(`✅ Announcement published to ${members?.length || 0} student${(members?.length || 0) !== 1 ? 's' : ''}!`);
+      setTimeout(() => setSuccessMsg(''), 4000);
       loadData();
     } catch (error) {
       alert('Error sending announcement: ' + error.message);
@@ -179,6 +202,13 @@ export default function Announcements() {
               <Send size={18} />
               {submitting ? 'Publishing...' : 'Publish Announcement'}
             </button>
+
+            {/* Success banner */}
+            {successMsg && (
+              <div style={{ marginTop: '12px', padding: '12px 16px', borderRadius: '10px', backgroundColor: '#D1FAE5', color: '#065F46', fontWeight: '700', fontSize: '14px', border: '1px solid #A7F3D0' }}>
+                {successMsg}
+              </div>
+            )}
           </form>
         </div>
 
@@ -203,6 +233,9 @@ export default function Announcements() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: C.muted }}>
                   <span style={{ backgroundColor: C.gold + '20', color: C.gold, padding: '4px 8px', borderRadius: '6px', fontWeight: '700' }}>
                     {ann.classes?.name || 'Unknown Class'}
+                  </span>
+                  <span style={{ fontWeight: '600' }}>
+                    {teacher?.full_name || 'Teacher'}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Clock size={12} />

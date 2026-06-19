@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getUserProfile, getStudentAnnouncements, getCurrentUser } from '../../services/authService';
 import { checkBackendConnection } from '../../services/api';
+import { supabase } from '../../services/supabaseClient';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import IslamicBackground from '../../components/IslamicBackground';
@@ -44,6 +45,7 @@ export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState([]);
   const [backendOnline, setBackendOnline] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const hour = new Date().getHours();
   
@@ -72,9 +74,17 @@ export default function DashboardScreen({ navigation }) {
           const anns = await getStudentAnnouncements(session.id);
           setAnnouncements(anns || []);
 
-          // Check if backend AI server is reachable
+          // Check backend and unread notifications
           const online = await checkBackendConnection();
           setBackendOnline(online);
+
+          // Load unread notifications count
+          const { count } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', session.id)
+            .eq('is_read', false);
+          setUnreadCount(count || 0);
         } catch (err) {
           console.error('[Dashboard] load error:', err);
         } finally {
@@ -156,7 +166,14 @@ export default function DashboardScreen({ navigation }) {
         {/* Announcements Section */}
         {announcements.length > 0 && (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: C.muted, letterSpacing: 1.5, marginBottom: 14 }}>CLASS ANNOUNCEMENTS</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: C.muted, letterSpacing: 1.5 }}>CLASS ANNOUNCEMENTS</Text>
+              {unreadCount > 0 && (
+                <View style={{ backgroundColor: '#EF4444', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Text style={{ color: 'white', fontSize: 11, fontWeight: '800' }}>{unreadCount} new</Text>
+                </View>
+              )}
+            </View>
             {announcements.map((ann) => (
               <View key={ann.id} style={{
                 backgroundColor: C.card, borderRadius: 16, padding: 18, marginBottom: 12,
