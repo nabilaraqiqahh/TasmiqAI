@@ -326,7 +326,7 @@ export default function Reports() {
       const { generateReport: genPDF } = await import('../services/pdfGenerator');
       const pdf = await genPDF({
         ...reportData,
-        teacherName: teacher?.full_name || 'TasmiqAI System',
+        teacherName: reportData.teacherName || 'TasmiqAI System',
       });
       const filename = `TasmiqAI_${(reportData.type || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
       pdf.save(filename);
