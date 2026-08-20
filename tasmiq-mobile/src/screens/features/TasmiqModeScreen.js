@@ -270,6 +270,28 @@ export default function TasmiqModeScreen({ navigation, route }) {
       const response = await analyzeRecitation(rec.audioUri, initialSurahIndex + 1, String(ayahNum), expectedText);
       const result = response?.result || response || {};
 
+      // ── No speech detected ────────────────────────────────────────────────
+      if (result.status === 'no_speech') {
+        setRecordings(prev => ({
+          ...prev,
+          [ayahNum]: {
+            audioUri: null,
+            isAnalyzing: false,
+            isSubmittedToAi: false,
+            score: undefined,
+            analysis: null,
+            duration: 0,
+          }
+        }));
+        Alert.alert(
+          '🎙 No Speech Detected',
+          result.message || 'No speech was detected in your recording. Please speak clearly into the microphone and try again.',
+          [{ text: 'Re-record', style: 'default' }]
+        );
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       // ── Wrong surah detected ───────────────────────────────────────────────
       if (result.status === 'wrong_surah') {
         // Reset to unanalyzed state so the student can re-record
@@ -344,6 +366,25 @@ export default function TasmiqModeScreen({ navigation, route }) {
       const ayahRange = `${initialAyahStart}-${targetEndAyahNumber}`;
       const response = await analyzeRecitation(advancedRecording.audioUri, initialSurahIndex + 1, ayahRange, expectedText);
       const result = response?.result || response || {};
+
+      // ── No speech detected ────────────────────────────────────────────────
+      if (result.status === 'no_speech') {
+        setAdvancedRecording({
+          audioUri: null,
+          isAnalyzing: false,
+          isSubmittedToAi: false,
+          score: undefined,
+          analysis: null,
+          duration: 0,
+        });
+        Alert.alert(
+          '🎙 No Speech Detected',
+          result.message || 'No speech was detected in your recording. Please speak clearly into the microphone and try again.',
+          [{ text: 'Re-record', style: 'default' }]
+        );
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       // ── Wrong surah detected ───────────────────────────────────────────────
       if (result.status === 'wrong_surah') {

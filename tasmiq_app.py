@@ -357,30 +357,32 @@ def _acoustic_score(audio_arr: np.ndarray, expected_text: str) -> dict:
     zcr_mean = float(np.mean(zcr))
     articulation = float(np.clip((zcr_mean - 0.01) / 0.10, 0, 1))
 
-    # -- Derive four scores — wider range (50-95) based on features ----------
+    # -- Derive four scores — based on features, NO artificial floor ----------
     # mem: how much of expected duration was covered with speech
-    mem_raw = (speech_ratio * 0.5 + duration_ratio * 0.5)
-    mem_score = float(np.clip(50.0 + mem_raw * 45.0, 50, 95))
+    # speech_ratio near 0 (silent) → score near 0
+    mem_raw = (speech_ratio * 0.6 + duration_ratio * 0.4)
+    mem_score = float(np.clip(mem_raw * 95.0, 0, 95))
 
-    # pronunciation: articulation + smoothness
-    pron_raw = (articulation * 0.5 + smoothness * 0.5)
-    pron_score = float(np.clip(50.0 + pron_raw * 40.0, 50, 93))
+    # pronunciation: articulation + smoothness — also gated by speech presence
+    pron_raw = (articulation * 0.5 + smoothness * 0.5) * speech_ratio
+    pron_score = float(np.clip(pron_raw * 95.0, 0, 93))
 
-    # fluency: smoothness of speech flow
-    fluency_raw = (smoothness * 0.65 + speech_ratio * 0.35)
-    fluency_score = float(np.clip(50.0 + fluency_raw * 42.0, 50, 94))
+    # fluency: smoothness of speech flow — zero if no speech
+    fluency_raw = (smoothness * 0.65 + speech_ratio * 0.35) * speech_ratio
+    fluency_score = float(np.clip(fluency_raw * 95.0, 0, 94))
 
-    # tajwid: correlates with articulation precision
-    tajwid_raw = (articulation * 0.7 + smoothness * 0.3)
-    tajwid_score = float(np.clip(50.0 + tajwid_raw * 38.0, 50, 92))
+    # tajwid: correlates with articulation — zero if no speech
+    tajwid_raw = (articulation * 0.7 + smoothness * 0.3) * speech_ratio
+    tajwid_score = float(np.clip(tajwid_raw * 90.0, 0, 92))
 
-    # Add small random variation so repeated recordings feel different
-    rng = random.Random(int(speech_ratio * 10000) + int(duration_sec * 100))
-    jitter = lambda s: float(np.clip(s + rng.uniform(-4, 4), 45.0, 97.0))
-    mem_score, pron_score, fluency_score, tajwid_score = (
-        jitter(mem_score), jitter(pron_score),
-        jitter(fluency_score), jitter(tajwid_score)
-    )
+    # Add small random variation only for non-silent recordings
+    if speech_ratio > 0.1:
+        rng = random.Random(int(speech_ratio * 10000) + int(duration_sec * 100))
+        jitter = lambda s: float(np.clip(s + rng.uniform(-3, 3), 0.0, 97.0))
+        mem_score, pron_score, fluency_score, tajwid_score = (
+            jitter(mem_score), jitter(pron_score),
+            jitter(fluency_score), jitter(tajwid_score)
+        )
 
     logger.info(
         f"Acoustic scores → Mem:{mem_score:.1f} Pron:{pron_score:.1f} "
@@ -515,21 +517,30 @@ def _score_from_transcription(user_ph: str, expected_text: str,
 
     total = max(len(tgt_words_n), 1)
     mem   = float(np.clip((mem_hits / total) * 100, 0, 100))
-    pron  = float(np.clip(100 - (pron_issues / total) * 35, 0, 100))
-    if pron > mem + 12: pron = mem + 12
 
-    # Fluency from audio signal
-    fluency = 70.0
+    # Fluency from audio signal — gated by speech presence (silent = low fluency)
+    fluency = 0.0
     if len(audio_arr) > 0:
         rms = librosa.feature.rms(y=audio_arr)[0]
-        sr_ratio = np.sum(rms > 0.02) / max(len(rms), 1)
-        fluency = float(np.clip(sr_ratio * 110 + random.uniform(-4, 6), 55, 97))
+        speech_frames = np.sum(rms > 0.005)
+        sr_ratio = speech_frames / max(len(rms), 1)
+        # Only get meaningful fluency score if significant speech present
+        if sr_ratio > 0.08:
+            fluency = float(np.clip(sr_ratio * 110 + random.uniform(-4, 6), 30, 97))
+        else:
+            fluency = float(np.clip(sr_ratio * 50, 0, 20))   # near-zero for silence
 
-    # Tajwid from makhraj errors
+    # Tajwid from makhraj errors — no speech = no tajwid score
     makhraj_tips = _get_makhraj_tips(user_ph, expected_text or "")
     tajwid_errors = makhraj_tips.count('- <b>')
-    tajwid = float(np.clip(100 - tajwid_errors * 6, 55, 97))
+    # Cap tajwid to mem — can't have good tajwid with no memorization
+    tajwid = float(np.clip(100 - tajwid_errors * 6, 0, 97))
     if tajwid > mem + 15: tajwid = mem + 15
+
+    # Cap pron to mem + a small allowance — can't score high on pronunciation
+    # if the student didn't recite the right words at all
+    pron = float(np.clip(100 - (pron_issues / total) * 35, 0, 100))
+    if pron > mem + 12: pron = mem + 12
 
     overall = mem * 0.45 + pron * 0.30 + tajwid * 0.15 + fluency * 0.10
     return {
@@ -575,7 +586,72 @@ def process_audio_public(audio_source, sr=16000):
     return process_audio(audio_source, sr)
 
 
-# ── Ayah detection for continuous recitation ──────────────────────────────────
+# ── Silence / no-speech detection ────────────────────────────────────────────
+def _detect_silence(audio_arr: np.ndarray, sr: int = 16000) -> dict:
+    """
+    Determine whether the audio contains meaningful speech.
+
+    Returns a dict with:
+      speech_detected : bool   — True if real speech is present
+      speech_ratio    : float  — fraction of frames above speech threshold
+      speech_seconds  : float  — estimated seconds of speech
+      rms_mean        : float  — mean RMS energy
+      reason          : str    — human-readable reason when silent
+
+    Thresholds (conservative — err on side of letting real speech through):
+      speech_ratio < 0.08  → less than 8% of frames have voice-level energy
+      speech_seconds < 0.5 → less than 0.5s of actual speech content
+    """
+    if len(audio_arr) == 0:
+        return {
+            "speech_detected": False,
+            "speech_ratio": 0.0,
+            "speech_seconds": 0.0,
+            "rms_mean": 0.0,
+            "reason": "Audio file is empty or could not be loaded.",
+        }
+
+    rms = librosa.feature.rms(y=audio_arr, frame_length=512, hop_length=256)[0]
+    rms_mean = float(np.mean(rms))
+
+    # Adaptive noise floor: 20th-percentile RMS is background noise level
+    noise_floor = float(np.percentile(rms, 20))
+    # Speech is anything significantly louder than the noise floor
+    speech_threshold = max(noise_floor * 4.0, 0.005)   # absolute minimum 0.005
+    speech_frames = int(np.sum(rms > speech_threshold))
+    total_frames  = max(len(rms), 1)
+    speech_ratio  = speech_frames / total_frames
+
+    # Convert frames → seconds  (hop_length=256 frames per step at sr=16000)
+    hop_length = 256
+    speech_seconds = float(speech_frames * hop_length / sr)
+
+    # Silence conditions — BOTH must be met to flag as silent
+    is_silent = (speech_ratio < 0.08) and (speech_seconds < 0.5)
+
+    reason = ""
+    if is_silent:
+        if speech_seconds < 0.1:
+            reason = "No speech detected. Please speak clearly into the microphone."
+        else:
+            reason = (
+                f"Recording too quiet (only {speech_seconds:.1f}s of speech detected). "
+                "Please speak louder and closer to the microphone."
+            )
+
+    logger.info(
+        f"Silence check → ratio={speech_ratio:.3f}  "
+        f"speech={speech_seconds:.2f}s  rms_mean={rms_mean:.5f}  "
+        f"threshold={speech_threshold:.5f}  silent={is_silent}"
+    )
+
+    return {
+        "speech_detected": not is_silent,
+        "speech_ratio":    round(speech_ratio, 4),
+        "speech_seconds":  round(speech_seconds, 2),
+        "rms_mean":        round(rms_mean, 6),
+        "reason":          reason,
+    }
 def detect_ayahs_in_recitation(transcribed_text: str, surah_idx: int,
                                 start_ayah: int, end_ayah: int) -> dict:
     """
@@ -692,6 +768,26 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
     try:
         logger.info(f"Loading audio: {user_audio_path}")
         audio_arr = process_audio(user_audio_path)
+
+        # ── SILENCE GATE — reject before any AI analysis ────────────────────
+        # Check for meaningful speech content. This catches:
+        #   - Student pressing Record but staying silent
+        #   - Accidental taps (very short recordings)
+        #   - Mic not working / muted
+        silence_check = _detect_silence(audio_arr)
+        if not silence_check["speech_detected"]:
+            logger.warning(
+                f"Silent recording rejected — "
+                f"speech_ratio={silence_check['speech_ratio']:.3f}, "
+                f"speech_seconds={silence_check['speech_seconds']:.2f}s"
+            )
+            return {
+                "status":  "no_speech",
+                "message": silence_check["reason"],
+                "speech_ratio":   silence_check["speech_ratio"],
+                "speech_seconds": silence_check["speech_seconds"],
+            }
+        # ─────────────────────────────────────────────────────────────────────
 
         scores = None
 
