@@ -591,16 +591,15 @@ def _detect_silence(audio_arr: np.ndarray, sr: int = 16000) -> dict:
     """
     Determine whether the audio contains meaningful speech.
 
-    Returns a dict with:
-      speech_detected : bool   — True if real speech is present
-      speech_ratio    : float  — fraction of frames above speech threshold
-      speech_seconds  : float  — estimated seconds of speech
-      rms_mean        : float  — mean RMS energy
-      reason          : str    — human-readable reason when silent
+    Uses a multi-check approach:
+      1. Absolute RMS energy — must be above a minimum level
+      2. Speech ratio — enough frames must be louder than background noise
+      3. Speech duration — must have at least 0.8s of voice-level audio
 
-    Thresholds (conservative — err on side of letting real speech through):
-      speech_ratio < 0.08  → less than 8% of frames have voice-level energy
-      speech_seconds < 0.5 → less than 0.5s of actual speech content
+    Rejects if ANY of these fail, which catches:
+      - Complete silence (mic muted / not speaking)
+      - Background room noise only (fan, AC) — low absolute RMS
+      - Very short taps that produce a brief click but no speech
     """
     if len(audio_arr) == 0:
         return {
@@ -613,36 +612,63 @@ def _detect_silence(audio_arr: np.ndarray, sr: int = 16000) -> dict:
 
     rms = librosa.feature.rms(y=audio_arr, frame_length=512, hop_length=256)[0]
     rms_mean = float(np.mean(rms))
+    rms_max  = float(np.max(rms))
 
-    # Adaptive noise floor: 20th-percentile RMS is background noise level
+    # ── Check 1: Absolute energy floor ──────────────────────────────────────
+    # Human speech typically has RMS > 0.01 after normalization.
+    # Silent/background noise is usually < 0.005.
+    ABSOLUTE_RMS_MIN = 0.008
+    if rms_mean < ABSOLUTE_RMS_MIN:
+        logger.warning(
+            f"Silence gate: rms_mean={rms_mean:.6f} < {ABSOLUTE_RMS_MIN} → SILENT"
+        )
+        return {
+            "speech_detected": False,
+            "speech_ratio": 0.0,
+            "speech_seconds": 0.0,
+            "rms_mean": round(rms_mean, 6),
+            "reason": "No speech detected. Please speak clearly into the microphone.",
+        }
+
+    # ── Check 2: Adaptive speech/noise ratio ────────────────────────────────
+    # Noise floor = 20th percentile RMS (the quietest 20% of frames = background)
     noise_floor = float(np.percentile(rms, 20))
-    # Speech is anything significantly louder than the noise floor
-    speech_threshold = max(noise_floor * 4.0, 0.005)   # absolute minimum 0.005
+    # Speech threshold: must be at least 3× louder than background AND
+    # at least 0.01 in absolute terms (prevents treating loud noise as speech)
+    speech_threshold = max(noise_floor * 3.0, 0.01)
+
     speech_frames = int(np.sum(rms > speech_threshold))
     total_frames  = max(len(rms), 1)
     speech_ratio  = speech_frames / total_frames
 
-    # Convert frames → seconds  (hop_length=256 frames per step at sr=16000)
-    hop_length = 256
+    # Convert speech frames → seconds
+    hop_length    = 256
     speech_seconds = float(speech_frames * hop_length / sr)
 
-    # Silence conditions — BOTH must be met to flag as silent
-    is_silent = (speech_ratio < 0.08) and (speech_seconds < 0.5)
+    # ── Check 3: Minimum speech duration ────────────────────────────────────
+    # At least 0.8s of speech-level audio must be present.
+    # A single Quranic word takes ~0.3-0.5s; Bismillah alone is ~1.5s.
+    MIN_SPEECH_SECONDS = 0.8
+    MIN_SPEECH_RATIO   = 0.06  # at least 6% of frames must be speech
+
+    is_silent = (speech_ratio < MIN_SPEECH_RATIO) or (speech_seconds < MIN_SPEECH_SECONDS)
 
     reason = ""
     if is_silent:
-        if speech_seconds < 0.1:
+        if speech_seconds < 0.2:
             reason = "No speech detected. Please speak clearly into the microphone."
         else:
             reason = (
-                f"Recording too quiet (only {speech_seconds:.1f}s of speech detected). "
-                "Please speak louder and closer to the microphone."
+                f"Recording too short or too quiet "
+                f"({speech_seconds:.1f}s of speech detected). "
+                "Please recite louder and closer to the microphone."
             )
 
     logger.info(
         f"Silence check → ratio={speech_ratio:.3f}  "
         f"speech={speech_seconds:.2f}s  rms_mean={rms_mean:.5f}  "
-        f"threshold={speech_threshold:.5f}  silent={is_silent}"
+        f"rms_max={rms_max:.5f}  threshold={speech_threshold:.5f}  "
+        f"silent={is_silent}"
     )
 
     return {
@@ -810,9 +836,31 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
                 user_ph = _transcribe_gemini(user_audio_path, expected_ayah_text)
                 user_ph_res = user_ph
 
+                # ── Gemini hallucination guard ───────────────────────────────
+                # If Gemini returns very few words but we know there was
+                # not enough real speech (low speech_ratio), treat it as
+                # no-speech (Gemini sometimes hallucinates 1-3 words from
+                # silence or background noise).
+                transcribed_word_count = len([w for w in user_ph.split() if w])
+                expected_word_count = len([w for w in (expected_ayah_text or '').split() if w])
+                coverage = transcribed_word_count / max(expected_word_count, 1)
+
+                # If Gemini transcription covers < 20% of expected words AND
+                # speech energy was low, reject as no-speech.
+                if coverage < 0.20 and silence_check["speech_ratio"] < 0.25:
+                    logger.warning(
+                        f"Gemini hallucination likely — transcribed {transcribed_word_count} words "
+                        f"({coverage:.0%} coverage), speech_ratio={silence_check['speech_ratio']:.3f}"
+                    )
+                    return {
+                        "status":  "no_speech",
+                        "message": "No speech detected. Please speak clearly into the microphone.",
+                        "speech_ratio":   silence_check["speech_ratio"],
+                        "speech_seconds": silence_check["speech_seconds"],
+                    }
+                # ─────────────────────────────────────────────────────────────
+
                 # ── Surah mismatch check ─────────────────────────────────────
-                # Only validate when we have a meaningful expected text to
-                # compare against (i.e. the surah was resolved successfully).
                 if expected_ayah_text:
                     is_match, similarity, mismatch_msg = _validate_surah_match(
                         user_ph, expected_ayah_text
