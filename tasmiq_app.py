@@ -229,6 +229,71 @@ def clean_expected_text(expected_text: str) -> str:
     expected_text = " ".join(expected_text.split())
     return expected_text
 
+
+def _validate_surah_match(transcribed_text: str, expected_text: str,
+                          threshold: float = 0.45) -> tuple:
+    """
+    Validate that the transcribed text matches the expected surah/ayah.
+
+    Compares the first N words of the transcription against the reference text
+    using word-overlap similarity so that minor pronunciation differences do not
+    trigger a false rejection.
+
+    Args:
+        transcribed_text: What the student actually recited (from Gemini).
+        expected_text:    The reference Quranic text for the assigned ayah(s).
+        threshold:        Minimum similarity ratio to consider a match (0–1).
+                          Default 0.45 — rejects recitations that share fewer
+                          than ~45% of words with the expected surah.
+
+    Returns:
+        (is_match: bool, similarity: float, message: str)
+    """
+    if not transcribed_text or not expected_text:
+        # Cannot validate without both sides — allow through to avoid false rejects
+        return True, 1.0, "ok"
+
+    t_words = _clean_arabic(transcribed_text).split()
+    e_words = _clean_arabic(expected_text).split()
+
+    if not t_words or not e_words:
+        return True, 1.0, "ok"
+
+    # Use the first min(15, len(expected)) words as the fingerprint window.
+    # Short ayahs are compared in full; for long passages we only need the
+    # opening words to confirm the student is reciting the right surah.
+    window = min(15, len(e_words))
+    e_sample = e_words[:window]
+
+    # Count how many transcribed words appear somewhere in the expected words
+    # (order-independent overlap is more robust than strict sequence alignment
+    #  because Gemini may add/drop a word here and there).
+    e_set = set(e_words)   # full expected vocabulary
+    overlap = sum(1 for w in t_words[:window * 2] if w in e_set)
+    denom   = max(len(t_words[:window * 2]), window)
+    word_overlap = overlap / denom if denom else 0.0
+
+    # Also run a SequenceMatcher on the first-word samples for a stricter check
+    seq_ratio = difflib.SequenceMatcher(None, e_sample, t_words[:window]).ratio()
+
+    # Take the higher of the two metrics (generous match to avoid false rejects)
+    similarity = max(word_overlap, seq_ratio)
+
+    logger.info(
+        f"Surah match — word_overlap={word_overlap:.2f}  "
+        f"seq_ratio={seq_ratio:.2f}  final={similarity:.2f}  "
+        f"threshold={threshold}"
+    )
+
+    if similarity < threshold:
+        return (
+            False,
+            round(similarity, 3),
+            "You recited the wrong surah. Please recite the assigned surah.",
+        )
+
+    return True, round(similarity, 3), "ok"
+
 def get_expected_text_from_db(surah_idx: int, ayah_range_str: str) -> str:
     if not quran_data or surah_idx not in quran_data:
         return ""
@@ -510,7 +575,109 @@ def process_audio_public(audio_source, sr=16000):
     return process_audio(audio_source, sr)
 
 
-# ── Main assessment endpoint ──────────────────────────────────────────────────
+# ── Ayah detection for continuous recitation ──────────────────────────────────
+def detect_ayahs_in_recitation(transcribed_text: str, surah_idx: int,
+                                start_ayah: int, end_ayah: int) -> dict:
+    """
+    After transcription, identify which ayat from the expected range were
+    actually recited in the student's continuous recording.
+
+    Strategy:
+      1. Clean both the transcription and each expected ayah.
+      2. For each ayah, compute word-overlap against the transcription.
+      3. An ayah is "detected" if overlap >= AYAH_DETECT_THRESHOLD.
+      4. Check for sequence gaps (e.g. detected [1,2,3,5] — ayah 4 is missing).
+
+    Returns:
+        {
+          "detected_ayahs":  [1, 2, 3, ...],     # list of detected ayah numbers
+          "missing_ayahs":   [4, ...],            # expected but not found
+          "completion_status": "complete" | "incomplete" | "uncertain",
+          "ayah_details":    [{"ayah": 1, "detected": True, "overlap": 0.8}, ...]
+        }
+    """
+    AYAH_DETECT_THRESHOLD = 0.35  # at least 35% word overlap to count as detected
+
+    if not quran_data or surah_idx not in quran_data:
+        return {"detected_ayahs": None, "missing_ayahs": None,
+                "completion_status": "uncertain", "ayah_details": []}
+
+    surah_data = quran_data[surah_idx]
+    t_clean = _clean_arabic(transcribed_text)
+    t_words = set(t_clean.split()) if t_clean else set()
+
+    if not t_words:
+        return {"detected_ayahs": None, "missing_ayahs": list(range(start_ayah, end_ayah + 1)),
+                "completion_status": "uncertain", "ayah_details": []}
+
+    detected_ayahs = []
+    missing_ayahs  = []
+    ayah_details   = []
+
+    for ayah_num in range(start_ayah, end_ayah + 1):
+        verse_raw  = surah_data.get("verse", {}).get(f"verse_{ayah_num}", "")
+        verse_clean = _clean_arabic(verse_raw)
+        v_words    = [w for w in verse_clean.split() if w]
+
+        if not v_words:
+            continue
+
+        # Word overlap: how many verse words appear in transcription
+        overlap_count = sum(1 for w in v_words if w in t_words)
+        overlap_ratio = overlap_count / len(v_words)
+
+        # Also check sequence matcher similarity
+        seq_ratio = difflib.SequenceMatcher(
+            None,
+            [w for w in verse_clean.split() if w],
+            [w for w in t_clean.split() if w]
+        ).ratio()
+
+        # Use the higher of the two metrics
+        final_score = max(overlap_ratio, seq_ratio * 0.7)
+
+        detected = final_score >= AYAH_DETECT_THRESHOLD
+        ayah_details.append({
+            "ayah": ayah_num,
+            "detected": detected,
+            "overlap": round(final_score, 3),
+        })
+
+        if detected:
+            detected_ayahs.append(ayah_num)
+        else:
+            missing_ayahs.append(ayah_num)
+
+    total_expected = end_ayah - start_ayah + 1
+    if not ayah_details:
+        completion_status = "uncertain"
+    elif len(missing_ayahs) == 0:
+        completion_status = "complete"
+    elif len(detected_ayahs) == 0:
+        completion_status = "uncertain"
+    else:
+        # Check for sequence gaps (e.g. skipped an ayah in the middle)
+        has_gap = any(
+            detected_ayahs[i + 1] - detected_ayahs[i] > 1
+            for i in range(len(detected_ayahs) - 1)
+        ) if len(detected_ayahs) > 1 else False
+
+        completion_status = "incomplete"
+        if has_gap:
+            logger.info(f"Ayah gap detected in continuous recitation: {detected_ayahs}")
+
+    logger.info(
+        f"Ayah detection [{surah_idx}:{start_ayah}-{end_ayah}] → "
+        f"detected={detected_ayahs}, missing={missing_ayahs}, "
+        f"status={completion_status}"
+    )
+
+    return {
+        "detected_ayahs":    detected_ayahs,
+        "missing_ayahs":     missing_ayahs,
+        "completion_status": completion_status,
+        "ayah_details":      ayah_details,
+    }
 def assess_recitation_detailed(surah_label: str, ayah_num: str,
                                 user_audio_path: str,
                                 expected_ayah_text: str = None) -> dict:
@@ -546,6 +713,29 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
             try:
                 user_ph = _transcribe_gemini(user_audio_path, expected_ayah_text)
                 user_ph_res = user_ph
+
+                # ── Surah mismatch check ─────────────────────────────────────
+                # Only validate when we have a meaningful expected text to
+                # compare against (i.e. the surah was resolved successfully).
+                if expected_ayah_text:
+                    is_match, similarity, mismatch_msg = _validate_surah_match(
+                        user_ph, expected_ayah_text
+                    )
+                    if not is_match:
+                        logger.warning(
+                            f"Surah mismatch detected (similarity={similarity:.2f}). "
+                            f"Transcribed: '{user_ph[:60]}' | "
+                            f"Expected: '{expected_ayah_text[:60]}'"
+                        )
+                        return {
+                            "status":       "wrong_surah",
+                            "message":      mismatch_msg,
+                            "similarity":   similarity,
+                            "transcription": user_ph_res,
+                            "engine":       "gemini",
+                        }
+                # ─────────────────────────────────────────────────────────────
+
                 scores = _score_from_transcription(user_ph, expected_ayah_text, audio_arr)
                 logger.info("Gemini scoring complete.")
             except Exception as e:
@@ -597,6 +787,30 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
             else:
                 feedback_text = "Keep practicing! Regular repetition will strengthen your recitation."
 
+        # ── Ayah detection for continuous / range recitations ──────────────
+        # Only run when the ayah parameter is a range (e.g. "1-10") and
+        # we have a Gemini transcription to work with.
+        detected_ayahs  = None
+        missing_ayahs   = None
+        completion_status = None
+        ayah_details    = []
+
+        if "-" in str(ayah_num) and user_ph_res:
+            try:
+                s_num = int(str(surah_label).replace(".", "").strip())
+                parts = str(ayah_num).split("-")
+                start_a = int(parts[0])
+                end_a   = int(parts[1])
+                detection = detect_ayahs_in_recitation(
+                    user_ph_res, s_num, start_a, end_a
+                )
+                detected_ayahs    = detection["detected_ayahs"]
+                missing_ayahs     = detection["missing_ayahs"]
+                completion_status = detection["completion_status"]
+                ayah_details      = detection["ayah_details"]
+            except Exception as e:
+                logger.warning(f"Ayah detection failed (non-critical): {e}")
+
         return {
             "status":              "success",
             "overall_score":       float(overall),
@@ -610,6 +824,11 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
             "transcription":       user_ph_res,   # alias for frontend convenience
             "feedback":            feedback_text,
             "engine":              source,
+            # Continuous / range recitation ayah detection
+            "detected_ayahs":      detected_ayahs,
+            "missing_ayahs":       missing_ayahs,
+            "completion_status":   completion_status,
+            "ayah_details":        ayah_details,
         }
 
     except Exception as e:

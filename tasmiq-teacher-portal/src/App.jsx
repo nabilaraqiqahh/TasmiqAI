@@ -6,7 +6,7 @@ import Login from './screens/Login';
 import Dashboard from './screens/Dashboard';
 import Students from './screens/Students';
 import StudentProfile from './screens/StudentProfile';
-import RecitationReview from './screens/RecitationReview';
+import TasmiqWorkspace from './screens/TasmiqWorkspace';
 import ClassManagement from './screens/ClassManagement';
 import PendingRequests from './screens/PendingRequests';
 import MurajaahMonitoring from './screens/MurajaahMonitoring';
@@ -63,7 +63,8 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="students" element={<Students />} />
         <Route path="students/:id" element={<StudentProfile />} />
-        <Route path="review" element={<RecitationReview />} />
+        <Route path="tasmiq" element={<TasmiqWorkspace />} />
+        <Route path="review" element={<Navigate to="/tasmiq" replace />} />
         <Route path="classes" element={<ClassManagement />} />
         <Route path="requests" element={<PendingRequests />} />
         <Route path="murajaah" element={<MurajaahMonitoring />} />

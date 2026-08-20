@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   SafeAreaView, Image, StatusBar,
@@ -9,7 +9,8 @@ import PlatformStorage from '../../services/storage';
 import { registerStudent, registerTeacher } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import IslamicBackground from '../../components/IslamicBackground';
-const Field = ({ icon, placeholder, value, onChangeText, secure, keyboardType, extra, showPassword, C }) => (
+
+const Field = ({ icon, placeholder, value, onChangeText, secure, keyboardType, extra, showPassword, C, autoComplete = 'off' }) => (
   <View style={{
     backgroundColor: C.card, borderRadius: 16,
     paddingHorizontal: 18, paddingVertical: 18,
@@ -27,6 +28,9 @@ const Field = ({ icon, placeholder, value, onChangeText, secure, keyboardType, e
       secureTextEntry={secure && !showPassword}
       keyboardType={keyboardType || 'default'}
       autoCapitalize={keyboardType === 'email-address' ? 'none' : 'words'}
+      autoComplete={autoComplete}
+      importantForAutofill="no"
+      textContentType="none"
       style={{ flex: 1, fontSize: 16, color: C.text }}
     />
     {extra}
@@ -47,6 +51,13 @@ export default function SignUpScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    setName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+  }, []);
 
   const handleSignUp = async () => {
     setError('');
@@ -131,10 +142,10 @@ export default function SignUpScreen({ navigation, route }) {
 
           {/* Form Fields */}
           <Text style={{ fontSize: 13, fontWeight: '800', color: C.primary, marginBottom: 8, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Full Name</Text>
-          <Field icon="person-outline" placeholder="Your Name" value={name} onChangeText={setName} showPassword={showPassword} C={C} />
+          <Field icon="person-outline" placeholder="Your Name" value={name} onChangeText={setName} showPassword={showPassword} C={C} autoComplete="off" />
 
           <Text style={{ fontSize: 13, fontWeight: '800', color: C.primary, marginBottom: 8, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Email Address</Text>
-          <Field icon="mail-outline" placeholder={isStaff ? 'staff@staff.tahfiz.my' : 'your@student.tahfiz.my'} value={email} onChangeText={setEmail} keyboardType="email-address" showPassword={showPassword} C={C} />
+          <Field icon="mail-outline" placeholder={isStaff ? 'staff@staff.tahfiz.my' : 'your@student.tahfiz.my'} value={email} onChangeText={setEmail} keyboardType="email-address" showPassword={showPassword} C={C} autoComplete="off" />
           {email.toLowerCase().includes('tahfiz.my') && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -8, marginBottom: 16, marginLeft: 4 }}>
               <Ionicons name="shield-checkmark" size={14} color={C.primary} />
@@ -153,6 +164,7 @@ export default function SignUpScreen({ navigation, route }) {
             secure
             showPassword={showPassword}
             C={C}
+            autoComplete="new-password"
             extra={
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={C.muted} />
@@ -161,7 +173,7 @@ export default function SignUpScreen({ navigation, route }) {
           />
 
           <Text style={{ fontSize: 13, fontWeight: '800', color: C.primary, marginBottom: 8, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Confirm Password</Text>
-          <Field icon="shield-checkmark-outline" placeholder="Re-enter password" value={confirmPassword} onChangeText={setConfirmPassword} secure showPassword={showPassword} C={C} />
+          <Field icon="shield-checkmark-outline" placeholder="Re-enter password" value={confirmPassword} onChangeText={setConfirmPassword} secure showPassword={showPassword} C={C} autoComplete="new-password" />
 
           {/* Sign Up Button */}
           <TouchableOpacity

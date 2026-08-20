@@ -213,22 +213,47 @@ export default function RecitationReview() {
 
   const handleAction = async (action) => {
     if (!selected) return;
+    
+    // Require feedback when requesting re-recording (REPEAT)
+    if (action === 'redo' && (!feedback || !feedback.trim())) {
+      alert('Please provide written feedback explaining what the student needs to improve before requesting a re-recording.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const feedbackText = action === 'redo'
-        ? `[Re-record Required] ${feedback}`
-        : `[${grade}] ${feedback}`;
+      const isPassDecision = action === 'approve';
+      const statusValue = isPassDecision ? 'approved' : 'repeat';
+      const feedbackText = isPassDecision
+        ? `[PASS] ${feedback || 'Recitation approved.'}`
+        : `[REPEAT REQUIRED] ${feedback}`;
       const gradeMap = { Excellent: 5, Good: 4, 'Needs Improvement': 3, 'Re-record Required': 1 };
 
       await supabase.from('recitations').update({
         reviewed:      true,
-        teacher_grade: action === 'redo' ? 1 : (gradeMap[grade] || 4),
+        status:        statusValue,
+        teacher_grade: isPassDecision ? (gradeMap[grade] || 5) : 1,
         feedback:      feedbackText,
         reviewed_at:   new Date().toISOString(),
       }).eq('id', selected.id);
 
-      // Update student avg_score
+      // Send notification to student
       if (selected.user_id) {
+        try {
+          await supabase.from('notifications').insert({
+            user_id: selected.user_id,
+            title: isPassDecision ? 'Assessment Approved (PASS)' : 'Re-recording Requested (REPEAT)',
+            message: isPassDecision
+              ? `Your Official Teacher Assessment for ${selected.surahDisplay} has been APPROVED (PASS)!`
+              : `Your teacher requested a REPEAT for ${selected.surahDisplay}. Feedback: "${feedback}"`,
+            is_read: false,
+            created_at: new Date().toISOString(),
+          });
+        } catch (notifErr) {
+          console.warn('Could not send student notification:', notifErr);
+        }
+
+        // Update student avg_score
         const { data: recs } = await supabase.from('recitations').select('score').eq('user_id', selected.user_id).eq('reviewed', true);
         if (recs?.length) {
           const avg = Math.round(recs.reduce((s, r) => s + (r.score || 0), 0) / recs.length);
@@ -278,10 +303,10 @@ export default function RecitationReview() {
     <div style={{ maxWidth:1300, margin:'0 auto' }}>
       {/* ── Page Header ── */}
       <div style={{ marginBottom:24 }}>
-        <div style={{ fontSize:11, fontWeight:800, color:D.emerald, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom:6 }}>AI Assessment Workspace</div>
-        <h1 style={{ fontSize:28, fontWeight:900, color:D.text, margin:'0 0 4px' }}>Review Recitations</h1>
+        <div style={{ fontSize:11, fontWeight:800, color:D.emerald, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom:6 }}>Recitation Assessment</div>
+        <h1 style={{ fontSize:28, fontWeight:900, color:D.text, margin:'0 0 4px' }}>Tasmiq Review</h1>
         <p style={{ fontSize:14, color:D.textSec, margin:0 }}>
-          {submissions.length} pending · {history.length > 0 ? `${history.length} reviewed` : 'history not loaded'}
+          {submissions.length} pending review · {history.length > 0 ? `${history.length} reviewed` : 'history not loaded'}
           {saved && <span style={{ marginLeft:12, color:D.emerald, fontWeight:700 }}>✓ Saved successfully</span>}
         </p>
       </div>
@@ -490,11 +515,18 @@ export default function RecitationReview() {
                   </div>
                   <div>
                     <h2 style={{ fontSize:20, fontWeight:900, color:D.text, margin:'0 0 2px' }}>{selected.student_name}</h2>
-                    <div style={{ fontSize:13, color:D.textSec, display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ fontSize:13, color:D.textSec, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <BookOpen size={13} />
                       {selected.surahDisplay} • Ayah {selected.ayahDisplay}
                       <span>•</span>
                       {selected.submitted_at ? new Date(selected.submitted_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'}
+                      <span style={{
+                        fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                        backgroundColor: selected.recording_mode === 'advanced' ? '#EDE9FE' : D.emeraldLight,
+                        color: selected.recording_mode === 'advanced' ? '#6D28D9' : D.emeraldDark,
+                      }}>
+                        {selected.recording_mode === 'advanced' ? 'Advanced Mode' : 'Beginner Mode'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -516,9 +548,22 @@ export default function RecitationReview() {
               {(!selected.audio_url || audioError) ? (
                 <div style={{ backgroundColor:'rgba(239,68,68,0.12)', borderRadius:12, padding:'14px 18px', border:'1px solid rgba(239,68,68,0.25)', display:'flex', alignItems:'center', gap:10 }}>
                   <Volume2 size={18} color="#EF4444" />
-                  <span style={{ fontSize:13, fontWeight:700, color:'#FCA5A5' }}>
-                    Audio file unavailable. Please check submission.
-                  </span>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#FCA5A5' }}>
+                      {audioError ? 'Unable to load audio recording.' : 'Audio recording unavailable.'}
+                    </div>
+                    <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:3 }}>
+                      {audioError
+                        ? 'The audio file could not be played. It may be corrupted or inaccessible.'
+                        : 'Student did not submit an audio file with this recitation.'}
+                    </div>
+                    {selected.audio_url && (
+                      <a href={selected.audio_url} target="_blank" rel="noreferrer"
+                        style={{ fontSize:10, color:'#FCA5A5', marginTop:4, display:'block', textDecoration:'underline' }}>
+                        Try direct link ↗
+                      </a>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>
@@ -609,36 +654,27 @@ export default function RecitationReview() {
               />
             </div>
 
-            {/* AI Score Cards */}
+            {/* Official Assessment Notice (AI Percentage hidden to ensure independent teacher evaluation) */}
             <div style={{ backgroundColor:D.card, borderRadius:16, padding:'20px 24px', border:`1px solid ${D.border}`, boxShadow:'0 2px 10px rgba(0,0,0,0.05)' }}>
-              <div style={{ marginBottom:16 }}>
-                <div style={{ fontSize:13, fontWeight:800, color:D.text, marginBottom:2 }}>AI Analysis</div>
-                <div style={{ fontSize:12, color:D.textSec }}>Automated assessment scores from recitation analysis</div>
-              </div>
-
-              {/* Overall score prominent display */}
-              <div style={{ display:'flex', alignItems:'center', gap:20, marginBottom:20, padding:'16px 20px', backgroundColor: D.bg, borderRadius:12, border:`1px solid ${D.border}` }}>
-                <div style={{ textAlign:'center' }}>
-                  <div style={{ fontSize:42, fontWeight:900, color: m.overall >= 70 ? D.emerald : m.overall >= 50 ? D.amber : D.red, lineHeight:1 }}>{m.overall}%</div>
-                  <div style={{ fontSize:11, fontWeight:700, color:D.textSec, marginTop:4 }}>OVERALL SCORE</div>
+              <div style={{ padding:'16px 20px', backgroundColor: '#F4F9F6', borderRadius:12, border:`1px solid ${D.emeraldLight}`, marginBottom:16 }}>
+                <div style={{ fontSize:13, fontWeight:800, color:D.emeraldDark, marginBottom:4 }}>
+                  📋 Official Teacher Assessment Mode
                 </div>
-                <div style={{ flex:1, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                  <ScoreCard label="Memorization Accuracy" value={m.mem}    color={D.emerald} />
-                  <ScoreCard label="Pronunciation"          value={m.pron}   color="#4A90A4" />
-                  <ScoreCard label="Tajwid Compliance"      value={m.tajwid} color={D.gold} />
-                  <ScoreCard label="Fluency Score"          value={m.fluency} color="#9B8EC4" />
+                <div style={{ fontSize:12, color:D.textSec, lineHeight:1.6 }}>
+                  AI score percentage is hidden to ensure an independent evaluation. Listen to the recording above and make your official decision: <b>PASS</b> or <b>REPEAT</b>.
                 </div>
               </div>
 
-              {/* Transcription */}
+              {/* Transcription (Arabic Text) */}
               {selected.transcription && (
                 <div style={{ backgroundColor:'#F9F7F0', borderRadius:12, padding:'16px 18px', marginBottom:16, border:`1px solid #EDE8D0` }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:D.textSec, marginBottom:8, letterSpacing:0.5 }}>RECITED TEXT</div>
+                  <div style={{ fontSize:12, fontWeight:700, color:D.textSec, marginBottom:8, letterSpacing:0.5 }}>RECITED TEXT (TRANSCRIPTION)</div>
                   <p style={{ fontSize:22, textAlign:'right', color:D.text, lineHeight:1.9, direction:'rtl', margin:0, fontFamily:'serif', fontWeight:500 }}>
                     {selected.transcription}
                   </p>
                 </div>
               )}
+            </div>
 
               {/* AI Feedback structured */}
               <div style={{ backgroundColor:`${D.emeraldLight}60`, borderRadius:12, padding:'14px 16px', border:`1px solid ${D.emeraldLight}` }}>
@@ -697,7 +733,7 @@ export default function RecitationReview() {
                   cursor:submitting ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7,
                   opacity: submitting ? 0.6 : 1,
                 }}>
-                  <RefreshCw size={15} /> Request Re-recording
+                  <RefreshCw size={15} /> 🔄 REPEAT (Request Re-recording)
                 </button>
                 <button onClick={() => handleAction('approve')} disabled={submitting} style={{
                   flex:2, padding:'13px', borderRadius:12, border:'none',
@@ -707,7 +743,7 @@ export default function RecitationReview() {
                   opacity: submitting ? 0.7 : 1,
                   boxShadow:`0 4px 14px ${D.emerald}40`,
                 }}>
-                  {submitting ? '...' : <><CheckCircle size={15} /> Approve Assessment</>}
+                  {submitting ? '...' : <><CheckCircle size={15} /> ✅ PASS (Approve Assessment)</>}
                 </button>
               </div>
             </div>

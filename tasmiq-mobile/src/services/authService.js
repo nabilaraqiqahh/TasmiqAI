@@ -33,7 +33,7 @@ const storage = {
 // ── HELPERS ──────────────────────────────────────────────────────
 export const getRoleFromEmail = (email = '') => {
   const e = email.toLowerCase();
-  if (e.endsWith('@staff.tahfiz.my') || e.endsWith('@ustaz.tasmiq.ai')) return 'staff';
+  if (e.endsWith('@staff.tahfiz.my') || e.endsWith('@ustaz.tasmiq.ai')) return 'teacher';
   if (e.endsWith('@student.tahfiz.my')) return 'student';
   return null;
 };
@@ -56,7 +56,8 @@ function buildSession(row) {
 // ── REGISTER ─────────────────────────────────────────────────────
 export const registerUser = async (email, password, displayName, selectedRole) => {
   const trimmed = email.trim().toLowerCase();
-  const role    = getRoleFromEmail(trimmed) || selectedRole || 'student';
+  let role    = getRoleFromEmail(trimmed) || selectedRole || 'student';
+  if (role === 'staff') role = 'teacher';
 
   // Check duplicate
   const { data: existing } = await supabase
@@ -94,7 +95,7 @@ export const registerUser = async (email, password, displayName, selectedRole) =
 };
 
 export const registerStudent = (e, p, n) => registerUser(e, p, n, 'student');
-export const registerTeacher = (e, p, n) => registerUser(e, p, n, 'staff');
+export const registerTeacher = (e, p, n) => registerUser(e, p, n, 'teacher');
 
 // ── LOGIN ─────────────────────────────────────────────────────────
 export const loginUser = async (email, password) => {

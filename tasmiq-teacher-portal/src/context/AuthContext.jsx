@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
   const getRoleFromEmail = (email) => {
     if (!email) return null;
     const e = email.toLowerCase();
-    if (e.endsWith('@staff.tahfiz.my') || e.endsWith('@ustaz.tasmiq.ai') || e.includes('admin')) return 'staff';
+    if (e.endsWith('@staff.tahfiz.my') || e.endsWith('@ustaz.tasmiq.ai') || e.includes('admin')) return 'teacher';
     if (e.endsWith('@student.tahfiz.my')) return 'student';
     return null;
   };
@@ -88,7 +88,8 @@ export function AuthProvider({ children }) {
 
     if (existing) throw new Error('An account with this email already exists.');
 
-    const role = getRoleFromEmail(trimmed) || 'staff';
+    let role = getRoleFromEmail(trimmed) || 'teacher';
+    if (role === 'staff') role = 'teacher';
 
     const { data, error } = await supabase
       .from('users')

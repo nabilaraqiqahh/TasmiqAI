@@ -132,10 +132,10 @@ export default function MurajaahMonitoring() {
     <div style={{ maxWidth:1200, margin:'0 auto' }}>
       {/* ── Page Header ── */}
       <div style={{ marginBottom:24 }}>
-        <div style={{ fontSize:11, fontWeight:800, color:D.emerald, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom:6 }}>Academic Module</div>
+        <div style={{ fontSize:11, fontWeight:800, color:D.emerald, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom:6 }}>Revision Monitoring</div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
           <div>
-            <h1 style={{ fontSize:26, fontWeight:900, color:D.text, margin:'0 0 4px' }}>Murajaah Monitoring</h1>
+            <h1 style={{ fontSize:26, fontWeight:900, color:D.text, margin:'0 0 4px' }}>Murajaah Review</h1>
             <p style={{ fontSize:14, color:D.textSec, margin:0 }}>
               {completedSessions.length} completed · {inProgressSessions.length} in progress
             </p>
@@ -154,12 +154,12 @@ export default function MurajaahMonitoring() {
       )}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
         {[
-          { label:'Total Sessions',  value: filteredSessions.length,      color: D.emerald,  bg: D.emeraldLight },
-          { label:'Completed',       value: completedSessions.length,     color: D.emeraldDark, bg: D.emeraldLight },
-          { label:'In Progress',     value: inProgressSessions.length,    color: D.gold,     bg: '#FEF9C3' },
-          { label:'Avg Completion',  value: filteredSessions.length > 0
+          { label:'Total Sessions',      value: filteredSessions.length,      color: D.emerald,     bg: D.emeraldLight },
+          { label:'Completed',           value: completedSessions.length,     color: D.emeraldDark, bg: D.emeraldLight },
+          { label:'In Progress',         value: inProgressSessions.length,    color: D.gold,        bg: '#FEF9C3' },
+          { label:'Average Completion',  value: filteredSessions.length > 0
               ? Math.round(filteredSessions.reduce((s,r) => s + (r.progress_percentage||0), 0) / filteredSessions.length) + '%'
-              : '—',                                                       color: '#4A90A4',  bg: '#EFF6FF' },
+              : '—',                                                           color: '#4A90A4',     bg: '#EFF6FF' },
         ].map((card, i) => (
           <div key={i} style={{ backgroundColor:D.card, borderRadius:14, padding:'18px 20px', border:`1px solid ${D.border}`, borderTop:`3px solid ${card.color}`, boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
             <div style={{ fontSize:11, fontWeight:700, color:D.textSec, textTransform:'uppercase', letterSpacing:0.5, marginBottom:8 }}>{card.label}</div>

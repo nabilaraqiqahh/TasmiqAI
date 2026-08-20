@@ -1,44 +1,37 @@
--- ══════════════════════════════════════════════════════════════════════════════
--- TASMIQAI — Supabase Storage Setup for Audio Recitations
--- Run this in: Supabase Dashboard → SQL Editor → New Query → Run
--- ══════════════════════════════════════════════════════════════════════════════
+-- ================================================================
+-- SETUP SUPABASE STORAGE FOR AUDIO FILES
+-- Run in: https://supabase.com/dashboard/project/mrxgwwhbcskcjkgtnrtd/sql/new
+-- ================================================================
 
--- ── Step 1: Create the storage bucket (if it doesn't already exist) ──────────
--- NOTE: You can also create this in the UI:
---   Storage → New Bucket → Name: recitations → ✅ Public → Save
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('recitations', 'recitations', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
+-- Step 1: Create the 'recitations' storage bucket if it doesn't exist
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'recitations',
+  'recitations', 
+  true,              -- PUBLIC bucket so audio_url works without auth
+  52428800,          -- 50MB max per file
+  ARRAY['audio/m4a', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/webm', 'audio/ogg', 'audio/aac']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 52428800;
 
+-- Step 2: Allow anyone to upload and read audio files (anon key)
+DROP POLICY IF EXISTS "Allow public uploads"  ON storage.objects;
+DROP POLICY IF EXISTS "Allow public reads"    ON storage.objects;
+DROP POLICY IF EXISTS "Allow public deletes"  ON storage.objects;
 
--- ── Step 2: Allow authenticated students to upload their recordings ───────────
-DROP POLICY IF EXISTS "Allow authenticated uploads" ON storage.objects;
-CREATE POLICY "Allow authenticated uploads"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'recitations');
+CREATE POLICY "Allow public uploads" ON storage.objects
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (bucket_id = 'recitations');
 
+CREATE POLICY "Allow public reads" ON storage.objects
+  FOR SELECT TO anon, authenticated
+  USING (bucket_id = 'recitations');
 
--- ── Step 3: Allow anyone (including the Teacher Portal web app) to read/play ──
-DROP POLICY IF EXISTS "Allow public reads" ON storage.objects;
-CREATE POLICY "Allow public reads"
-ON storage.objects
-FOR SELECT
-TO public
-USING (bucket_id = 'recitations');
+CREATE POLICY "Allow public deletes" ON storage.objects
+  FOR DELETE TO anon, authenticated
+  USING (bucket_id = 'recitations');
 
-
--- ── Step 4: Allow students to update/replace their own files ──────────────────
-DROP POLICY IF EXISTS "Allow authenticated updates" ON storage.objects;
-CREATE POLICY "Allow authenticated updates"
-ON storage.objects
-FOR UPDATE
-TO authenticated
-USING (bucket_id = 'recitations');
-
-
--- ── Verify: check that the bucket exists and is public ────────────────────────
-SELECT id, name, public, created_at
-FROM storage.buckets
-WHERE id = 'recitations';
+-- Step 3: Verify
+SELECT id, name, public, file_size_limit FROM storage.buckets WHERE id = 'recitations';

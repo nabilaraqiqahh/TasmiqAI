@@ -7,10 +7,10 @@ import { Platform } from 'react-native';
 //  2. Update MY_PC_IP below to your PC's current IPv4 address
 //  3. Run: ipconfig  in Command Prompt to find your IP
 //
-//  Current PC IP: 172.20.10.4
+//  Current PC IP: 192.168.101.232
 //  To update: change MY_PC_IP to whatever ipconfig shows
 // ─────────────────────────────────────────────────────────────────────────────
-const MY_PC_IP = '172.20.10.4';
+const MY_PC_IP = '192.168.101.232';
 
 export const API_URL = Platform.OS === 'web'
   ? 'http://localhost:8001'

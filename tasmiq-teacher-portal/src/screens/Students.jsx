@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ArrowLeft, Users, X, ChevronRight, User } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const C = {
   bg: '#FEFCE8',
@@ -24,31 +25,79 @@ const STATUS_COLORS = {
 
 export default function Students() {
   const navigate = useNavigate();
+  const { teacher } = useAuth();
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   const loadStudents = async () => {
+    if (!teacher?.id) {
+      setStudents([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
+      // 1. Get teacher's created classes
+      const { data: myClasses, error: classErr } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', teacher.id);
+
+      if (classErr) throw classErr;
+
+      if (!myClasses || myClasses.length === 0) {
+        setStudents([]);
+        setLoading(false);
+        return;
+      }
+
+      const classIds = myClasses.map(c => c.id);
+      const classMap = Object.fromEntries(myClasses.map(c => [c.id, c.name]));
+
+      // 2. Get enrolled student IDs from class_members
+      const { data: members, error: memErr } = await supabase
+        .from('class_members')
+        .select('student_id, class_id')
+        .in('class_id', classIds);
+
+      if (memErr) throw memErr;
+
+      const studentIds = [...new Set((members || []).map(m => m.student_id).filter(Boolean))];
+
+      if (studentIds.length === 0) {
+        setStudents([]);
+        setLoading(false);
+        return;
+      }
+
+      const studentToClass = {};
+      (members || []).forEach(m => {
+        if (m.student_id) studentToClass[m.student_id] = classMap[m.class_id] || 'Enrolled Class';
+      });
+
+      // 3. Fetch user profiles for these enrolled students
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('role', 'student')
-        .order('full_name', { ascending: true });  // actual DB column
-        
+        .in('id', studentIds)
+        .order('full_name', { ascending: true });
+
       if (error) throw error;
-      
-      const studentsData = data.map(item => ({
+
+      const studentsData = (data || []).map(item => ({
         id: item.id,
         ...item,
         display_name: item.full_name || item.display_name || item.email,
+        className: studentToClass[item.id] || 'Enrolled Class',
         status: (item.avg_score || 0) < 60 ? 'At Risk' : (item.avg_score || 0) > 85 ? 'On Track' : 'Improving',
         level: item.level || 'Intermediate',
         lastActive: item.last_login
           ? new Date(item.last_login).toLocaleDateString()
           : 'Recently'
       }));
-      
+
       setStudents(studentsData);
     } catch (error) {
       console.error("Load students error:", error);
@@ -59,10 +108,12 @@ export default function Students() {
 
   useEffect(() => {
     loadStudents();
-  }, []);
+  }, [teacher]);
 
   const filtered = students.filter(s =>
-    (s.display_name || '').toLowerCase().includes(search.toLowerCase())
+    (s.display_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (s.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (s.id || '').toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) {
@@ -102,7 +153,7 @@ export default function Students() {
           <Search size={20} color={C.muted} />
           <input
             type="text"
-            placeholder="Search by name..."
+            placeholder="Search by student name or student ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ 
@@ -154,7 +205,7 @@ export default function Students() {
 
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '18px', fontWeight: '800', color: C.text, marginBottom: '4px' }}>{s.display_name || 'Unknown Student'}</div>
-                <div style={{ fontSize: '14px', color: C.muted, marginBottom: '12px' }}>{s.level} • {s.lastActive}</div>
+                <div style={{ fontSize: '14px', color: C.muted, marginBottom: '12px' }}>{s.className} • {s.level} • {s.lastActive}</div>
                 {/* Progress bar */}
                 <div style={{ height: '6px', backgroundColor: '#F0F0F0', borderRadius: '3px', width: '200px' }}>
                   <div style={{ width: `${s.progress || 0}%`, height: '100%', backgroundColor: C.primary, borderRadius: '3px' }} />

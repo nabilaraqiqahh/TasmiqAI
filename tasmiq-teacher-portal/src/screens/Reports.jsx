@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import {
   FileText, Printer, Download, RefreshCw, ChevronDown,
@@ -96,6 +97,8 @@ function scoreLabel(s) {
    MAIN COMPONENT
    ════════════════════════════════════════════════════════════ */
 export default function Reports() {
+  const { teacher } = useAuth() || {};
+
   /* ── Config state ── */
   const [reportType, setReportType] = useState(REPORT_TYPES[0]);
   const [scope, setScope] = useState('single');           // single | class
@@ -117,30 +120,92 @@ export default function Reports() {
 
   /* ── Computed report data ── */
   const [reportData, setReportData] = useState(null);
+  const [currentTeacher, setCurrentTeacher] = useState('');
 
   const reportRef = useRef(null);
 
   /* ── Load master data ── */
   useEffect(() => {
-    loadMasterData();
-  }, []);
+    if (teacher?.id) loadMasterData();
+  }, [teacher]);
 
   const loadMasterData = async () => {
+    if (!teacher?.id) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const [studRes, classRes, recRes] = await Promise.all([
-        supabase.from('users').select('*').eq('role', 'student'),
-        supabase.from('classes').select('*'),
-        supabase.from('recitations').select('*').order('submitted_at', { ascending: true }),
-      ]);
-      const studs = studRes.data || [];
-      const cls = classRes.data || [];
-      const recs = recRes.data || [];
+      // Get logged-in teacher name from auth context / localStorage / DB
+      let name = teacher?.full_name || teacher?.display_name || teacher?.email || '';
+      if (!name) {
+        try {
+          const saved = localStorage.getItem('tasmiq_teacher_session');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            name = parsed?.full_name || parsed?.display_name || parsed?.email || '';
+          }
+        } catch (err) {}
+      }
+      if (!name) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('users')
+              .select('full_name, display_name, email')
+              .eq('id', user.id)
+              .maybeSingle();
+            name = profile?.full_name || profile?.display_name || user.email || '';
+          }
+        } catch (err) {}
+      }
+
+      if (name) setCurrentTeacher(name);
+
+      // Get teacher's classes
+      const { data: myClasses } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('teacher_id', teacher.id);
+
+      const cls = myClasses || [];
+      const classIds = cls.map(c => c.id);
+
+      let studs = [];
+      if (classIds.length > 0) {
+        const { data: members } = await supabase
+          .from('class_members')
+          .select('student_id')
+          .in('class_id', classIds);
+        
+        const studentIds = [...new Set((members || []).map(m => m.student_id).filter(Boolean))];
+        if (studentIds.length > 0) {
+          const { data: studentUsers } = await supabase
+            .from('users')
+            .select('*')
+            .in('id', studentIds)
+            .order('full_name', { ascending: true });
+          studs = studentUsers || [];
+        }
+      }
+
+      let recs = [];
+      if (studs.length > 0) {
+        const studentIds = studs.map(s => s.id);
+        const { data: recRes } = await supabase
+          .from('recitations')
+          .select('*')
+          .in('user_id', studentIds)
+          .order('submitted_at', { ascending: true });
+        recs = recRes || [];
+      }
 
       setStudents(studs);
       setClasses(cls);
       setAllRecitations(recs);
-      if (studs.length) setSelectedStudentId(studs[0].uid);
+      if (studs.length) setSelectedStudentId(studs[0].id || studs[0].uid);
       if (cls.length) setSelectedClassId(cls[0].id);
     } catch (e) {
       console.error('Reports data load error:', e);
@@ -286,6 +351,8 @@ export default function Reports() {
         ? Math.round((reviewedRecs.length / recsToAnalyse.length) * 100)
         : 0;
 
+      const activeTeacher = currentTeacher || teacher?.full_name || teacher?.display_name || teacher?.email || 'Teacher';
+
       setReportData({
         type: reportType,
         scope,
@@ -307,29 +374,31 @@ export default function Reports() {
         recommendations,
         feedbackRecs: feedbackRecs.slice(0, 5),
         classRank,
+        teacherName: activeTeacher,
         generatedAt: new Date(),
       });
 
-      setReportReady(true);
-    } catch (e) {
-      console.error('Report generation error:', e);
-      alert('Failed to generate report. Please try again.');
-    } finally {
-      setGenerating(false);
-    }
-  };
+        setReportReady(true);
+      } catch (e) {
+        console.error('Report generation error:', e);
+        alert('Failed to generate report. Please try again.');
+      } finally {
+        setGenerating(false);
+      }
+    };
 
-  const handlePrint = async () => {
-    if (!reportData) return;
-    setGenerating(true);
-    try {
-      const { generateReport: genPDF } = await import('../services/pdfGenerator');
-      const pdf = await genPDF({
-        ...reportData,
-        teacherName: reportData.teacherName || 'TasmiqAI System',
-      });
-      const filename = `TasmiqAI_${(reportData.type || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
-      pdf.save(filename);
+    const handlePrint = async () => {
+      if (!reportData) return;
+      setGenerating(true);
+      try {
+        const activeTeacher = reportData.teacherName || currentTeacher || teacher?.full_name || teacher?.display_name || teacher?.email || 'Teacher';
+        const { generateReport: genPDF } = await import('../services/pdfGenerator');
+        const pdf = await genPDF({
+          ...reportData,
+          teacherName: activeTeacher,
+        });
+        const filename = `TasmiqAI_${(reportData.type || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+        pdf.save(filename);
     } catch (err) {
       console.error('PDF error:', err);
       alert('PDF generation failed: ' + err.message);
@@ -492,6 +561,16 @@ const ReportDocument = React.forwardRef(({ data }, ref) => {
   const subjectName = scope === 'single' ? (student?.full_name || student?.display_name) : classObj?.name;
   const periodLabel = `${formatDate(period.start)} – ${formatDate(period.end)}`;
 
+  // Determine true overall performance — must reflect teacher REPEAT or AI fail
+  const hasTeacherRepeat = recitations.some(r => r.status === 'repeat');
+  const aiAvgFail = stats.avgScore < 70;
+  const overallPerfLabel = (hasTeacherRepeat || aiAvgFail)
+    ? 'Needs Revision'
+    : scoreLabel(stats.avgScore);
+  const overallPerfColor = (hasTeacherRepeat || aiAvgFail)
+    ? C.red
+    : scoreColor(stats.avgScore);
+
   return (
     <div
       ref={ref}
@@ -601,7 +680,7 @@ const ReportDocument = React.forwardRef(({ data }, ref) => {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <tbody>
               <SummaryRow label="Report Subject" value={subjectName || '—'} />
-              <SummaryRow label="Performance Status" value={scoreLabel(stats.avgScore)} highlight={scoreColor(stats.avgScore)} />
+              <SummaryRow label="Performance Status" value={overallPerfLabel} highlight={overallPerfColor} />
               {classRank && <SummaryRow label="Class Rank" value={`#${classRank.rank} of ${classRank.total} students`} />}
               <SummaryRow label="Report Period" value={periodLabel} />
               {scope === 'single' && student && <SummaryRow label="Student Email" value={student.email || '—'} />}
@@ -816,8 +895,8 @@ const ReportDocument = React.forwardRef(({ data }, ref) => {
             <AchievementCard
               icon="📊"
               title="Overall Performance"
-              value={scoreLabel(stats.avgScore)}
-              color={scoreColor(stats.avgScore)}
+              value={overallPerfLabel}
+              color={overallPerfColor}
             />
             {classRank && (
               <AchievementCard
@@ -842,7 +921,7 @@ const ReportDocument = React.forwardRef(({ data }, ref) => {
           borderTop: `2px solid ${C.borderLight}`,
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '32px'
         }}>
-          <SignatureBlock title="Prepared By" name="TasmiqAI System" role="AI Academic Platform" />
+          <SignatureBlock title="Prepared By" name={data.teacherName || 'Teacher'} role="Quran Instructor" />
           <SignatureBlock title="Class Teacher" name="________________" role="Quran Instructor" />
           <SignatureBlock title="Verified By" name="________________" role="Tahfiz Coordinator" />
         </div>

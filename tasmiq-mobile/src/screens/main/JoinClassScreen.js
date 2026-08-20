@@ -13,6 +13,14 @@ import IslamicBackground from '../../components/IslamicBackground';
 const PRIMARY = '#047857';  // dark emerald — for buttons only
 const GOLD    = '#D4AF37';
 
+const showAlert = (title, message) => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
 export default function JoinClassScreen({ navigation }) {
   const { isDark, colors: C } = useTheme();
 
@@ -20,6 +28,7 @@ export default function JoinClassScreen({ navigation }) {
   const [loading, setLoading]         = useState(false);
   const [checking, setChecking]       = useState(true);
   const [enrollment, setEnrollment]   = useState(null); // { status, className, classId }
+  const [errorMsg, setErrorMsg]       = useState('');
 
   useEffect(() => { checkExistingEnrollment(); }, []);
 
@@ -29,7 +38,7 @@ export default function JoinClassScreen({ navigation }) {
       const session = await getCurrentUser();
       if (!session?.id) { setChecking(false); return; }
 
-      // ── ONE CLASS ONLY: check class_members first (approved) ──
+      // Check class_members first (approved)
       const { data: membership } = await supabase
         .from('class_members')
         .select('class_id, classes(name)')
@@ -38,20 +47,8 @@ export default function JoinClassScreen({ navigation }) {
 
       if (membership?.length > 0) {
         setEnrollment({ status: 'approved', className: membership[0].classes?.name, classId: membership[0].class_id });
-        setChecking(false);
-        return;
-      }
-
-      // Check pending/rejected requests
-      const { data: req } = await supabase
-        .from('join_requests')
-        .select('status, class_id, classes(name)')
-        .eq('student_id', session.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (req?.length > 0) {
-        setEnrollment({ status: req[0].status, className: req[0].classes?.name, classId: req[0].class_id });
+      } else {
+        setEnrollment(null);
       }
     } catch (err) {
       console.error('Enrollment check error:', err);
@@ -61,9 +58,14 @@ export default function JoinClassScreen({ navigation }) {
   };
 
   const handleJoin = async () => {
+    setErrorMsg('');
     const trimmedCode = code.trim().toUpperCase();
-    if (!trimmedCode) {
-      Alert.alert('Error', 'Please enter a class code.');
+
+    // Constraint 1: Format & Length check
+    if (!trimmedCode || trimmedCode.length < 4) {
+      const msg = 'Invalid class code. Please check with your teacher';
+      setErrorMsg(msg);
+      showAlert('Invalid class code. Please check with your teacher', msg);
       return;
     }
 
@@ -72,7 +74,7 @@ export default function JoinClassScreen({ navigation }) {
       const session = await getCurrentUser();
       if (!session?.id) throw new Error('Not logged in.');
 
-      // ── ONE CLASS ONLY: block if already in a class ──
+      // Constraint 2: One-class enrollment constraint check
       const { data: existingMembership } = await supabase
         .from('class_members')
         .select('id')
@@ -80,85 +82,50 @@ export default function JoinClassScreen({ navigation }) {
         .limit(1);
 
       if (existingMembership?.length > 0) {
-        Alert.alert('Already Enrolled', 'You are already enrolled in a class. Leave your current class first before joining a new one.');
+        const msg = 'You are already enrolled in a class.';
+        setErrorMsg(msg);
+        showAlert('Already Enrolled', msg);
         setLoading(false);
         return;
       }
 
-      // Find class by code
-      const { data: cls } = await supabase
+      // Constraint 3: Database existence check
+      const { data: cls, error: clsErr } = await supabase
         .from('classes')
         .select('id, name')
         .or(`unique_code.eq.${trimmedCode},class_code.eq.${trimmedCode}`)
         .maybeSingle();
 
-      if (!cls) {
-        Alert.alert('Class Not Found', 'No class matches this code. Check with your teacher.');
+      if (clsErr) {
+        console.error('Class lookup error:', clsErr);
+      }
+
+      if (clsErr || !cls) {
+        const msg = 'Invalid class code. Please check with your teacher';
+        setErrorMsg(msg);
+        showAlert('Invalid class code. Please check with your teacher', msg);
         setLoading(false);
         return;
       }
 
-      // Check for existing pending request
-      const { data: existing } = await supabase
-        .from('join_requests')
-        .select('id, status')
-        .eq('class_id', cls.id)
-        .eq('student_id', session.id)
-        .maybeSingle();
-
-      if (existing) {
-        Alert.alert(
-          existing.status === 'pending' ? 'Already Requested' : 'Request Exists',
-          existing.status === 'pending'
-            ? 'You already have a pending request for this class.'
-            : 'You already sent a request for this class.',
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Insert join request
+      // Automatically join: insert directly into class_members
       const { error } = await supabase
-        .from('join_requests')
-        .insert([{ class_id: cls.id, student_id: session.id, status: 'pending' }]);
+        .from('class_members')
+        .insert([{ class_id: cls.id, student_id: session.id }]);
 
       if (error) throw error;
 
-      setEnrollment({ status: 'pending', className: cls.name, classId: cls.id });
-      Alert.alert('Request Sent! 🎉', `Your request to join "${cls.name}" has been sent. Wait for teacher approval.`);
+      setEnrollment({ status: 'approved', className: cls.name, classId: cls.id });
+      showAlert('Success! 🎉', `You have successfully joined "${cls.name}".`);
 
     } catch (err) {
-      Alert.alert('Error', err.message || 'Something went wrong.');
+      console.error('Join class error:', err);
+      const msg = 'Invalid class code. Please check with your teacher';
+      setErrorMsg(msg);
+      showAlert('Invalid class code. Please check with your teacher', msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCancelRequest = async () => {
-    Alert.alert(
-      'Cancel Request',
-      `Cancel your request to join "${enrollment?.className}"?`,
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const session = await getCurrentUser();
-              await supabase.from('join_requests')
-                .delete()
-                .eq('class_id', enrollment.classId)
-                .eq('student_id', session.id);
-              setEnrollment(null);
-              setCode('');
-            } catch (err) {
-              Alert.alert('Error', err.message);
-            }
-          },
-        },
-      ]
-    );
   };
 
   if (checking) return (
@@ -200,42 +167,8 @@ export default function JoinClassScreen({ navigation }) {
               </View>
             )}
 
-            {/* ── STATUS: PENDING ── */}
-            {enrollment?.status === 'pending' && (
-              <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 28, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 }}>
-                <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: '#FFFBEB', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
-                  <Ionicons name="time" size={36} color={GOLD} />
-                </View>
-                <Text style={{ fontSize: 19, fontWeight: '900', color: C.text, marginBottom: 8 }}>Waiting for Approval</Text>
-                <Text style={{ fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 21 }}>
-                  Your request to join{' '}
-                  <Text style={{ fontWeight: '800', color: PRIMARY }}>{enrollment.className}</Text>{' '}
-                  is pending teacher approval.
-                </Text>
-                <TouchableOpacity
-                  onPress={handleCancelRequest}
-                  style={{ marginTop: 20, borderWidth: 1, borderColor: '#EF4444', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10 }}
-                >
-                  <Text style={{ color: '#EF4444', fontWeight: '700', fontSize: 13 }}>Cancel Request</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* ── STATUS: REJECTED ── */}
-            {enrollment?.status === 'rejected' && (
-              <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 24, marginBottom: 24, borderWidth: 1, borderColor: '#FCA5A5' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <Ionicons name="close-circle" size={22} color="#EF4444" />
-                  <Text style={{ fontWeight: '800', color: '#EF4444', fontSize: 15 }}>Request Rejected</Text>
-                </View>
-                <Text style={{ fontSize: 13, color: C.muted }}>
-                  Your previous request for "{enrollment.className}" was not approved. You can try a different class code below.
-                </Text>
-              </View>
-            )}
-
-            {/* ── JOIN FORM — only show if not approved or pending ── */}
-            {(!enrollment || enrollment.status === 'rejected') && (
+            {/* ── JOIN FORM — only show if not approved ── */}
+            {(!enrollment || enrollment.status !== 'approved') && (
               <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 28, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, elevation: 4 }}>
                 <View style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: '#E6F9F3', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
                   <Ionicons name="keypad" size={26} color={PRIMARY} />
@@ -248,18 +181,33 @@ export default function JoinClassScreen({ navigation }) {
 
                 <View style={{
                   backgroundColor: C.bg, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 16,
-                  marginBottom: 20, borderWidth: 1, borderColor: '#E5E7EB',
+                  marginBottom: errorMsg ? 10 : 20, borderWidth: errorMsg ? 1.5 : 1, borderColor: errorMsg ? '#EF4444' : '#E5E7EB',
                 }}>
                   <TextInput
                     value={code}
-                    onChangeText={t => setCode(t.toUpperCase())}
+                    onChangeText={t => {
+                      // Character constraint: uppercase alphanumeric and hyphens only
+                      const cleaned = t.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+                      setCode(cleaned);
+                      if (errorMsg) setErrorMsg('');
+                    }}
                     placeholder="e.g. TSMQ-4X9A"
                     placeholderTextColor="#BBBBBB"
                     autoCapitalize="characters"
-                    maxLength={10}
-                    style={{ fontSize: 22, fontWeight: '800', color: C.text, letterSpacing: 3, textAlign: 'center' }}
+                    maxLength={15}
+                    style={{ fontSize: 22, fontWeight: '800', color: errorMsg ? '#EF4444' : C.text, letterSpacing: 3, textAlign: 'center' }}
                   />
                 </View>
+
+                {errorMsg ? (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2',
+                    padding: 12, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#FCA5A5',
+                  }}>
+                    <Ionicons name="alert-circle" size={18} color="#EF4444" style={{ marginRight: 8 }} />
+                    <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600', flex: 1 }}>{errorMsg}</Text>
+                  </View>
+                ) : null}
 
                 <TouchableOpacity
                   onPress={handleJoin}
@@ -272,7 +220,7 @@ export default function JoinClassScreen({ navigation }) {
                 >
                   {loading
                     ? <ActivityIndicator color="#FFFFFF" />
-                    : <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>Submit Request</Text>
+                    : <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>Join Class</Text>
                   }
                 </TouchableOpacity>
               </View>

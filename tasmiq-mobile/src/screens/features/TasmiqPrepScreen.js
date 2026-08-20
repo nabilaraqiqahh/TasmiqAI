@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, SafeAreaView, ScrollView,
-  StatusBar, Modal, FlatList, TextInput, Animated, ActivityIndicator,
+  StatusBar, Modal, FlatList, TextInput, Animated, ActivityIndicator, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -70,10 +70,17 @@ export default function TasmiqPrepScreen({ navigation }) {
   const [selectedAyahStart, setSelectedAyahStart] = useState(1);
   const [selectedAyahEnd, setSelectedAyahEnd]   = useState(5);
   const [recitationMode, setRecitationMode]     = useState('5');
+  const [recordingMode, setRecordingMode]       = useState('beginner'); // 'beginner' | 'advanced'
+  const [isExercise, setIsExercise]             = useState(true); // Default to AI Practice Exercise
+
+  /* Prerequisite tracking */
+  const [hasCompletedAiExercise, setHasCompletedAiExercise] = useState(false);
 
   /* modals */
-  const [surahModalVisible, setSurahModalVisible]   = useState(false);
-  const [searchQuery, setSearchQuery]               = useState('');
+  const [surahModalVisible, setSurahModalVisible]     = useState(false);
+  const [ayahStartModalVisible, setAyahStartModalVisible] = useState(false);
+  const [ayahEndModalVisible, setAyahEndModalVisible]   = useState(false);
+  const [searchQuery, setSearchQuery]                 = useState('');
 
   /* teacher assignment (from Supabase) */
   const [assignment, setAssignment]   = useState(null);
@@ -83,11 +90,11 @@ export default function TasmiqPrepScreen({ navigation }) {
   const currentSurah = quranData[selectedSurahIndex];
   const ayahCount    = currentSurah.count;
 
-  /* Load assignment from Supabase */
+  /* Load assignment & prerequisite status from Supabase */
   useFocusEffect(
     useCallback(() => {
       loadAssignment();
-    }, [])
+    }, [selectedSurahIndex])
   );
 
   const loadAssignment = async () => {
@@ -97,7 +104,24 @@ export default function TasmiqPrepScreen({ navigation }) {
       const session = await getCurrentUser();
       if (!session?.id) { setLoadingAssignment(false); return; }
 
-      // ── 1. Get teacher name from enrolled class (most reliable source) ──
+      // ── 1. Check if student has completed at least ONE AI Tasmiq Exercise for this surah ──
+      const { data: aiRecs } = await supabase
+        .from('recitations')
+        .select('id')
+        .eq('user_id', session.id)
+        .eq('surah_number', selectedSurahIndex + 1)
+        .eq('is_exercise', true)
+        .limit(1);
+
+      const aiCompleted = (aiRecs && aiRecs.length > 0);
+      setHasCompletedAiExercise(aiCompleted);
+
+      // If student hasn't completed AI exercise, force isExercise = true
+      if (!aiCompleted) {
+        setIsExercise(true);
+      }
+
+      // ── 2. Get teacher name from enrolled class ──
       const { data: membership } = await supabase
         .from('class_members')
         .select('classes(id, name, teacher_id)')
@@ -113,10 +137,10 @@ export default function TasmiqPrepScreen({ navigation }) {
           .maybeSingle();
         if (teacher?.full_name) setTeacherName(teacher.full_name);
       } else if (membership?.classes?.name) {
-        setTeacherName(membership.classes.name); // fallback: use class name
+        setTeacherName(membership.classes.name);
       }
 
-      // ── 2. Try to fetch a formal assignment (optional) ─────────────────
+      // ── 3. Fetch formal assignment ──
       const { data: assigns } = await supabase
         .from('assignments')
         .select('*, classes(name, teacher_name)')
@@ -127,7 +151,6 @@ export default function TasmiqPrepScreen({ navigation }) {
       if (assigns && assigns.length > 0) {
         const a = assigns[0];
         setAssignment(a);
-        // Only override teacherName if assignment has one explicitly
         if (a.classes?.teacher_name) setTeacherName(a.classes.teacher_name);
         if (a.surah_index !== undefined && a.surah_index !== null) {
           setSelectedSurahIndex(Number(a.surah_index));
@@ -142,24 +165,63 @@ export default function TasmiqPrepScreen({ navigation }) {
     }
   };
 
+  const handleSelectOfficialAssessment = () => {
+    if (!hasCompletedAiExercise) {
+      Alert.alert(
+        'Prerequisite Required',
+        'You must complete the AI Tasmiq Exercise before taking the Official Teacher Assessment.'
+      );
+      return;
+    }
+    setIsExercise(false);
+  };
+
+  // Compute the effective end ayah based on recitation mode
+  // For continuous: use selectedAyahEnd (user-chosen)
+  // For fixed modes: auto-compute from start
+  const computedEndAyah = useMemo(() => {
+    if (recitationMode === 'single') return selectedAyahStart;
+    if (recitationMode === '5')  return Math.min(selectedAyahStart + 4, ayahCount);
+    if (recitationMode === '10') return Math.min(selectedAyahStart + 9, ayahCount);
+    // continuous — use user's selectedAyahEnd, clamp to valid range
+    return Math.min(Math.max(selectedAyahEnd, selectedAyahStart), ayahCount);
+  }, [recitationMode, selectedAyahStart, selectedAyahEnd, ayahCount]);
+
+  const ayatSelected = computedEndAyah - selectedAyahStart + 1;
+
+  // When recitation mode changes to non-continuous, auto-update selectedAyahEnd
+  useEffect(() => {
+    if (recitationMode !== 'continuous') {
+      setSelectedAyahEnd(computedEndAyah);
+    }
+  }, [recitationMode, selectedAyahStart]);
+
   const handleBegin = () => {
+    if (!isExercise && !hasCompletedAiExercise) {
+      Alert.alert(
+        'Prerequisite Required',
+        'You must complete the AI Tasmiq Exercise before taking the Official Teacher Assessment.'
+      );
+      return;
+    }
+
+    // Validate range
+    if (computedEndAyah < selectedAyahStart) {
+      Alert.alert('Invalid Range', '"To Ayah" must be greater than or equal to "From Ayah".');
+      return;
+    }
+
     navigation.navigate('TasmiqMode', {
       initialSurahIndex: selectedSurahIndex,
       initialAyahStart: selectedAyahStart,
-      initialAyahEnd: selectedAyahEnd,
+      initialAyahEnd: computedEndAyah,
       recitationMode,
+      recordingMode,
       teacherName,
       assignment,
+      isExercise,
     });
   };
-
-  const endAyah = Math.min(
-    recitationMode === 'single' ? selectedAyahStart
-      : recitationMode === '5'  ? selectedAyahStart + 4
-      : recitationMode === '10' ? selectedAyahStart + 9
-      : ayahCount,
-    ayahCount
-  );
 
   return (
     <IslamicBackground variant="top">
@@ -220,7 +282,7 @@ export default function TasmiqPrepScreen({ navigation }) {
                   {currentSurah.name}
                 </Text>
                 <Text style={{ fontSize: 15, color: GOLD, fontWeight: '700', marginBottom: 20 }}>
-                  Verse {assignment.ayah_start || selectedAyahStart} – {assignment.ayah_end || endAyah}
+                  Verse {assignment.ayah_start || selectedAyahStart} – {assignment.ayah_end || computedEndAyah}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 20 }}>
                   <View>
@@ -261,25 +323,165 @@ export default function TasmiqPrepScreen({ navigation }) {
                 </TouchableOpacity>
                 {/* Ayah Range row */}
                 <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {/* FROM Ayah - tappable picker */}
                   <TouchableOpacity
-                    onPress={() => setSelectedAyahStart(Math.max(1, selectedAyahStart - 1))}
-                    style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 10, flex: 1, alignItems: 'center' }}
+                    onPress={() => setAyahStartModalVisible(true)}
+                    style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 10, flex: 1, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
                   >
-                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '700' }}>FROM</Text>
-                    <Text style={{ fontSize: 18, color: 'white', fontWeight: '800' }}>Ayah {selectedAyahStart}</Text>
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '700' }}>FROM AYAH</Text>
+                    <Text style={{ fontSize: 18, color: 'white', fontWeight: '800' }}>{selectedAyahStart}</Text>
                   </TouchableOpacity>
                   <View style={{ alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
                     <Text style={{ color: GOLD, fontSize: 16, fontWeight: '700' }}>→</Text>
                   </View>
+                  {/* TO Ayah - tappable picker (only interactive in continuous mode) */}
                   <TouchableOpacity
-                    style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 10, flex: 1, alignItems: 'center' }}
+                    onPress={() => recitationMode === 'continuous' ? setAyahEndModalVisible(true) : null}
+                    style={{
+                      backgroundColor: recitationMode === 'continuous' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.07)',
+                      borderRadius: 10, padding: 10, flex: 1, alignItems: 'center',
+                      borderWidth: 1, borderColor: recitationMode === 'continuous' ? GOLD + '60' : 'rgba(255,255,255,0.1)',
+                    }}
                   >
-                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '700' }}>TO</Text>
-                    <Text style={{ fontSize: 18, color: 'white', fontWeight: '800' }}>Ayah {endAyah}</Text>
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '700' }}>TO AYAH</Text>
+                    <Text style={{ fontSize: 18, color: recitationMode === 'continuous' ? GOLD : 'rgba(255,255,255,0.7)', fontWeight: '800' }}>
+                      {computedEndAyah}
+                    </Text>
+                    {recitationMode === 'continuous' && (
+                      <Text style={{ fontSize: 9, color: GOLD, fontWeight: '600', marginTop: 2 }}>TAP TO CHANGE</Text>
+                    )}
                   </TouchableOpacity>
+                </View>
+                {/* Range summary */}
+                <View style={{ marginTop: 10, backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 8, padding: 8, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: GOLD, fontWeight: '700' }}>
+                    {recitationMode === 'continuous'
+                      ? `Ayah ${selectedAyahStart} → Ayah ${computedEndAyah} · ${ayatSelected} Ayat · Continuous`
+                      : recitationMode === 'single'
+                        ? `Ayah ${selectedAyahStart} · Single Ayah`
+                        : `Ayah ${selectedAyahStart} → Ayah ${computedEndAyah} · ${ayatSelected} Ayat · ${recitationMode} per group`
+                    }
+                  </Text>
                 </View>
               </>
             )}
+          </View>
+
+          {/* ── Tasmiq Type Chips ── */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: PRIMARY + '80', letterSpacing: 1.2, marginBottom: 12 }}>
+              TASMIQ TYPE
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setIsExercise(true)}
+                style={{
+                  flex: 1, paddingVertical: 12, borderRadius: 14,
+                  backgroundColor: isExercise ? PRIMARY : LIGHT_GREEN,
+                  borderWidth: 1.5,
+                  borderColor: isExercise ? PRIMARY : PRIMARY + '30',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: isExercise ? 'white' : PRIMARY }}>
+                  AI Practice Exercise
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSelectOfficialAssessment}
+                style={{
+                  flex: 1, paddingVertical: 12, borderRadius: 14,
+                  backgroundColor: !isExercise ? PRIMARY : hasCompletedAiExercise ? LIGHT_GREEN : '#F3F4F6',
+                  borderWidth: 1.5,
+                  borderColor: !isExercise ? PRIMARY : hasCompletedAiExercise ? PRIMARY + '30' : '#E5E7EB',
+                  alignItems: 'center',
+                  opacity: hasCompletedAiExercise ? 1 : 0.7,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: !isExercise ? 'white' : hasCompletedAiExercise ? PRIMARY : '#9CA3AF' }}>
+                  {!hasCompletedAiExercise ? '🔒 Official Teacher' : 'Official Teacher'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Prerequisite Notification Callout */}
+            {!hasCompletedAiExercise && (
+              <View style={{
+                backgroundColor: '#FEF3C7', borderRadius: 12, padding: 12, marginTop: 10,
+                flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#FDE68A'
+              }}>
+                <Ionicons name="alert-circle" size={18} color="#92400E" />
+                <Text style={{ fontSize: 12, color: '#92400E', fontWeight: '700', flex: 1 }}>
+                  You must complete the AI Tasmiq Exercise before taking the Official Teacher Assessment.
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* ── Recording Mode Selector ── */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: PRIMARY + '80', letterSpacing: 1.2, marginBottom: 12 }}>
+              RECORDING MODE
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {/* Beginner Mode Card */}
+              <TouchableOpacity
+                onPress={() => setRecordingMode('beginner')}
+                style={{
+                  flex: 1, paddingVertical: 16, paddingHorizontal: 14, borderRadius: 16,
+                  backgroundColor: recordingMode === 'beginner' ? PRIMARY : '#FFFFFF',
+                  borderWidth: 2,
+                  borderColor: recordingMode === 'beginner' ? PRIMARY : PRIMARY + '25',
+                  alignItems: 'center',
+                }}
+              >
+                <View style={{
+                  width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+                  borderColor: recordingMode === 'beginner' ? 'white' : PRIMARY + '50',
+                  alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+                }}>
+                  {recordingMode === 'beginner' && (
+                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: 'white' }} />
+                  )}
+                </View>
+                <Ionicons name="list-outline" size={22} color={recordingMode === 'beginner' ? 'white' : PRIMARY} style={{ marginBottom: 6 }} />
+                <Text style={{ fontSize: 14, fontWeight: '800', color: recordingMode === 'beginner' ? 'white' : PRIMARY, marginBottom: 4 }}>
+                  Beginner Mode
+                </Text>
+                <Text style={{ fontSize: 11, color: recordingMode === 'beginner' ? 'rgba(255,255,255,0.8)' : PRIMARY + '80', textAlign: 'center', lineHeight: 16 }}>
+                  Record Ayat/Pause one by one
+                </Text>
+              </TouchableOpacity>
+
+              {/* Advanced Mode Card */}
+              <TouchableOpacity
+                onPress={() => setRecordingMode('advanced')}
+                style={{
+                  flex: 1, paddingVertical: 16, paddingHorizontal: 14, borderRadius: 16,
+                  backgroundColor: recordingMode === 'advanced' ? PRIMARY : '#FFFFFF',
+                  borderWidth: 2,
+                  borderColor: recordingMode === 'advanced' ? PRIMARY : PRIMARY + '25',
+                  alignItems: 'center',
+                }}
+              >
+                <View style={{
+                  width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+                  borderColor: recordingMode === 'advanced' ? 'white' : PRIMARY + '50',
+                  alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+                }}>
+                  {recordingMode === 'advanced' && (
+                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: 'white' }} />
+                  )}
+                </View>
+                <Ionicons name="radio-outline" size={22} color={recordingMode === 'advanced' ? 'white' : PRIMARY} style={{ marginBottom: 6 }} />
+                <Text style={{ fontSize: 14, fontWeight: '800', color: recordingMode === 'advanced' ? 'white' : PRIMARY, marginBottom: 4 }}>
+                  Advanced Mode
+                </Text>
+                <Text style={{ fontSize: 11, color: recordingMode === 'advanced' ? 'rgba(255,255,255,0.8)' : PRIMARY + '80', textAlign: 'center', lineHeight: 16 }}>
+                  Record continuously
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* ── Mode Selector Chips ── */}
@@ -290,8 +492,8 @@ export default function TasmiqPrepScreen({ navigation }) {
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {[
                 { id: 'single', label: 'Single' },
-                { id: '5',      label: '5 Ayahs' },
-                { id: '10',     label: '10 Ayahs' },
+                { id: '5',      label: '5 Ayat/Pause' },
+                { id: '10',     label: '10 Ayat/Pause' },
                 { id: 'continuous', label: 'Continuous' },
               ].map(m => (
                 <TouchableOpacity
@@ -310,6 +512,38 @@ export default function TasmiqPrepScreen({ navigation }) {
                   }}>{m.label}</Text>
                 </TouchableOpacity>
               ))}
+            </View>
+
+            {/* Mode description + range summary */}
+            <View style={{
+              marginTop: 12, backgroundColor: PRIMARY + '08',
+              borderRadius: 12, padding: 12, borderWidth: 1, borderColor: PRIMARY + '15',
+            }}>
+              <Text style={{ fontSize: 12, color: PRIMARY, fontWeight: '700', marginBottom: 2 }}>
+                {recitationMode === 'single'
+                  ? '🎙 Single Mode — Record one ayah at a time'
+                  : recitationMode === '5'
+                    ? '🎙 5 Ayat Mode — Record 5 consecutive ayat per recording'
+                    : recitationMode === '10'
+                      ? '🎙 10 Ayat Mode — Record 10 consecutive ayat per recording'
+                      : '🎙 Continuous Mode — Record the entire selected range in one go'
+                }
+              </Text>
+              {!assignment && (
+                <Text style={{ fontSize: 13, color: PRIMARY + 'CC', fontWeight: '800' }}>
+                  {recitationMode === 'continuous'
+                    ? `Ayah ${selectedAyahStart} → Ayah ${computedEndAyah} · ${ayatSelected} Ayat selected`
+                    : recitationMode === 'single'
+                      ? `Ayah ${selectedAyahStart} selected`
+                      : `Ayah ${selectedAyahStart} → Ayah ${computedEndAyah} · ${ayatSelected} Ayat selected`
+                  }
+                </Text>
+              )}
+              {recitationMode === 'continuous' && !assignment && (
+                <Text style={{ fontSize: 11, color: PRIMARY + '80', marginTop: 4 }}>
+                  Tap "To Ayah" in the card above to change the end ayah.
+                </Text>
+              )}
             </View>
           </View>
 
@@ -406,6 +640,7 @@ export default function TasmiqPrepScreen({ navigation }) {
                   onPress={() => {
                     setSelectedSurahIndex(parseInt(item.index) - 1);
                     setSelectedAyahStart(1);
+                    setSelectedAyahEnd(Math.min(5, parseInt(item.count)));
                     setSurahModalVisible(false);
                     setSearchQuery('');
                   }}
@@ -425,6 +660,101 @@ export default function TasmiqPrepScreen({ navigation }) {
                     <Text style={{ fontSize: 12, color: '#888' }}>{item.count} verses</Text>
                   </View>
                   {selectedSurahIndex === parseInt(item.index) - 1 && (
+                    <Ionicons name="checkmark-circle" size={22} color={PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── From Ayah Picker Modal ── */}
+      <Modal visible={ayahStartModalVisible} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{
+            backgroundColor: '#FFFFFF', height: '60%',
+            borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24,
+          }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: '900', color: PRIMARY }}>Select From Ayah</Text>
+              <TouchableOpacity onPress={() => setAyahStartModalVisible(false)}>
+                <Ionicons name="close-circle" size={32} color="#CCC" />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>
+              {currentSurah.name} · Total {ayahCount} Ayat
+            </Text>
+            <FlatList
+              data={Array.from({ length: ayahCount }, (_, i) => i + 1)}
+              keyExtractor={item => String(item)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedAyahStart(item);
+                    // Clamp end to >= start
+                    if (selectedAyahEnd < item) setSelectedAyahEnd(item);
+                    setAyahStartModalVisible(false);
+                  }}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+                    backgroundColor: selectedAyahStart === item ? PRIMARY + '08' : 'transparent',
+                  }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: selectedAyahStart === item ? PRIMARY : '#333' }}>
+                    Ayah {item}
+                  </Text>
+                  {selectedAyahStart === item && (
+                    <Ionicons name="checkmark-circle" size={22} color={PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── To Ayah Picker Modal (Continuous mode only) ── */}
+      <Modal visible={ayahEndModalVisible} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{
+            backgroundColor: '#FFFFFF', height: '60%',
+            borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24,
+          }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: '900', color: PRIMARY }}>Select To Ayah</Text>
+              <TouchableOpacity onPress={() => setAyahEndModalVisible(false)}>
+                <Ionicons name="close-circle" size={32} color="#CCC" />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>
+              {currentSurah.name} · From Ayah {selectedAyahStart} · Total {ayahCount} Ayat
+            </Text>
+            <FlatList
+              data={Array.from({ length: ayahCount - selectedAyahStart + 1 }, (_, i) => selectedAyahStart + i)}
+              keyExtractor={item => String(item)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedAyahEnd(item);
+                    setAyahEndModalVisible(false);
+                  }}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+                    backgroundColor: selectedAyahEnd === item ? PRIMARY + '08' : 'transparent',
+                  }}
+                >
+                  <View>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: selectedAyahEnd === item ? PRIMARY : '#333' }}>
+                      Ayah {item}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#AAA' }}>
+                      {item - selectedAyahStart + 1} ayat selected
+                    </Text>
+                  </View>
+                  {selectedAyahEnd === item && (
                     <Ionicons name="checkmark-circle" size={22} color={PRIMARY} />
                   )}
                 </TouchableOpacity>

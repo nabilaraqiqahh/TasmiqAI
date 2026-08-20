@@ -36,6 +36,16 @@ from supabase import create_client, Client
 # Import TasmiqAI engine
 import tasmiq_app
 
+# Import dotenv to load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    env_path = Path(__file__).resolve().parent / '.env'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+except ImportError:
+    pass
+
 # ============================================================
 # LOGGING CONFIGURATION
 # ============================================================
@@ -947,11 +957,29 @@ async def submit_recitation(
             expected_ayah_text=expected_text
         )
         
+        # Upload or generate audio_url
+        timestamp_str = int(datetime.now().timestamp())
+        audio_url = f"https://tasmiq.ai/audio/{user_id}_{timestamp_str}_{filename}"
+        try:
+            with open(temp_audio_path, "rb") as f:
+                audio_bytes = f.read()
+            storage_path = f"{user_id}/{timestamp_str}_{filename}"
+            supabase.storage.from_("recitations").upload(
+                path=storage_path,
+                file=audio_bytes,
+                file_options={"content-type": audio.content_type or "audio/mpeg"}
+            )
+            audio_url = supabase.storage.from_("recitations").get_public_url(storage_path)
+        except Exception as st_err:
+            logger.warning(f"Storage upload warning (using fallback URL): {st_err}")
+
         # Save recitation to database using correct column names
         recitation_data = {
-            "student_id":       user_id,          # snake_case
-            "surah":            surah_number,
-            "ayah":             f"{start_verse}-{end_verse}",
+            "user_id":          user_id,
+            "surah_number":     surah_number,
+            "start_verse":      start_verse,
+            "end_verse":        end_verse,
+            "duration_seconds": duration_seconds,
             "audio_url":        audio_url,
             "score":            int(result.get("overall_score", 0)),
             "transcription":    result.get("user_phonetics", ""),
@@ -961,6 +989,7 @@ async def submit_recitation(
             "fluency_score":    int(result.get("fluency_score", 0)),
             "feedback":         result.get("feedback", ""),
             "reviewed":         False,
+            "submitted_at":     datetime.now().isoformat(),
             "recorded_at":      datetime.now().isoformat(),
         }
         
@@ -969,12 +998,13 @@ async def submit_recitation(
         if not rec_response.data:
             return {"success": False, "error": "Failed to save recitation"}
         
+        recitation = rec_response.data[0]
         recitation_id = recitation["id"]
         
         # Save to assessments table
         assessment_data = {
             "recitation_id":      recitation_id,
-            "student_id":         user_id,
+            "user_id":            user_id,
             "memorization_score": int(result.get("memorization_score", 0)),
             "pronunciation_score": int(result.get("pronunciation_score", 0)),
             "tajwid_score":       int(result.get("tajwid_score", 0)),
@@ -986,16 +1016,19 @@ async def submit_recitation(
             "assessed_at":        datetime.now().isoformat(),
         }
         
-        ass_response = supabase.table("assessments").insert(assessment_data).execute()
-        
-        if not ass_response.data:
-            return {"success": False, "error": "Failed to save assessment"}
+        try:
+            supabase.table("assessments").insert(assessment_data).execute()
+        except Exception as ass_err:
+            logger.warning(f"Assessment save warning: {ass_err}")
         
         # Update user progress
-        supabase.table("users").update({
-            "progress_percentage": int(result.get("memorization_score", 0)),
-            "avg_score": int(result.get("overall_score", 0)),
-        }).eq("uid", user_id).execute()
+        try:
+            supabase.table("users").update({
+                "progress_percentage": int(result.get("memorization_score", 0)),
+                "avg_score": int(result.get("overall_score", 0)),
+            }).eq("id", user_id).execute()
+        except Exception as u_err:
+            logger.warning(f"User progress update warning: {u_err}")
         
         logger.info(f"🎙️ Recitation submitted: {user_id} - Surah {surah_number}")
         

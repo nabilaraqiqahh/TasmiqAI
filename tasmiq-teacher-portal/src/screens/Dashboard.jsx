@@ -41,22 +41,48 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
+    if (!teacher?.id) {
+      setLoading(false);
+      return;
+    }
     try {
-      // Fetch total students
-      const { data: studentsData, error: studentError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'student');
+      // 1. Get teacher's created classes
+      const { data: teacherClasses } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('teacher_id', teacher.id);
 
-      if (studentError) throw studentError;
+      const classIds = (teacherClasses || []).map(c => c.id);
 
-      // Fetch recitations — order by submitted_at (actual column)
-      const { data: recitationsData, error: recitationError } = await supabase
-        .from('recitations')
-        .select('*')
-        .order('submitted_at', { ascending: false });
+      let studentIds = [];
+      if (classIds.length > 0) {
+        const { data: members } = await supabase
+          .from('class_members')
+          .select('student_id')
+          .in('class_id', classIds);
+        studentIds = [...new Set((members || []).map(m => m.student_id).filter(Boolean))];
+      }
 
-      if (recitationError) throw recitationError;
+      // Fetch students enrolled in teacher's classes
+      let studentsData = [];
+      if (studentIds.length > 0) {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', studentIds);
+        studentsData = data || [];
+      }
+
+      // Fetch recitations for these students
+      let recitationsData = [];
+      if (studentIds.length > 0) {
+        const { data } = await supabase
+          .from('recitations')
+          .select('*')
+          .in('user_id', studentIds)
+          .order('submitted_at', { ascending: false });
+        recitationsData = data || [];
+      }
 
       // Fetch pending reviews
       const pendingCount = recitationsData ? recitationsData.filter(r => !r.reviewed).length : 0;

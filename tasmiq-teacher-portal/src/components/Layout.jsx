@@ -25,13 +25,12 @@ const D = {
 
 const NAV = [
   { path: '/dashboard',     label: 'Dashboard',           icon: LayoutDashboard },
-  { path: '/students',      label: 'Students Roster',     icon: Users },
-  { path: '/review',        label: 'Review Recitations',  icon: BookOpen },
-  { path: '/classes',       label: 'Classes',             icon: GraduationCap },
-  { path: '/requests',      label: 'Enrollment Requests', icon: UserCheck },
-  { path: '/murajaah',      label: 'Murajaah Monitoring', icon: Repeat },
-  { path: '/analytics',     label: 'Analytics',           icon: BarChart3 },
+  { path: '/tasmiq',        label: 'Tasmiq Review',       icon: BookOpen },
+  { path: '/murajaah',      label: 'Murajaah Review',     icon: Repeat },
+  { path: '/classes',       label: 'Class Management',    icon: GraduationCap },
   { path: '/reports',       label: 'Reports',             icon: FileText },
+  { path: '/analytics',     label: 'Analytics',           icon: BarChart3 },
+  { path: '/students',      label: 'Students',            icon: Users },
   { path: '/announcements', label: 'Announcements',       icon: Megaphone },
   { path: '/settings',      label: 'Settings',            icon: Settings },
 ];
@@ -49,10 +48,8 @@ export default function Layout() {
     if (!teacher) return;
     const load = async () => {
       const list = [];
-      const { data: jr } = await supabase.from('join_requests').select('id').eq('status', 'pending');
-      if (jr?.length) list.push({ id: 'jr', title: `${jr.length} pending enrollment request${jr.length > 1 ? 's' : ''}`, type: 'warning', path: '/requests' });
-      const { data: pr } = await supabase.from('recitations').select('id').eq('reviewed', false);
-      if (pr?.length) list.push({ id: 'pr', title: `${pr.length} recitation${pr.length > 1 ? 's' : ''} awaiting review`, type: 'info', path: '/review' });
+      const { data: pr } = await supabase.from('recitations').select('id').eq('reviewed', false).eq('is_exercise', false);
+      if (pr?.length) list.push({ id: 'pr', title: `${pr.length} submission${pr.length > 1 ? 's' : ''} awaiting your review`, type: 'info', path: '/tasmiq' });
       setNotifications(list);
     };
     load();
