@@ -1,16 +1,20 @@
 /**
  * authService.js
  * ─────────────────────────────────────────────────────────────────
- * Uses public.users table directly (same as teacher portal).
- * DB schema: id(uuid PK), email, password_hash, full_name, role,
- *            progress_percentage, created_at, last_login
- *            + added: avg_score, streak_days, total_sessions,
- *                     last_practice_date, updated_at
+ * Auth flow:
+ *   Login / Register → FastAPI backend (/api/auth/login, /api/auth/register)
+ *   The backend handles bcrypt password verification and issues a real JWT.
+ *   All other DB operations (profile, streak, etc.) still use Supabase directly.
+ *
+ * Migration note:
+ *   Existing users with plain-text passwords are automatically upgraded to
+ *   bcrypt by the backend on their next successful login (transparent).
  * ─────────────────────────────────────────────────────────────────
  */
 import { supabase } from './supabaseClient';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from './api';
 
 const SESSION_KEY = 'tasmiq_user_session';
 
@@ -38,60 +42,57 @@ export const getRoleFromEmail = (email = '') => {
   return null;
 };
 
-function buildSession(row) {
+function buildSession(apiResponse) {
+  // Builds session from the FastAPI LoginResponse shape
   return {
-    id:           row.id,
-    uid:          row.id,          // alias
-    email:        row.email,
-    full_name:    row.full_name || row.email,
-    displayName:  row.full_name || row.email,
-    role:         (row.role || 'student').toLowerCase(),
-    avg_score:    row.avg_score    ?? 0,
-    streak_days:  row.streak_days  ?? 0,
-    total_sessions: row.total_sessions ?? 0,
-    progress_percentage: row.progress_percentage ?? 0,
+    id:           apiResponse.user_id,
+    uid:          apiResponse.user_id,   // alias for legacy code
+    email:        apiResponse.email,
+    full_name:    apiResponse.full_name || apiResponse.email,
+    displayName:  apiResponse.full_name || apiResponse.email,
+    role:         (apiResponse.role || 'student').toLowerCase(),
+    access_token: apiResponse.access_token,  // JWT stored in session
+    avg_score:           0,
+    streak_days:         0,
+    total_sessions:      0,
+    progress_percentage: 0,
   };
+}
+
+// ── AUTH API CALL HELPER ──────────────────────────────────────────
+async function callAuthApi(endpoint, body) {
+  const url = `${API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  });
+  if (!response.ok) {
+    let msg = `Server error ${response.status}`;
+    try { const j = await response.json(); msg = j.detail || j.error || msg; } catch {}
+    throw new Error(msg);
+  }
+  return response.json();
 }
 
 // ── REGISTER ─────────────────────────────────────────────────────
 export const registerUser = async (email, password, displayName, selectedRole) => {
   const trimmed = email.trim().toLowerCase();
-  let role    = getRoleFromEmail(trimmed) || selectedRole || 'student';
+  let role = getRoleFromEmail(trimmed) || selectedRole || 'student';
   if (role === 'staff') role = 'teacher';
 
-  // Check duplicate
-  const { data: existing } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', trimmed)
-    .maybeSingle();
+  const data = await callAuthApi('/api/auth/register', {
+    email:     trimmed,
+    password,
+    full_name: displayName || trimmed.split('@')[0],
+    role,
+  });
 
-  if (existing) throw new Error('An account with this email already exists.');
+  if (!data.success) throw new Error(data.error || 'Registration failed.');
 
-  const { data, error } = await supabase
-    .from('users')
-    .insert([{
-      email:               trimmed,
-      full_name:           displayName || trimmed.split('@')[0],
-      password_hash:       password,
-      role,
-      progress_percentage: 0,
-      avg_score:           0,
-      streak_days:         0,
-      total_sessions:      0,
-    }])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[Register] DB error:', error);
-    throw new Error(error.message);
-  }
-
-  // Persist session
   const session = buildSession(data);
   await storage.set(SESSION_KEY, JSON.stringify(session));
-  return data;
+  return session;
 };
 
 export const registerStudent = (e, p, n) => registerUser(e, p, n, 'student');
@@ -101,33 +102,31 @@ export const registerTeacher = (e, p, n) => registerUser(e, p, n, 'teacher');
 export const loginUser = async (email, password) => {
   const trimmed = email.trim().toLowerCase();
 
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', trimmed)
-    .maybeSingle();
+  const data = await callAuthApi('/api/auth/login', {
+    email:    trimmed,
+    password,
+  });
 
-  if (error) {
-    console.error('[Login] DB error:', error);
-    throw new Error(`Database error: ${error.message}`);
-  }
-  if (!data) throw new Error('No account found with that email address.');
+  if (!data.success) throw new Error(data.error || 'Login failed.');
 
-  const storedPwd = data.password_hash ?? data.password ?? null;
-  if (storedPwd === null) throw new Error('Account has no password set. Contact admin.');
-  if (storedPwd !== password) throw new Error('Incorrect password.');
+  // Enrich session with profile data from Supabase (streak, avg_score, etc.)
+  let enriched = buildSession(data);
+  try {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('avg_score, streak_days, total_sessions, progress_percentage')
+      .eq('id', enriched.id)
+      .maybeSingle();
+    if (profile) {
+      enriched.avg_score           = profile.avg_score           ?? 0;
+      enriched.streak_days         = profile.streak_days         ?? 0;
+      enriched.total_sessions      = profile.total_sessions      ?? 0;
+      enriched.progress_percentage = profile.progress_percentage ?? 0;
+    }
+  } catch { /* non-fatal */ }
 
-  // Update last_login — fire and forget, non-fatal
-  supabase
-    .from('users')
-    .update({ last_login: new Date().toISOString() })
-    .eq('id', data.id)
-    .then(() => {})
-    .catch(() => {});
-
-  const session = buildSession(data);
-  await storage.set(SESSION_KEY, JSON.stringify(session));
-  return session;     // return full session object (id, email, role, etc.)
+  await storage.set(SESSION_KEY, JSON.stringify(enriched));
+  return enriched;
 };
 
 // ── LOGOUT ───────────────────────────────────────────────────────
@@ -239,30 +238,36 @@ export const updateUserProfile = async (userId, updates) => {
 };
 
 export const changePassword = async (userId, currentPassword, newPassword) => {
-  // 1. Fetch current password hash from DB
-  const { data: userRow, error: fetchErr } = await supabase
+  // Route through backend so bcrypt hashing is handled server-side.
+  // 1. Verify current password via login endpoint (re-uses existing logic)
+  const { data: userRow } = await supabase
     .from('users')
-    .select('password_hash')
+    .select('email')
     .eq('id', userId)
     .single();
-  
-  if (fetchErr || !userRow) {
-    throw new Error('User account not found.');
+  if (!userRow) throw new Error('User account not found.');
+
+  // Verify current password through backend
+  const verify = await callAuthApi('/api/auth/login', {
+    email:    userRow.email,
+    password: currentPassword,
+  });
+  if (!verify.success) throw new Error('Current password is incorrect.');
+
+  // 2. Ask backend to set new hashed password
+  const url = `${API_URL}/api/auth/change-password`;
+  const resp = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ user_id: userId, new_password: newPassword }),
+  });
+  if (!resp.ok) {
+    let msg = `Server error ${resp.status}`;
+    try { const j = await resp.json(); msg = j.detail || j.error || msg; } catch {}
+    throw new Error(msg);
   }
-  
-  if (userRow.password_hash !== currentPassword) {
-    throw new Error('Current password is incorrect.');
-  }
-  
-  // 2. Update to new password
-  const { error: updateErr } = await supabase
-    .from('users')
-    .update({ password_hash: newPassword })
-    .eq('id', userId);
-    
-  if (updateErr) {
-    throw new Error(updateErr.message);
-  }
+  const result = await resp.json();
+  if (!result.success) throw new Error(result.error || 'Password change failed.');
 };
 
 // ── STUDENT SETTINGS (DB with AsyncStorage Fallback) ─────────────

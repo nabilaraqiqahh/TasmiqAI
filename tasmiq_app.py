@@ -33,14 +33,22 @@ except ImportError:
     pass
 
 # ── Set bundled ffmpeg so librosa can decode m4a/mp4 from mobile ──────────────
+# On Windows dev: use the bundled ffmpeg.exe in deps/
+# On Linux production: rely on system ffmpeg (apt install ffmpeg)
 _BUNDLED_FFMPEG = Path(__file__).resolve().parent / 'deps' / 'imageio_ffmpeg' / 'binaries' / 'ffmpeg.exe'
 if _BUNDLED_FFMPEG.exists():
     os.environ.setdefault('PATH', '')
     os.environ['PATH'] = str(_BUNDLED_FFMPEG.parent) + os.pathsep + os.environ.get('PATH', '')
     os.environ['IMAGEIO_FFMPEG_EXE'] = str(_BUNDLED_FFMPEG)
-    print(f"✅ ffmpeg set: {_BUNDLED_FFMPEG}")
+    print(f"✅ ffmpeg set (bundled): {_BUNDLED_FFMPEG}")
 else:
-    print(f"⚠️ bundled ffmpeg not found at {_BUNDLED_FFMPEG}")
+    # Linux / production: ffmpeg must be on system PATH (apt install ffmpeg)
+    import shutil as _shutil
+    _sys_ffmpeg = _shutil.which('ffmpeg')
+    if _sys_ffmpeg:
+        print(f"✅ ffmpeg set (system): {_sys_ffmpeg}")
+    else:
+        print("⚠️ ffmpeg not found — audio decoding of m4a/mp4 may fail. Run: apt install ffmpeg")
 
 # ── Gemini API Key — loaded from environment / .env file ─────────────────────
 # DO NOT hardcode API keys in source code.
@@ -51,7 +59,12 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # ── Dataset paths ─────────────────────────────────────────────────────────────
-BASE_DIR = Path(r"C:\Users\nabil\.gemini\antigravity\scratch\quranjson\source")
+# QURAN_DATA_DIR env var overrides the default.
+# Default: <project_root>/data/quran/source  (bundled with the repo)
+# On a Linux server, set: QURAN_DATA_DIR=/opt/tasmiqai/data/quran/source
+_DEFAULT_QURAN_DIR = Path(__file__).resolve().parent / 'data' / 'quran' / 'source'
+_env_quran         = os.environ.get('QURAN_DATA_DIR', '').strip()
+BASE_DIR  = Path(_env_quran) if _env_quran else _DEFAULT_QURAN_DIR
 AUDIO_DIR = BASE_DIR / "audio"
 SURAH_DIR = BASE_DIR / "surah"
 

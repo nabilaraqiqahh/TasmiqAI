@@ -1,7 +1,11 @@
 """
 TasmiqAI FastAPI Server
 ========================
-Run:  python -m uvicorn tasmiq_api:app --host 0.0.0.0 --port 8001
+Run (development):
+  python -m uvicorn tasmiq_api:app --host 0.0.0.0 --port 8001 --reload
+
+Run (production):
+  uvicorn tasmiq_api:app --host 127.0.0.1 --port 8001 --workers 2
 
 This server connects to Supabase for all data operations.
 """
@@ -33,6 +37,12 @@ from typing import Optional, List, Dict, Any
 # Import Supabase
 from supabase import create_client, Client
 
+# Import password hashing
+import bcrypt
+
+# Import JWT
+from jose import JWTError, jwt
+
 # Import TasmiqAI engine
 import tasmiq_app
 
@@ -56,10 +66,33 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================
+# JWT CONFIGURATION
+# ============================================================
+# JWT_SECRET must be set in .env — a long random string, never committed to git.
+# Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
+JWT_SECRET    = os.environ.get("JWT_SECRET", "")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "72"))  # 3 days default
+
+if not JWT_SECRET:
+    # In development we generate a temporary secret so the server still starts.
+    # In production this env var MUST be set explicitly.
+    import secrets as _secrets
+    JWT_SECRET = _secrets.token_hex(32)
+    logger.warning(
+        "⚠️  JWT_SECRET not set in environment — using a temporary random secret. "
+        "All tokens will be invalidated on restart. "
+        "Set JWT_SECRET in .env for persistent sessions."
+    )
+
+# ============================================================
 # SUPABASE CONFIGURATION
 # ============================================================
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://your-project.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-anon-key")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    logger.error("❌ SUPABASE_URL or SUPABASE_KEY not set in environment")
 
 # Initialize Supabase client
 try:
@@ -135,18 +168,26 @@ security = HTTPBearer()
 # ============================================================
 # CORS MIDDLEWARE
 # ============================================================
+# ALLOWED_ORIGINS env var: comma-separated list of allowed origins.
+# Development default includes localhost for React + Expo web.
+# Production: set ALLOWED_ORIGINS=https://api.tasmiqai.com,https://portal.tasmiqai.com
+_default_origins = (
+    "http://localhost:3000,"
+    "http://localhost:5173,"
+    "http://localhost:8081,"
+    "http://127.0.0.1:3000,"
+    "http://127.0.0.1:5173"
+)
+_origins_env = os.environ.get("ALLOWED_ORIGINS", _default_origins)
+ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(",") if o.strip()]
+
+logger.info(f"CORS allowed origins: {ALLOWED_ORIGINS}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:8081",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "*"  # For testing only - remove in production
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -204,23 +245,27 @@ async def root():
 @app.get("/health")
 async def health():
     gemini_ok = tasmiq_app.gemini_client is not None
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    api_key   = os.environ.get("GEMINI_API_KEY", "")
 
-    # Check ffmpeg
-    ffmpeg_path = os.path.join(os.path.dirname(__file__), 'deps', 'imageio_ffmpeg', 'binaries', 'ffmpeg.exe')
-    ffmpeg_ok = os.path.exists(ffmpeg_path)
+    # Check ffmpeg — bundled Windows binary OR system PATH
+    import shutil as _shutil
+    ffmpeg_bundled = os.path.join(os.path.dirname(__file__), 'deps', 'imageio_ffmpeg', 'binaries', 'ffmpeg.exe')
+    ffmpeg_system  = _shutil.which('ffmpeg')
+    ffmpeg_ok      = os.path.exists(ffmpeg_bundled) or bool(ffmpeg_system)
+    ffmpeg_path    = ffmpeg_bundled if os.path.exists(ffmpeg_bundled) else (ffmpeg_system or "NOT FOUND")
 
     return {
-        "status": "ok",
-        "supabase_connected": supabase is not None,
-        "dataset_loaded": bool(tasmiq_app.quran_data),
-        "dataset_surahs": len(tasmiq_app.quran_data),
-        "gemini_ready": gemini_ok,
-        "gemini_key_present": bool(api_key),
-        "gemini_key_prefix": api_key[:8] + "..." if api_key else "NOT SET",
-        "ffmpeg_available": ffmpeg_ok,
-        "ffmpeg_path": ffmpeg_path if ffmpeg_ok else "NOT FOUND",
-        "engine": "Gemini Flash" if gemini_ok else "Acoustic (ffmpeg decode)",
+        "status":               "ok",
+        "supabase_connected":   supabase is not None,
+        "dataset_loaded":       bool(tasmiq_app.quran_data),
+        "dataset_surahs":       len(tasmiq_app.quran_data),
+        "gemini_ready":         gemini_ok,
+        "gemini_key_present":   bool(api_key),
+        "gemini_key_prefix":    api_key[:8] + "..." if api_key else "NOT SET",
+        "jwt_configured":       bool(os.environ.get("JWT_SECRET")),
+        "ffmpeg_available":     ffmpeg_ok,
+        "ffmpeg_path":          ffmpeg_path,
+        "engine":               "Gemini Flash" if gemini_ok else "Acoustic (CPU fallback)",
     }
 
 
@@ -250,172 +295,223 @@ async def debug_audio(audio: UploadFile = File(...)):
             os.remove(tmp)
 
 # ============================================================
+# PASSWORD HASHING HELPERS
+# ============================================================
+
+def hash_password(plain: str) -> str:
+    """Hash a plain-text password with bcrypt. Returns the hash as a string."""
+    return bcrypt.hashpw(plain.encode('utf-8'), bcrypt.gensalt(rounds=12)).decode('utf-8')
+
+
+def verify_password(plain: str, stored: str) -> bool:
+    """
+    Verify a password against a stored value.
+    Handles BOTH bcrypt hashes AND legacy plain-text passwords gracefully.
+
+    Migration strategy:
+      - If stored value starts with '$2b$' or '$2a$' it is a bcrypt hash → verify properly.
+      - Otherwise it is a legacy plain-text password → compare directly.
+        On successful login with a legacy password, the caller should upgrade it.
+    """
+    if not plain or not stored:
+        return False
+    if stored.startswith('$2b$') or stored.startswith('$2a$'):
+        try:
+            return bcrypt.checkpw(plain.encode('utf-8'), stored.encode('utf-8'))
+        except Exception:
+            return False
+    # Legacy plain-text fallback
+    return plain == stored
+
+
+def is_hashed(stored: str) -> bool:
+    """Return True if the stored value is already a bcrypt hash."""
+    return bool(stored) and (stored.startswith('$2b$') or stored.startswith('$2a$'))
+
+
+# ============================================================
+# JWT HELPERS
+# ============================================================
+
+def create_access_token(user_id: str, email: str, role: str) -> str:
+    """Create a signed JWT access token."""
+    expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRE_HOURS)
+    payload = {
+        "sub":   user_id,
+        "email": email,
+        "role":  role,
+        "exp":   expire,
+        "iat":   datetime.utcnow(),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def decode_access_token(token: str) -> dict:
+    """Decode and verify a JWT. Raises JWTError on failure."""
+    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+
+
+# ============================================================
 # AUTHENTICATION ENDPOINTS
 # ============================================================
 
 @app.post("/api/auth/login", response_model=LoginResponse)
 async def login_user(request: LoginRequest):
     """
-    Login user with email and password
-    Supports: @student.tahfiz.my and @staff.tahfiz.my
+    Login user with email and password.
+    Supports bcrypt-hashed passwords and legacy plain-text (auto-upgrades on success).
     """
     try:
         if not supabase:
             raise HTTPException(status_code=500, detail="Supabase client not initialized")
-        
-        # Query user from Supabase using uid column
-        response = supabase.table("users").select("*").eq("email", request.email).execute()
-        
-        if not response.data or len(response.data) == 0:
-            logger.warning(f"Login attempt failed: User not found - {request.email}")
-            return LoginResponse(
-                success=False,
-                error="Invalid email or password"
-            )
-        
+
+        response = supabase.table("users").select("*").eq("email", request.email.strip().lower()).execute()
+
+        if not response.data:
+            logger.warning(f"Login failed: user not found — {request.email}")
+            return LoginResponse(success=False, error="Invalid email or password")
+
         user = response.data[0]
-        
-        # Simple password check for testing
-        if user["password_hash"] != request.password:
-            logger.warning(f"Login attempt failed: Password mismatch - {request.email}")
-            return LoginResponse(
-                success=False,
-                error="Invalid email or password"
-            )
-        
+        stored_pwd = user.get("password_hash") or user.get("password") or ""
+
+        if not verify_password(request.password, stored_pwd):
+            logger.warning(f"Login failed: bad password — {request.email}")
+            return LoginResponse(success=False, error="Invalid email or password")
+
+        # ── Auto-upgrade legacy plain-text password to bcrypt hash ──────────
+        if not is_hashed(stored_pwd):
+            try:
+                new_hash = hash_password(request.password)
+                supabase.table("users").update(
+                    {"password_hash": new_hash}
+                ).eq("id", user["id"]).execute()
+                logger.info(f"Password upgraded to bcrypt for user {user['id']}")
+            except Exception as upg_err:
+                logger.warning(f"Password upgrade failed (non-fatal): {upg_err}")
+        # ─────────────────────────────────────────────────────────────────────
+
         # Update last_login
         try:
-            supabase.table("users").update({
-                "last_login": datetime.now().isoformat()
-            }).eq("id", user["id"]).execute()
+            supabase.table("users").update(
+                {"last_login": datetime.utcnow().isoformat()}
+            ).eq("id", user["id"]).execute()
         except Exception as e:
             logger.warning(f"Failed to update last_login: {e}")
-        
-        logger.info(f"✅ User logged in: {user['email']} ({user['role']})")
-        
+
+        user_id = user.get("id") or user.get("uid", "")
+        token   = create_access_token(str(user_id), user["email"], user.get("role", "student"))
+        logger.info(f"✅ User logged in: {user['email']} ({user.get('role')})")
+
         return LoginResponse(
             success=True,
-            access_token=f"token_{user.get('uid', user.get('id', ''))}_{datetime.now().timestamp()}",
+            access_token=token,
             token_type="bearer",
-            user_id=user.get("uid") or user.get("id"),
+            user_id=str(user_id),
             email=user["email"],
             full_name=user.get("full_name") or user.get("display_name") or user.get("email"),
-            role=user["role"],
-            message=f"Welcome back, {user.get('full_name') or user.get('display_name') or user.get('email')}!"
+            role=user.get("role", "student"),
+            message=f"Welcome back, {user.get('full_name') or user.get('email')}!",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Login error: {traceback.format_exc()}")
-        return LoginResponse(
-            success=False,
-            error=f"Server error: {str(e)}"
-        )
+        return LoginResponse(success=False, error=f"Server error: {str(e)}")
 
 @app.post("/api/auth/register", response_model=LoginResponse)
 async def register_user(request: RegisterRequest):
     """
-    Register a new user
-    - Students: email must end with @student.tahfiz.my
-    - Teachers: email must end with @staff.tahfiz.my
+    Register a new user. Passwords are hashed with bcrypt before storage.
     """
     try:
         if not supabase:
             raise HTTPException(status_code=500, detail="Supabase client not initialized")
-        
+
         # Validate email format based on role
         if request.role == "student" and not request.email.endswith("@student.tahfiz.my"):
-            return LoginResponse(
-                success=False,
-                error="Student emails must end with @student.tahfiz.my"
-            )
-        
+            return LoginResponse(success=False, error="Student emails must end with @student.tahfiz.my")
         if request.role == "teacher" and not request.email.endswith("@staff.tahfiz.my"):
-            return LoginResponse(
-                success=False,
-                error="Teacher emails must end with @staff.tahfiz.my"
-            )
-        
+            return LoginResponse(success=False, error="Teacher emails must end with @staff.tahfiz.my")
+
+        email = request.email.strip().lower()
+
         # Check if user already exists
-        check = supabase.table("users").select("email").eq("email", request.email).execute()
-        if check.data and len(check.data) > 0:
-            return LoginResponse(
-                success=False,
-                error="Email already registered"
-            )
-        
-        # Insert user
+        check = supabase.table("users").select("email").eq("email", email).execute()
+        if check.data:
+            return LoginResponse(success=False, error="Email already registered")
+
+        # Hash password before storing
+        hashed = hash_password(request.password)
+
         user_data = {
-            "email": request.email,
-            "password_hash": request.password,  # For testing only
-            "full_name": request.full_name,
-            "role": request.role,
-            "progress_percentage": 0,
-            "created_at": datetime.now().isoformat()
+            "email":                email,
+            "password_hash":        hashed,
+            "full_name":            request.full_name,
+            "role":                 request.role,
+            "progress_percentage":  0,
+            "created_at":           datetime.utcnow().isoformat(),
         }
-        
+
         response = supabase.table("users").insert(user_data).execute()
-        
         if not response.data:
-            return LoginResponse(
-                success=False,
-                error="Failed to register user"
-            )
-        
-        user = response.data[0]
-        logger.info(f"✅ User registered: {user['email']} ({user['role']})")
-        
+            return LoginResponse(success=False, error="Failed to register user")
+
+        user  = response.data[0]
+        uid   = user.get("id") or user.get("uid", "")
+        token = create_access_token(str(uid), user["email"], user.get("role", "student"))
+        logger.info(f"✅ User registered: {user['email']} ({user.get('role')})")
+
         return LoginResponse(
             success=True,
-            access_token=f"token_{user['id']}_{datetime.now().timestamp()}",
+            access_token=token,
             token_type="bearer",
-            user_id=user["id"],
+            user_id=str(uid),
             email=user["email"],
             full_name=user["full_name"],
-            role=user["role"],
-            message=f"Welcome, {user['full_name']}! Please log in."
+            role=user.get("role", "student"),
+            message=f"Welcome, {user['full_name']}! Account created successfully.",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Registration error: {traceback.format_exc()}")
-        return LoginResponse(
-            success=False,
-            error=f"Server error: {str(e)}"
-        )
+        return LoginResponse(success=False, error=f"Server error: {str(e)}")
 
-@app.get("/api/auth/debug-user/{email}")
-async def debug_user(email: str):
+
+class ChangePasswordRequest(BaseModel):
+    user_id:      str
+    new_password: str
+
+
+@app.post("/api/auth/change-password")
+async def change_password(request: ChangePasswordRequest):
     """
-    Debug endpoint to check if a user exists
+    Update a user's password — stores a bcrypt hash, never plain text.
+    The caller is responsible for verifying the current password first.
     """
     try:
         if not supabase:
-            return {"error": "Supabase client not initialized"}
-        
-        response = supabase.table("users").select("*").eq("email", email).execute()
-        
-        if not response.data:
-            return {
-                "exists": False,
-                "email": email,
-                "all_users": supabase.table("users").select("email").execute().data
-            }
-        
-        user = response.data[0]
-        return {
-            "exists": True,
-            "email": user["email"],
-            "full_name": user["full_name"],
-            "role": user["role"],
-            "password_hash": user["password_hash"],
-            "created_at": user.get("created_at")
-        }
-        
+            raise HTTPException(status_code=500, detail="Supabase not initialized")
+        if len(request.new_password) < 6:
+            return {"success": False, "error": "Password must be at least 6 characters."}
+
+        new_hash = hash_password(request.new_password)
+        result   = supabase.table("users").update(
+            {"password_hash": new_hash}
+        ).eq("id", request.user_id).execute()
+
+        if not result.data:
+            return {"success": False, "error": "User not found or update failed."}
+
+        logger.info(f"Password changed for user {request.user_id}")
+        return {"success": True, "message": "Password updated successfully."}
+
     except Exception as e:
-        return {"error": str(e)}
+        logger.error(f"Change-password error: {traceback.format_exc()}")
+        return {"success": False, "error": str(e)}
+
 
 # ============================================================
 # AUTHENTICATION HELPER
@@ -423,23 +519,43 @@ async def debug_user(email: str):
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
-    Get current user from JWT token
-    For testing: expects token to contain user_id
+    Verify JWT token and return the authenticated user.
+    Supports both new JWT tokens and legacy 'token_{id}_{ts}' format
+    so existing sessions don't break immediately during migration.
     """
     token = credentials.credentials
-    
-    # For testing, extract user_id from token
-    if token.startswith("token_"):
-        user_id = token.replace("token_", "").split("_")[0]
+
+    # ── Try proper JWT first ────────────────────────────────────────────────
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        if user_id and supabase:
+            resp = supabase.table("users").select("*").eq("id", user_id).execute()
+            if resp.data:
+                return resp.data[0]
+    except JWTError:
+        pass  # Fall through to legacy check
+
+    # ── Legacy token fallback (token_{id}_{timestamp}) ──────────────────────
+    # Kept temporarily so existing mobile sessions survive without force-logout.
+    # Remove this block after all clients have received fresh JWT tokens.
+    if token.startswith("token_") and supabase:
         try:
-            response = supabase.table("users").select("*").eq("id", user_id).execute()
-            if response.data:
-                return response.data[0]
+            # Format: token_{user_id}_{timestamp}
+            parts = token.split("_")
+            if len(parts) >= 2:
+                user_id = parts[1]
+                resp = supabase.table("users").select("*").eq("id", user_id).execute()
+                if resp.data:
+                    logger.warning(
+                        f"Legacy token accepted for user {user_id} — "
+                        "client should re-login to receive a proper JWT."
+                    )
+                    return resp.data[0]
         except Exception:
             pass
-    
-    # For production, you'd verify JWT here
-    raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+    raise HTTPException(status_code=401, detail="Invalid or expired authentication token")
 
 # ============================================================
 # STUDENT ENDPOINTS

@@ -1,0 +1,44 @@
+# TasmiqAI FastAPI Backend — Production Requirements
+# Generated for Python 3.11 / 3.12 (recommended for production)
+# Install with: pip install -r requirements.txt
+
+# ── Web framework ─────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+starlette==0.41.2
+
+# ── Data validation ───────────────────────────────────────
+pydantic==2.9.2
+
+# ── Authentication ────────────────────────────────────────
+bcrypt==4.2.1
+python-jose[cryptography]==3.3.0
+
+# ── Database (Supabase) ───────────────────────────────────
+supabase==2.10.0
+
+# ── AI / Google Gemini ────────────────────────────────────
+google-genai==1.5.0
+
+# ── Audio processing ─────────────────────────────────────
+librosa==0.10.2
+soundfile==0.12.1
+numpy==1.26.4
+scipy==1.13.1
+numba==0.60.0
+llvmlite==0.43.0
+soxr==0.3.7
+audioread==3.0.1
+
+# ── HTTP client (used by Supabase + httpx) ────────────────
+httpx==0.27.2
+
+# ── Utilities ────────────────────────────────────────────
+python-dotenv==1.0.1
+anyio==4.6.2
+
+# ── NOT INCLUDED (not used by the API) ───────────────────
+# torch / torchvision  — PyTorch not imported anywhere in tasmiq_api.py or tasmiq_app.py
+# geopandas, PyMuPDF, openpyxl — not used by API
+# Jupyter / notebook packages — dev tools only
