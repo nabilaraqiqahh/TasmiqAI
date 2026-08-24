@@ -1393,9 +1393,12 @@ async def assess_chunk(
 
 if __name__ == "__main__":
     import uvicorn
+    # Production: set RELOAD=false or omit entirely; use systemd instead.
+    reload_mode = os.environ.get("UVICORN_RELOAD", "false").lower() == "true"
     uvicorn.run(
         "tasmiq_api:app",
-        host="0.0.0.0",
+        host="127.0.0.1",   # localhost only — Nginx proxies from outside
         port=8001,
-        reload=True
+        reload=reload_mode,
+        workers=1,          # For multi-worker use gunicorn: gunicorn -w 2 -k uvicorn.workers.UvicornWorker tasmiq_api:app
     )

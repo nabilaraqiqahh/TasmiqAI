@@ -1,0 +1,30 @@
+[Unit]
+Description=TasmiqAI FastAPI Backend
+Documentation=https://github.com/nabilaraqiqahh/TasmiqAI
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=tasmiqai
+Group=tasmiqai
+WorkingDirectory=/opt/tasmiqai
+EnvironmentFile=/opt/tasmiqai/.env
+ExecStart=/opt/tasmiqai/venv/bin/uvicorn tasmiq_api:app \
+    --host 127.0.0.1 \
+    --port 8001 \
+    --workers 2 \
+    --log-level info \
+    --access-log
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tasmiqai
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
