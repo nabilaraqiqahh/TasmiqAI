@@ -2,19 +2,18 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  IMPORTANT: When testing on a physical device via Expo Go (QR code scan):
-//  1. Your phone and PC must be on the SAME WiFi network
-//  2. Update MY_PC_IP below to your PC's current IPv4 address
-//  3. Run: ipconfig  in Command Prompt to find your IP
+//  Production API URL — https://api.tasmiqai.com
 //
-//  Current PC IP: 192.168.101.232
-//  To update: change MY_PC_IP to whatever ipconfig shows
+//  For local development (Expo Go on same WiFi):
+//    Comment out the production line below and uncomment the local block.
+//
+//  Local dev example:
+//    const MY_PC_IP = '192.168.x.x';  // your PC's IPv4 from ipconfig
+//    export const API_URL = Platform.OS === 'web'
+//      ? 'http://localhost:8001'
+//      : `http://${MY_PC_IP}:8001`;
 // ─────────────────────────────────────────────────────────────────────────────
-const MY_PC_IP = '192.168.101.232';
-
-export const API_URL = Platform.OS === 'web'
-  ? 'http://localhost:8001'
-  : `http://${MY_PC_IP}:8001`;
+export const API_URL = 'https://api.tasmiqai.com';
 
 const api = axios.create({
   baseURL: API_URL,
