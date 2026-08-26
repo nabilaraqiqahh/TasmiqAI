@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Component } from 'react';
 import {
   View, Text, TouchableOpacity, SafeAreaView, ScrollView,
   StatusBar, ActivityIndicator, Alert, FlatList, Modal, TextInput
@@ -10,6 +10,35 @@ import { getCurrentUser } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import IslamicBackground from '../../components/IslamicBackground';
 
+// ── Error boundary to prevent full app crash ─────────────────────
+class NudgeErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error('[NudgeScreen] crash:', error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+          <Ionicons name="alert-circle-outline" size={48} color="#DC2626" />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#DC2626', marginTop: 12 }}>
+            Nudge Unavailable
+          </Text>
+          <Text style={{ fontSize: 13, color: '#666', textAlign: 'center', marginTop: 8 }}>
+            {this.state.error?.message || 'Something went wrong loading this screen.'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => this.setState({ hasError: false, error: null })}
+            style={{ marginTop: 20, backgroundColor: '#0B6E4F', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+          >
+            <Text style={{ color: 'white', fontWeight: '700' }}>Try Again</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const PREDEFINED_MESSAGES = [
   "Complete Today's Murajaah",
   "Submit Today's Tasmiq",
@@ -18,7 +47,7 @@ const PREDEFINED_MESSAGES = [
   "Don't Forget Your Quran Practice"
 ];
 
-export default function NudgeScreen({ navigation }) {
+function NudgeScreenInner({ navigation }) {
   const { isDark, colors: C } = useTheme();
   const [session, setSession]         = useState(null);
   const [classmates, setClassmates]   = useState([]);
@@ -516,5 +545,14 @@ export default function NudgeScreen({ navigation }) {
 
       </SafeAreaView>
     </IslamicBackground>
+  );
+}
+
+// Wrap with error boundary so a crash here never takes down the whole app
+export default function NudgeScreen(props) {
+  return (
+    <NudgeErrorBoundary>
+      <NudgeScreenInner {...props} />
+    </NudgeErrorBoundary>
   );
 }
