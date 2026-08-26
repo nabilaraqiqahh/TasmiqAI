@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "tasmiq-mobile",
-    "slug": "tasmiq-mobile",
+    "name": "TasmiqAI",
+    "slug": "tasmiqai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,17 +13,32 @@
       "backgroundColor": "#F8F5F0"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tasmiqai.app"
     },
     "android": {
+      "package": "com.tasmiqai.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2F6D5A"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d34fe843-561c-4103-bf18-c9819548ea26"
+      }
+    },
+    "owner": "nabilaraqiqahh21"
   }
 }

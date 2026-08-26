@@ -58,7 +58,7 @@ export default function LoginScreen({ navigation, route }) {
           <View style={{ alignItems: 'center', marginBottom: 48 }}>
             <View style={{ backgroundColor: C.card, padding: 16, borderRadius: 28, elevation: 6, marginBottom: 24 }}>
               <Image
-                source={require('../../../assets/logo.png')}
+                source={require('../../../assets/logo.jpg')}
                 style={{ width: 90, height: 90 }}
                 resizeMode="contain"
               />

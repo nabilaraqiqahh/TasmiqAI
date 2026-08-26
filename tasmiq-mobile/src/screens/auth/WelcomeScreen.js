@@ -32,7 +32,7 @@ export default function WelcomeScreen({ navigation }) {
         
         {/* HERO SECTION */}
         <ImageBackground 
-          source={require('../../../assets/redesign/hero-bg.png')}
+          source={require('../../../assets/redesign/hero-bg.jpg')}
           style={styles.heroBackground}
           imageStyle={{ opacity: 0.55 }}
         >

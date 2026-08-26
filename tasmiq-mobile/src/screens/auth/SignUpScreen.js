@@ -112,7 +112,7 @@ export default function SignUpScreen({ navigation, route }) {
           <View style={{ alignItems: 'center', marginBottom: 40 }}>
             <View style={{ backgroundColor: C.card, padding: 12, borderRadius: 24, elevation: 4, marginBottom: 20 }}>
               <Image
-                source={require('../../../assets/logo.png')}
+                source={require('../../../assets/logo.jpg')}
                 style={{ width: 80, height: 80 }}
                 resizeMode="contain"
               />
