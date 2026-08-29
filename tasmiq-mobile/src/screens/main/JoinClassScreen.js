@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabaseClient';
 import { getCurrentUser } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
-import IslamicBackground from '../../components/IslamicBackground';
 
 const PRIMARY = '#047857';  // dark emerald — for buttons only
 const GOLD    = '#D4AF37';
@@ -129,22 +128,21 @@ export default function JoinClassScreen({ navigation }) {
   };
 
   if (checking) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator size="large" color={PRIMARY} />
     </SafeAreaView>
   );
 
   return (
-    <IslamicBackground variant="minimal">
-      <SafeAreaView style={{ flex: 1 }}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bg} />
+    
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={'#FFFDF0'} />
 
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 16 }}>
-            <Ionicons name="arrow-back" size={24} color={C.text} />
+            <Ionicons name="arrow-back" size={24} color={'#064E3B'} />
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: C.text }}>Join a Class</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>Join a Class</Text>
         </View>
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -152,16 +150,16 @@ export default function JoinClassScreen({ navigation }) {
 
             {/* ── STATUS: APPROVED ── */}
             {enrollment?.status === 'approved' && (
-              <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 28, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 }}>
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 28, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 }}>
                 <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: '#E6F9F3', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
                   <Ionicons name="checkmark-circle" size={36} color={PRIMARY} />
                 </View>
-                <Text style={{ fontSize: 19, fontWeight: '900', color: C.text, marginBottom: 8 }}>Enrolled!</Text>
-                <Text style={{ fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 21 }}>
+                <Text style={{ fontSize: 19, fontWeight: '900', color: '#064E3B', marginBottom: 8 }}>Enrolled!</Text>
+                <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 21 }}>
                   You are a member of{' '}
                   <Text style={{ fontWeight: '800', color: PRIMARY }}>{enrollment.className}</Text>.
                 </Text>
-                <Text style={{ fontSize: 12, color: C.muted, marginTop: 12, textAlign: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 12, textAlign: 'center' }}>
                   To join a different class, leave your current class from Profile → Class Information.
                 </Text>
               </View>
@@ -169,18 +167,18 @@ export default function JoinClassScreen({ navigation }) {
 
             {/* ── JOIN FORM — only show if not approved ── */}
             {(!enrollment || enrollment.status !== 'approved') && (
-              <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 28, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, elevation: 4 }}>
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 28, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, elevation: 4 }}>
                 <View style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: '#E6F9F3', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
                   <Ionicons name="keypad" size={26} color={PRIMARY} />
                 </View>
 
-                <Text style={{ fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 6 }}>Enter Class Code</Text>
-                <Text style={{ fontSize: 13, color: C.muted, marginBottom: 22, lineHeight: 20 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B', marginBottom: 6 }}>Enter Class Code</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 22, lineHeight: 20 }}>
                   Ask your teacher for the class code and enter it below. Each student can only be in one class at a time.
                 </Text>
 
                 <View style={{
-                  backgroundColor: C.bg, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 16,
+                  backgroundColor: '#FFFDF0', borderRadius: 14, paddingHorizontal: 18, paddingVertical: 16,
                   marginBottom: errorMsg ? 10 : 20, borderWidth: errorMsg ? 1.5 : 1, borderColor: errorMsg ? '#EF4444' : '#E5E7EB',
                 }}>
                   <TextInput
@@ -195,7 +193,7 @@ export default function JoinClassScreen({ navigation }) {
                     placeholderTextColor="#BBBBBB"
                     autoCapitalize="characters"
                     maxLength={15}
-                    style={{ fontSize: 22, fontWeight: '800', color: errorMsg ? '#EF4444' : C.text, letterSpacing: 3, textAlign: 'center' }}
+                    style={{ fontSize: 22, fontWeight: '800', color: errorMsg ? '#EF4444' : '#064E3B', letterSpacing: 3, textAlign: 'center' }}
                   />
                 </View>
 
@@ -229,6 +227,6 @@ export default function JoinClassScreen({ navigation }) {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </IslamicBackground>
+    
   );
 }

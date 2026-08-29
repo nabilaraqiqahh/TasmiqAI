@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,45 +23,73 @@ import TasmiqModeScreen   from '../screens/features/TasmiqModeScreen';
 import TasmiqPrepScreen   from '../screens/features/TasmiqPrepScreen';
 
 // Teacher Screens
-import TeacherDashboard from '../screens/teacher/TeacherDashboard';
-import TeacherStudents  from '../screens/teacher/TeacherStudents';
-import TeacherReview    from '../screens/teacher/TeacherReview';
+import TeacherDashboard        from '../screens/teacher/TeacherDashboard';
+import TeacherStudents         from '../screens/teacher/TeacherStudents';
+import TeacherReview           from '../screens/teacher/TeacherReview';
+import TeacherEvaluationScreen from '../screens/features/TeacherEvaluationScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
+
+const PRIMARY = '#0B6E4F';
+const GOLD    = '#D4AF37';
 
 // ── Student Tab Navigator ─────────────────────────────────────────────────────
 function MainTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          const icons = {
-            Home:     focused ? 'home'      : 'home-outline',
-            Tasmiq:   focused ? 'mic'       : 'mic-outline',
-            History:  focused ? 'time'      : 'time-outline',
-            Progress: focused ? 'bar-chart' : 'bar-chart-outline',
-            Profile:  focused ? 'person'    : 'person-outline',
-          };
-          return <Ionicons name={icons[route.name] || 'help'} size={size} color={color} />;
-        },
-        tabBarActiveTintColor:   '#0B6E4F',
-        tabBarInactiveTintColor: '#AAAAAA',
         headerShown: false,
+        tabBarActiveTintColor:   PRIMARY,
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
-          height: 76, paddingBottom: 14, paddingTop: 10,
-          backgroundColor: '#FFFFFF', borderTopWidth: 0,
-          elevation: 16, shadowColor: '#000',
-          shadowOpacity: 0.08, shadowRadius: 16,
+          height: Platform.OS === 'ios' ? 84 : 70,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+          paddingTop: 8,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 0,
+          elevation: 20,
+          shadowColor: '#000',
+          shadowOpacity: 0.10,
+          shadowRadius: 20,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '700',
+          marginTop: 2,
+        },
+        tabBarIcon: ({ focused, color }) => {
+          const icons = {
+            Home:     focused ? 'home'           : 'home-outline',
+            Learn:    focused ? 'book'            : 'book-outline',
+            Tasmiq:   focused ? 'mic-circle'      : 'mic-circle-outline',
+            Progress: focused ? 'stats-chart'     : 'stats-chart-outline',
+            Profile:  focused ? 'person-circle'   : 'person-circle-outline',
+          };
+          // Make Tasmiq tab icon bigger and use gold when active
+          if (route.name === 'Tasmiq') {
+            return (
+              <View style={{
+                width: 52, height: 52, borderRadius: 26,
+                backgroundColor: focused ? PRIMARY : PRIMARY + '15',
+                alignItems: 'center', justifyContent: 'center',
+                marginTop: -18,
+                shadowColor: PRIMARY, shadowOpacity: focused ? 0.35 : 0,
+                shadowRadius: 12, elevation: focused ? 8 : 0,
+              }}>
+                <Ionicons name="mic" size={26} color={focused ? '#FFFFFF' : PRIMARY} />
+              </View>
+            );
+          }
+          return <Ionicons name={icons[route.name] || 'help-outline'} size={22} color={color} />;
+        },
       })}
     >
-      <Tab.Screen name="Home"     component={DashboardScreen} />
-      <Tab.Screen name="Tasmiq"   component={TasmiqPrepScreen} />
-      <Tab.Screen name="History"  component={HistoryScreen} />
-      <Tab.Screen name="Progress" component={ProgressScreen} />
-      <Tab.Screen name="Profile"  component={ProfileScreen} />
+      <Tab.Screen name="Home"     component={DashboardScreen}   options={{ tabBarLabel: 'Home' }} />
+      <Tab.Screen name="Learn"    component={MurajaahModeScreen} options={{ tabBarLabel: 'Learn' }} />
+      <Tab.Screen name="Tasmiq"   component={TasmiqPrepScreen}   options={{ tabBarLabel: 'Tasmiq' }} />
+      <Tab.Screen name="Progress" component={ProgressScreen}     options={{ tabBarLabel: 'Progress' }} />
+      <Tab.Screen name="Profile"  component={ProfileScreen}      options={{ tabBarLabel: 'Profile' }} />
     </Tab.Navigator>
   );
 }
@@ -103,7 +131,7 @@ export default function AppNavigator() {
   // Loading splash
   if (session === undefined) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FEFCE8', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#0B6E4F" />
       </View>
     );
@@ -126,12 +154,14 @@ export default function AppNavigator() {
         ) : (
           // ── STUDENT ZONE ──
           <>
-            <Stack.Screen name="MainTabs"     component={MainTabNavigator} />
-            <Stack.Screen name="TasmiqPrep"   component={TasmiqPrepScreen} />
-            <Stack.Screen name="TasmiqMode"   component={TasmiqModeScreen} />
-            <Stack.Screen name="MurajaahMode" component={MurajaahModeScreen} />
-            <Stack.Screen name="JoinClass"    component={JoinClassScreen} />
-            <Stack.Screen name="Nudge"        component={NudgeScreen} />
+            <Stack.Screen name="MainTabs"          component={MainTabNavigator} />
+            <Stack.Screen name="TasmiqPrep"        component={TasmiqPrepScreen} />
+            <Stack.Screen name="TasmiqMode"        component={TasmiqModeScreen} />
+            <Stack.Screen name="MurajaahMode"      component={MurajaahModeScreen} />
+            <Stack.Screen name="JoinClass"         component={JoinClassScreen} />
+            <Stack.Screen name="Nudge"             component={NudgeScreen} />
+            <Stack.Screen name="History"           component={HistoryScreen} />
+            <Stack.Screen name="TeacherEvaluation" component={TeacherEvaluationScreen} />
           </>
         )
       ) : (

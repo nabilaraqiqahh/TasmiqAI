@@ -24,7 +24,7 @@ const E  = '#0B6E4F';
 const ED = '#064E3B';
 const EL = '#D1FAE5';
 const G  = '#D4AF37';
-const BG = '#FEFCE8';
+const BG = '#FFFDF0';
 
 export default function MurajaahModeScreen({ navigation }) {
   const { isDark } = useTheme();

@@ -8,7 +8,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabaseClient';
 import { getCurrentUser } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
-import IslamicBackground from '../../components/IslamicBackground';
 
 // ── Error boundary to prevent full app crash ─────────────────────
 class NudgeErrorBoundary extends Component {
@@ -300,24 +299,23 @@ function NudgeScreenInner({ navigation }) {
   };
 
   if (loading) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator size="large" color={C.primary} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator size="large" color={'#0B6E4F'} />
     </SafeAreaView>
   );
 
   return (
-    <IslamicBackground variant="minimal">
-      <SafeAreaView style={{ flex: 1 }}>
+    
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
         {/* ── HEADER ─────────────────────────────────────────────────── */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 16 }}>
-            <Ionicons name="arrow-back" size={24} color={C.text} />
+            <Ionicons name="arrow-back" size={24} color={'#064E3B'} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 20, fontWeight: '900', color: C.primary, margin: 0 }}>Nudge System</h1>
-            <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>Remind classmates to practice their Quran 🌿</p>
+            <h1 style={{ fontSize: 20, fontWeight: '900', color: '#0B6E4F', margin: 0 }}>Nudge System</h1>
+            <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Remind classmates to practice their Quran 🌿</p>
           </View>
         </View>
 
@@ -329,11 +327,11 @@ function NudgeScreenInner({ navigation }) {
           ].map(t => (
             <TouchableOpacity key={t.key} onPress={() => setTab(t.key)} style={{
               paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
-              backgroundColor: tab === t.key ? C.primary : C.card,
-              borderWidth: 1, borderColor: tab === t.key ? C.primary : C.border,
+              backgroundColor: tab === t.key ? '#0B6E4F' : '#FFFFFF',
+              borderWidth: 1, borderColor: tab === t.key ? '#0B6E4F' : '#E8F0EA',
               shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1
             }}>
-              <Text style={{ fontSize: 12, fontWeight: '800', color: tab === t.key ? 'white' : C.primary }}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: tab === t.key ? 'white' : '#0B6E4F' }}>
                 {t.label}
               </Text>
             </TouchableOpacity>
@@ -345,31 +343,31 @@ function NudgeScreenInner({ navigation }) {
           <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4 }}>
             {classmates.length === 0 ? (
               <View style={{ alignItems: 'center', paddingTop: 60 }}>
-                <Ionicons name="people-outline" size={48} color={C.border} />
-                <Text style={{ color: C.muted, marginTop: 12, fontSize: 14, textAlign: 'center' }}>
+                <Ionicons name="people-outline" size={48} color={'#E8F0EA'} />
+                <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14, textAlign: 'center' }}>
                   No classmates found in your class. {'\n'}Enroll in a class to start nudging!
                 </Text>
               </View>
             ) : classmates.map(mate => (
               <View key={mate.id} style={{
-                backgroundColor: C.card, borderRadius: 18, padding: 18,
-                marginBottom: 12, borderWidth: 1, borderColor: C.border,
+                backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18,
+                marginBottom: 12, borderWidth: 1, borderColor: '#E8F0EA',
                 shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 8, elevation: 2,
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: C.primary + '14', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Text style={{ fontSize: 18, fontWeight: '900', color: C.primary }}>{mate.name[0]?.toUpperCase()}</Text>
+                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#0B6E4F' + '14', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '900', color: '#0B6E4F' }}>{mate.name[0]?.toUpperCase()}</Text>
                   </View>
                   <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={{ fontWeight: '800', color: C.text, fontSize: 15 }}>{mate.name}</Text>
-                    <Text style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{mate.className}</Text>
+                    <Text style={{ fontWeight: '800', color: '#064E3B', fontSize: 15 }}>{mate.name}</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{mate.className}</Text>
                   </View>
                 </View>
 
                 <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                  <View style={{ backgroundColor: mate.nudgesToday >= 5 ? '#FEE2E2' : C.primary + '10', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: mate.nudgesToday >= 5 ? '#991B1B' : C.primary }}>
+                  <View style={{ backgroundColor: mate.nudgesToday >= 5 ? '#FEE2E2' : '#0B6E4F' + '10', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: mate.nudgesToday >= 5 ? '#991B1B' : '#0B6E4F' }}>
                       {mate.nudgesToday}/5 today
                     </Text>
                   </View>
@@ -377,7 +375,7 @@ function NudgeScreenInner({ navigation }) {
                     onPress={() => handleOpenNudge(mate)}
                     disabled={mate.nudgesToday >= 5}
                     style={{
-                      backgroundColor: mate.nudgesToday >= 5 ? '#F3F4F6' : C.primary,
+                      backgroundColor: mate.nudgesToday >= 5 ? '#F3F4F6' : '#0B6E4F',
                       borderRadius: 10, paddingVertical: 7, paddingHorizontal: 14,
                       flexDirection: 'row', alignItems: 'center', gap: 4
                     }}
@@ -396,11 +394,11 @@ function NudgeScreenInner({ navigation }) {
           <View style={{ flex: 1 }}>
             {/* Sub-tabs */}
             <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 12, gap: 12 }}>
-              <TouchableOpacity onPress={() => setHistoryTab('received')} style={{ borderBottomWidth: 2, borderBottomColor: historyTab === 'received' ? C.primary : 'transparent', paddingBottom: 6 }}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: historyTab === 'received' ? C.primary : C.muted }}>Received Nudges</Text>
+              <TouchableOpacity onPress={() => setHistoryTab('received')} style={{ borderBottomWidth: 2, borderBottomColor: historyTab === 'received' ? '#0B6E4F' : 'transparent', paddingBottom: 6 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: historyTab === 'received' ? '#0B6E4F' : '#6B7280' }}>Received Nudges</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setHistoryTab('sent')} style={{ borderBottomWidth: 2, borderBottomColor: historyTab === 'sent' ? C.primary : 'transparent', paddingBottom: 6 }}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: historyTab === 'sent' ? C.primary : C.muted }}>Sent Nudges</Text>
+              <TouchableOpacity onPress={() => setHistoryTab('sent')} style={{ borderBottomWidth: 2, borderBottomColor: historyTab === 'sent' ? '#0B6E4F' : 'transparent', paddingBottom: 6 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: historyTab === 'sent' ? '#0B6E4F' : '#6B7280' }}>Sent Nudges</Text>
               </TouchableOpacity>
             </View>
 
@@ -411,27 +409,27 @@ function NudgeScreenInner({ navigation }) {
                 contentContainerStyle={{ padding: 20, paddingTop: 4 }}
                 ListEmptyComponent={
                   <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                    <Ionicons name="mail-outline" size={44} color={C.border} />
-                    <Text style={{ color: C.muted, marginTop: 12, fontSize: 14 }}>No received nudges yet.</Text>
+                    <Ionicons name="mail-outline" size={44} color={'#E8F0EA'} />
+                    <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>No received nudges yet.</Text>
                   </View>
                 }
                 renderItem={({ item }) => (
                   <TouchableOpacity onPress={() => markRead(item.id)} activeOpacity={0.8} style={{
-                    backgroundColor: item.is_read ? C.card : C.primary + '0a',
+                    backgroundColor: item.is_read ? '#FFFFFF' : '#0B6E4F' + '0a',
                     borderRadius: 16, padding: 16, marginBottom: 10,
-                    borderWidth: 1, borderColor: item.is_read ? C.border : C.primary,
+                    borderWidth: 1, borderColor: item.is_read ? '#E8F0EA' : '#0B6E4F',
                     flexDirection: 'row', alignItems: 'center', gap: 12,
                     shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1
                   }}>
                     <Text style={{ fontSize: 24 }}>💬</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '800', color: C.text, fontSize: 14 }}>{item.sender_name}</Text>
-                      <Text style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{item.message}</Text>
+                      <Text style={{ fontWeight: '800', color: '#064E3B', fontSize: 14 }}>{item.sender_name}</Text>
+                      <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>{item.message}</Text>
                       <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>
                         {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     </View>
-                    {!item.is_read && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary }} />}
+                    {!item.is_read && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#0B6E4F' }} />}
                   </TouchableOpacity>
                 )}
               />
@@ -442,20 +440,20 @@ function NudgeScreenInner({ navigation }) {
                 contentContainerStyle={{ padding: 20, paddingTop: 4 }}
                 ListEmptyComponent={
                   <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                    <Ionicons name="paper-plane-outline" size={44} color={C.border} />
-                    <Text style={{ color: C.muted, marginTop: 12, fontSize: 14 }}>No sent nudges yet.</Text>
+                    <Ionicons name="paper-plane-outline" size={44} color={'#E8F0EA'} />
+                    <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>No sent nudges yet.</Text>
                   </View>
                 }
                 renderItem={({ item }) => (
                   <View style={{
-                    backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 10,
-                    borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', gap: 12,
+                    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 10,
+                    borderWidth: 1, borderColor: '#E8F0EA', flexDirection: 'row', alignItems: 'center', gap: 12,
                     shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1
                   }}>
                     <Text style={{ fontSize: 24 }}>📤</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '800', color: C.text, fontSize: 14 }}>To: {item.receiver_name}</Text>
-                      <Text style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{item.message}</Text>
+                      <Text style={{ fontWeight: '800', color: '#064E3B', fontSize: 14 }}>To: {item.receiver_name}</Text>
+                      <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>{item.message}</Text>
                       <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>
                         {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </Text>
@@ -471,12 +469,12 @@ function NudgeScreenInner({ navigation }) {
         <Modal visible={nudgeModalVisible} animationType="fade" transparent>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
             <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '85%' }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 2 }}>Send Nudge</Text>
-              <Text style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Remind {selectedMate?.name} to practice</Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#064E3B', marginBottom: 2 }}>Send Nudge</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>Remind {selectedMate?.name} to practice</Text>
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Predefined pills */}
-                <Text style={{ fontSize: 11, fontWeight: '800', color: C.muted, marginBottom: 8, textTransform: 'uppercase' }}>Predefined Reminders</Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase' }}>Predefined Reminders</Text>
                 <View style={{ flexDirection: 'column', gap: 8, marginBottom: 18 }}>
                   {PREDEFINED_MESSAGES.map(msg => {
                     const selected = selectedPreset === msg && !customText.trim();
@@ -486,11 +484,11 @@ function NudgeScreenInner({ navigation }) {
                         onPress={() => { setSelectedPreset(msg); setCustomText(''); }}
                         style={{
                           padding: 12, borderRadius: 10,
-                          backgroundColor: selected ? C.primary + '12' : '#F3F4F6',
-                          borderWidth: 1.5, borderColor: selected ? C.primary : 'transparent',
+                          backgroundColor: selected ? '#0B6E4F' + '12' : '#F3F4F6',
+                          borderWidth: 1.5, borderColor: selected ? '#0B6E4F' : 'transparent',
                         }}
                       >
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: selected ? C.primary : C.text }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: selected ? '#0B6E4F' : '#064E3B' }}>
                           {msg}
                         </Text>
                       </TouchableOpacity>
@@ -499,12 +497,12 @@ function NudgeScreenInner({ navigation }) {
                 </View>
 
                 {/* Custom message field */}
-                <Text style={{ fontSize: 11, fontWeight: '800', color: C.muted, marginBottom: 6, textTransform: 'uppercase' }}>Custom Message (Optional)</Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 6, textTransform: 'uppercase' }}>Custom Message (Optional)</Text>
                 <View style={{ marginBottom: 20 }}>
                   <TextInput
                     style={{
                       backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, fontSize: 14,
-                      color: C.text, borderWidth: 1, borderColor: '#E5E7EB',
+                      color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB',
                       minHeight: 60, textAlignVertical: 'top'
                     }}
                     placeholder="Type custom nudge message..."
@@ -515,7 +513,7 @@ function NudgeScreenInner({ navigation }) {
                     maxLength={100}
                     multiline
                   />
-                  <Text style={{ fontSize: 11, color: C.muted, textAlign: 'right', marginTop: 4 }}>
+                  <Text style={{ fontSize: 11, color: '#6B7280', textAlign: 'right', marginTop: 4 }}>
                     {customText.length}/100
                   </Text>
                 </View>
@@ -526,13 +524,13 @@ function NudgeScreenInner({ navigation }) {
                   onPress={() => setNudgeModalVisible(false)}
                   style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}
                 >
-                  <Text style={{ fontWeight: '700', color: C.muted }}>Cancel</Text>
+                  <Text style={{ fontWeight: '700', color: '#6B7280' }}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={handleSendNudge}
                   disabled={sending}
-                  style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: C.primary }}
+                  style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#0B6E4F' }}
                 >
                   {sending ? <ActivityIndicator color="white" /> : (
                     <Text style={{ fontWeight: '700', color: 'white' }}>Send Nudge</Text>
@@ -544,7 +542,7 @@ function NudgeScreenInner({ navigation }) {
         </Modal>
 
       </SafeAreaView>
-    </IslamicBackground>
+    
   );
 }
 

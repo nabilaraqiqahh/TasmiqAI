@@ -11,9 +11,9 @@ export default function TeacherStudents({ navigation }) {
   const { isDark, colors: C } = useTheme();
   
   const STATUS_COLORS = {
-    'On Track': { bg: C.green + '20', text: C.green },
-    'At Risk': { bg: C.red + '20', text: C.red },
-    'Improving': { bg: C.primary + '20', text: C.primary },
+    'On Track': { bg: '#0B6E4F' + '20', text: '#0B6E4F' },
+    'At Risk': { bg: '#DC2626' + '20', text: '#DC2626' },
+    'Improving': { bg: '#0B6E4F' + '20', text: '#0B6E4F' },
     'Inactive': { bg: '#99999920', text: '#999999' },
   };
 
@@ -64,67 +64,67 @@ export default function TeacherStudents({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={C.bg} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
 
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 0 }}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 14 }}>
-          <Ionicons name="arrow-back" size={24} color={C.text} />
+          <Ionicons name="arrow-back" size={24} color={'#064E3B'} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>Student Database</Text>
-          <Text style={{ fontSize: 13, color: C.muted }}>{filtered.length} students enrolled</Text>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: '#064E3B' }}>Student Database</Text>
+          <Text style={{ fontSize: 13, color: '#6B7280' }}>{filtered.length} students enrolled</Text>
         </View>
       </View>
 
       {/* Search */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', margin: 20, marginBottom: 12, backgroundColor: C.card, borderRadius: 14, paddingHorizontal: 14, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 }}>
-        <Ionicons name="search" size={18} color={C.muted} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', margin: 20, marginBottom: 12, backgroundColor: '#FFFFFF', borderRadius: 14, paddingHorizontal: 14, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 }}>
+        <Ionicons name="search" size={18} color={'#6B7280'} />
         <TextInput
           placeholder="Search by name..."
           value={search}
           onChangeText={setSearch}
-          style={{ flex: 1, paddingVertical: 14, paddingHorizontal: 10, fontSize: 15, color: C.text }}
+          style={{ flex: 1, paddingVertical: 14, paddingHorizontal: 10, fontSize: 15, color: '#064E3B' }}
         />
-        {search ? <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close" size={18} color={C.muted} /></TouchableOpacity> : null}
+        {search ? <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close" size={18} color={'#6B7280'} /></TouchableOpacity> : null}
       </View>
 
       {loading && !refreshing ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={'#0B6E4F'} />
         </View>
       ) : (
         <ScrollView 
           contentContainerStyle={{ padding: 20, paddingTop: 0 }} 
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStudents(); }} colors={[C.primary]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStudents(); }} colors={['#0B6E4F']} />}
         >
           {filtered.length > 0 ? filtered.map((s) => (
             <TouchableOpacity
               key={s.id}
               style={{
-                backgroundColor: C.card, borderRadius: 18, padding: 18, marginBottom: 12,
+                backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, marginBottom: 12,
                 flexDirection: 'row', alignItems: 'center',
                 shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
               }}
             >
               {/* Avatar */}
-              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: C.lilac + '30', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                <Text style={{ fontSize: 20, fontWeight: '900', color: C.lilac }}>{s.displayName?.[0] ?? '?'}</Text>
+              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#C8B6E2' + '30', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Text style={{ fontSize: 20, fontWeight: '900', color: '#C8B6E2' }}>{s.displayName?.[0] ?? '?'}</Text>
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: C.text, marginBottom: 3 }}>{s.displayName || 'Unknown Student'}</Text>
-                <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{s.level} • {s.lastActive}</Text>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#064E3B', marginBottom: 3 }}>{s.displayName || 'Unknown Student'}</Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>{s.level} • {s.lastActive}</Text>
                 {/* Progress bar */}
                 <View style={{ height: 5, backgroundColor: '#F0F0F0', borderRadius: 3, width: '85%' }}>
-                  <View style={{ width: `${s.progress || 0}%`, height: 5, backgroundColor: C.primary, borderRadius: 3 }} />
+                  <View style={{ width: `${s.progress || 0}%`, height: 5, backgroundColor: '#0B6E4F', borderRadius: 3 }} />
                 </View>
               </View>
 
               <View style={{ alignItems: 'flex-end', gap: 8 }}>
-                <Text style={{ fontSize: 16, fontWeight: '900', color: (s.avgScore || 0) >= 80 ? C.green : (s.avgScore || 0) >= 65 ? C.gold : C.red }}>
+                <Text style={{ fontSize: 16, fontWeight: '900', color: (s.avgScore || 0) >= 80 ? '#0B6E4F' : (s.avgScore || 0) >= 65 ? '#D4AF37' : '#DC2626' }}>
                   {s.avgScore || 0}%
                 </Text>
                 <View style={{ backgroundColor: STATUS_COLORS[s.status]?.bg || '#99999920', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
@@ -134,7 +134,7 @@ export default function TeacherStudents({ navigation }) {
             </TouchableOpacity>
           )) : (
             <View style={{ padding: 40, alignItems: 'center' }}>
-              <Text style={{ color: C.muted }}>No students found</Text>
+              <Text style={{ color: '#6B7280' }}>No students found</Text>
             </View>
           )}
         </ScrollView>

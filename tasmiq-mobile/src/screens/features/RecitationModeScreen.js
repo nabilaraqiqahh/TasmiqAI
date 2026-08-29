@@ -446,17 +446,17 @@ export default function RecitationModeScreen({ navigation, route }) {
   const getWordStyle = (index) => {
     if (isRecording) {
       if (index === detectedWordIndex) {
-        return { bg: C.warning, text: '#000', border: C.primary, scale: 1.05 }; 
+        return { bg: C.warning, text: '#000', border: '#0B6E4F', scale: 1.05 }; 
       }
       if (index < detectedWordIndex) {
-        return { bg: wordResults[index] === 'correct' ? C.detected : C.missed, text: C.text, border: 'transparent' };
+        return { bg: wordResults[index] === 'correct' ? C.detected : C.missed, text: '#064E3B', border: 'transparent' };
       }
       return { bg: 'transparent', text: '#BBBBBB', border: 'transparent' }; 
     }
     if (showAIStatus) {
-      return { bg: wordResults[index] === 'correct' ? C.detected : C.missed, text: C.text, border: 'transparent' };
+      return { bg: wordResults[index] === 'correct' ? C.detected : C.missed, text: '#064E3B', border: 'transparent' };
     }
-    return { bg: 'transparent', text: C.text, border: 'transparent' };
+    return { bg: 'transparent', text: '#064E3B', border: 'transparent' };
   };
 
   const getModeLabel = (mode) => {
@@ -470,51 +470,51 @@ export default function RecitationModeScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={C.bg} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
 
       {/* ── Header ── */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#D4AF37', alignItems: 'center', justifyContent: 'center' }}
         >
-          <Ionicons name="chevron-back" size={22} color={C.primary} />
+          <Ionicons name="chevron-back" size={22} color={'#0B6E4F'} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 14 }}>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: C.text }}>{currentSurah.name}</Text>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#064E3B' }}>{currentSurah.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-            <TouchableOpacity onPress={prevAyah} style={{ padding: 6, backgroundColor: C.accent, borderRadius: 8, marginRight: 8 }}>
-              <Ionicons name="chevron-back" size={18} color={C.primary} />
+            <TouchableOpacity onPress={prevAyah} style={{ padding: 6, backgroundColor: '#D4AF37', borderRadius: 8, marginRight: 8 }}>
+              <Ionicons name="chevron-back" size={18} color={'#0B6E4F'} />
             </TouchableOpacity>
             <View style={{ backgroundColor: '#EEE', paddingHorizontal: 10, paddingVertical: 2, borderRadius: 6 }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: C.text }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#064E3B' }}>
                 Ayah {selectedAyahNumber}{recitationMode !== 'single' && endAyahToAnalyze > selectedAyahNumber ? `-${endAyahToAnalyze}` : ''}
               </Text>
             </View>
-            <TouchableOpacity onPress={nextAyah} style={{ padding: 6, backgroundColor: C.accent, borderRadius: 8, marginLeft: 8 }}>
-              <Ionicons name="chevron-forward" size={18} color={C.primary} />
+            <TouchableOpacity onPress={nextAyah} style={{ padding: 6, backgroundColor: '#D4AF37', borderRadius: 8, marginLeft: 8 }}>
+              <Ionicons name="chevron-forward" size={18} color={'#0B6E4F'} />
             </TouchableOpacity>
           </View>
         </View>
         <TouchableOpacity 
           onPress={() => setModeModalVisible(true)}
-          style={{ backgroundColor: C.primary + '20', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', marginRight: 8 }}
+          style={{ backgroundColor: '#0B6E4F' + '20', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', marginRight: 8 }}
         >
-          <Text style={{ color: C.primary, fontSize: 10, fontWeight: '700', marginRight: 4 }}>{getModeLabel(recitationMode)}</Text>
-          <Ionicons name="chevron-down" size={12} color={C.primary} />
+          <Text style={{ color: '#0B6E4F', fontSize: 10, fontWeight: '700', marginRight: 4 }}>{getModeLabel(recitationMode)}</Text>
+          <Ionicons name="chevron-down" size={12} color={'#0B6E4F'} />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setSurahModalVisible(true)}
-          style={{ backgroundColor: C.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 }}
+          style={{ backgroundColor: '#0B6E4F', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 }}
         >
           <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>Surah</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setAyahModalVisible(true)}
-          style={{ backgroundColor: C.accent, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, marginLeft: 6 }}
+          style={{ backgroundColor: '#D4AF37', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, marginLeft: 6 }}
         >
-          <Text style={{ color: C.primary, fontSize: 10, fontWeight: '700' }}>Ayah</Text>
+          <Text style={{ color: '#0B6E4F', fontSize: 10, fontWeight: '700' }}>Ayah</Text>
         </TouchableOpacity>
       </View>
 
@@ -525,7 +525,7 @@ export default function RecitationModeScreen({ navigation, route }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF0F0', borderRadius: 16, padding: 14, marginBottom: 20 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#E05252', marginRight: 10 }} />
             <Text style={{ flex: 1, color: '#E05252', fontWeight: '700', fontSize: 13 }}>Recording & Detecting...</Text>
-            <Text style={{ fontSize: 12, color: C.muted }}>
+            <Text style={{ fontSize: 12, color: '#6B7280' }}>
               {detectedWordIndex + 1}/{ayahWords.length} words
             </Text>
           </View>
@@ -533,19 +533,19 @@ export default function RecitationModeScreen({ navigation, route }) {
 
         {/* ── Main Verse Card ── */}
         <View style={{
-          backgroundColor: C.card, borderRadius: 28, padding: 28, marginBottom: 24,
-          shadowColor: C.primary, shadowOpacity: 0.12, shadowRadius: 20, elevation: 6,
+          backgroundColor: '#FFFFFF', borderRadius: 28, padding: 28, marginBottom: 24,
+          shadowColor: '#0B6E4F', shadowOpacity: 0.12, shadowRadius: 20, elevation: 6,
           borderWidth: 1, borderColor: 'rgba(107,144,128,0.1)',
         }}>
           {/* Hint Badge */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <View style={{ backgroundColor: C.bg, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
-              <Text style={{ fontSize: 10, fontWeight: '800', color: C.muted }}>
+            <View style={{ backgroundColor: '#FFFDF0', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: '#6B7280' }}>
                 Surah {currentSurah.index} : {selectedAyahNumber}{recitationMode !== 'single' && endAyahToAnalyze > selectedAyahNumber ? `-${endAyahToAnalyze}` : ''}
               </Text>
             </View>
             {!isRecording && !showAIStatus && (
-              <View style={{ backgroundColor: C.highlight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
+              <View style={{ backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
                 <Text style={{ fontSize: 10, fontWeight: '800', color: '#D4A017' }}>
                   {hintCount < 5 ? `${hintCount}/5 Hints` : 'All Hints Used'}
                 </Text>
@@ -575,13 +575,13 @@ export default function RecitationModeScreen({ navigation, route }) {
                     backgroundColor: style.bg,
                     borderRadius: 12,
                     borderWidth: isCurrentlyDetected ? 2.5 : 0,
-                    borderColor: isCurrentlyDetected ? C.primary : 'transparent',
+                    borderColor: isCurrentlyDetected ? '#0B6E4F' : 'transparent',
                     minWidth: isHidden ? 36 : undefined,
                     transform: [{ scale: isCurrentlyDetected ? 1.08 : 1 }],
                   }}
                 >
                   {isHidden ? (
-                    <View style={{ height: 4, width: 36, backgroundColor: C.accent, borderRadius: 2, marginBottom: 2, marginTop: 26 }} />
+                    <View style={{ height: 4, width: 36, backgroundColor: '#D4AF37', borderRadius: 2, marginBottom: 2, marginTop: 26 }} />
                   ) : (
                     <Text style={{ fontSize: 30, color: style.text, fontFamily: 'serif', lineHeight: 46 }}>
                       {word}
@@ -597,15 +597,15 @@ export default function RecitationModeScreen({ navigation, route }) {
             <View style={{ flexDirection: 'row', marginTop: 20, justifyContent: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.detected, marginRight: 5 }} />
-                <Text style={{ fontSize: 11, color: C.muted }}>Detected</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280' }}>Detected</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.warning, marginRight: 5 }} />
-                <Text style={{ fontSize: 11, color: C.muted }}>Scanning</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280' }}>Scanning</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.missed, marginRight: 5 }} />
-                <Text style={{ fontSize: 11, color: C.muted }}>Review</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280' }}>Review</Text>
               </View>
             </View>
           )}
@@ -613,19 +613,19 @@ export default function RecitationModeScreen({ navigation, route }) {
 
         {/* ── AI Analysis Panel ── */}
         {showAIStatus && aiAnalysis && (
-          <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 24, marginBottom: 24, shadowColor: C.primary, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: C.text, marginBottom: 16 }}>AI Analysis</Text>
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, marginBottom: 24, shadowColor: '#0B6E4F', shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#064E3B', marginBottom: 16 }}>AI Analysis</Text>
 
             {/* Confidence Bar */}
             <View style={{ marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: C.muted, fontWeight: '600' }}>PRONUNCIATION SCORE</Text>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: C.primary }}>{aiAnalysis.confidence}%</Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '600' }}>PRONUNCIATION SCORE</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#0B6E4F' }}>{aiAnalysis.confidence}%</Text>
               </View>
               <View style={{ height: 8, backgroundColor: '#EEE', borderRadius: 4, overflow: 'hidden' }}>
                 <View style={{
                   width: `${aiAnalysis.confidence}%`, height: '100%', borderRadius: 4,
-                  backgroundColor: aiAnalysis.confidence > 85 ? C.primary : aiAnalysis.confidence > 70 ? C.warning : '#E05252'
+                  backgroundColor: aiAnalysis.confidence > 85 ? '#0B6E4F' : aiAnalysis.confidence > 70 ? C.warning : '#E05252'
                 }} />
               </View>
             </View>
@@ -643,15 +643,15 @@ export default function RecitationModeScreen({ navigation, route }) {
             </View>
 
             {/* Hesitation Indicator */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: C.bg, borderRadius: 14, marginBottom: 12 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: aiAnalysis.hesitation ? C.warning : C.primary, marginRight: 10 }} />
-              <Text style={{ fontSize: 13, color: C.text }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#FFFDF0', borderRadius: 14, marginBottom: 12 }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: aiAnalysis.hesitation ? C.warning : '#0B6E4F', marginRight: 10 }} />
+              <Text style={{ fontSize: 13, color: '#064E3B' }}>
                 {aiAnalysis.hesitation ? 'Minor hesitation detected in a few words' : 'Excellent fluency — no hesitation detected'}
               </Text>
             </View>
 
             {/* Motivational Feedback */}
-            <Text style={{ fontSize: 15, color: C.primary, fontWeight: '600', fontStyle: 'italic', textAlign: 'center', lineHeight: 22 }}>
+            <Text style={{ fontSize: 15, color: '#0B6E4F', fontWeight: '600', fontStyle: 'italic', textAlign: 'center', lineHeight: 22 }}>
               {aiAnalysis.motivation}
             </Text>
           </View>
@@ -664,7 +664,7 @@ export default function RecitationModeScreen({ navigation, route }) {
             disabled={isRecording}
             style={{
               width: 60, height: 60, borderRadius: 30,
-              backgroundColor: isRecording ? '#EEE' : C.highlight,
+              backgroundColor: isRecording ? '#EEE' : '#D1FAE5',
               alignItems: 'center', justifyContent: 'center',
             }}
           >
@@ -677,9 +677,9 @@ export default function RecitationModeScreen({ navigation, route }) {
             disabled={loading}
             style={{
               width: 88, height: 88, borderRadius: 44,
-              backgroundColor: isRecording ? '#E05252' : C.primary,
+              backgroundColor: isRecording ? '#E05252' : '#0B6E4F',
               alignItems: 'center', justifyContent: 'center',
-              shadowColor: isRecording ? '#E05252' : C.primary,
+              shadowColor: isRecording ? '#E05252' : '#0B6E4F',
               shadowOpacity: 0.35, shadowRadius: 16, elevation: 10,
             }}
           >
@@ -694,12 +694,12 @@ export default function RecitationModeScreen({ navigation, route }) {
             disabled={isRecording}
             style={{
               width: 60, height: 60, borderRadius: 30,
-              backgroundColor: isRecording ? '#EEE' : C.accent,
+              backgroundColor: isRecording ? '#EEE' : '#D4AF37',
               alignItems: 'center', justifyContent: 'center',
             }}
           >
-            {isLoadingRef ? <ActivityIndicator color={C.primary} size="small" /> : (
-              <Ionicons name={isPlayingRef ? 'pause' : 'volume-high-outline'} size={26} color={isRecording ? '#CCC' : C.primary} />
+            {isLoadingRef ? <ActivityIndicator color={'#0B6E4F'} size="small" /> : (
+              <Ionicons name={isPlayingRef ? 'pause' : 'volume-high-outline'} size={26} color={isRecording ? '#CCC' : '#0B6E4F'} />
             )}
           </TouchableOpacity>
         </View>
@@ -712,24 +712,24 @@ export default function RecitationModeScreen({ navigation, route }) {
                 onPress={resetState}
                 disabled={loading}
                 style={{
-                  flex: 1, backgroundColor: C.card, borderRadius: 20,
+                  flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20,
                   paddingVertical: 18, alignItems: 'center',
-                  borderWidth: 2, borderColor: C.primary,
+                  borderWidth: 2, borderColor: '#0B6E4F',
                   marginRight: 10,
                 }}
               >
-                <Text style={{ color: C.primary, fontSize: 16, fontWeight: '800' }}>Retry</Text>
+                <Text style={{ color: '#0B6E4F', fontSize: 16, fontWeight: '800' }}>Retry</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={nextAyah}
                 disabled={loading}
                 style={{
-                  flex: 1, backgroundColor: C.accent, borderRadius: 20,
+                  flex: 1, backgroundColor: '#D4AF37', borderRadius: 20,
                   paddingVertical: 18, alignItems: 'center',
                 }}
               >
-                <Text style={{ color: C.primary, fontSize: 16, fontWeight: '800' }}>Next Ayah</Text>
+                <Text style={{ color: '#0B6E4F', fontSize: 16, fontWeight: '800' }}>Next Ayah</Text>
               </TouchableOpacity>
             </View>
 
@@ -737,9 +737,9 @@ export default function RecitationModeScreen({ navigation, route }) {
               onPress={handleSubmit}
               disabled={loading}
               style={{
-                backgroundColor: C.primary, borderRadius: 20,
+                backgroundColor: '#0B6E4F', borderRadius: 20,
                 paddingVertical: 18, alignItems: 'center',
-                shadowColor: C.primary, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
+                shadowColor: '#0B6E4F', shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
               }}
             >
               {loading
@@ -755,11 +755,11 @@ export default function RecitationModeScreen({ navigation, route }) {
       {/* Mode Modal */}
       <Modal visible={modeModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: C.card, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 }}>
+          <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: C.text }}>Recitation Mode</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>Recitation Mode</Text>
               <TouchableOpacity onPress={() => setModeModalVisible(false)}>
-                <Ionicons name="close-circle" size={32} color={C.muted} />
+                <Ionicons name="close-circle" size={32} color={'#6B7280'} />
               </TouchableOpacity>
             </View>
             {[
@@ -773,12 +773,12 @@ export default function RecitationModeScreen({ navigation, route }) {
                 onPress={() => { setRecitationMode(m.id); setModeModalVisible(false); }}
                 style={{
                   padding: 16, borderRadius: 16, marginBottom: 12,
-                  backgroundColor: recitationMode === m.id ? C.primary + '15' : C.bg,
-                  borderWidth: 2, borderColor: recitationMode === m.id ? C.primary : 'transparent'
+                  backgroundColor: recitationMode === m.id ? '#0B6E4F' + '15' : '#FFFDF0',
+                  borderWidth: 2, borderColor: recitationMode === m.id ? '#0B6E4F' : 'transparent'
                 }}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 4 }}>{m.label}</Text>
-                <Text style={{ fontSize: 13, color: C.muted }}>{m.desc}</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#064E3B', marginBottom: 4 }}>{m.label}</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280' }}>{m.desc}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -788,9 +788,9 @@ export default function RecitationModeScreen({ navigation, route }) {
       {/* Stop Ayah Selection Modal for Continuous Mode */}
       <Modal visible={stopAyahModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 24, width: '100%', maxHeight: '70%' }}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 12 }}>Which Ayah did you stop at?</Text>
-            <Text style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>To accurately score your recitation, select the last Ayah you recited.</Text>
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, width: '100%', maxHeight: '70%' }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#064E3B', marginBottom: 12 }}>Which Ayah did you stop at?</Text>
+            <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 20 }}>To accurately score your recitation, select the last Ayah you recited.</Text>
             
             <FlatList
               data={Array.from({ length: Math.min(20, ayahCount - selectedAyahNumber + 1) }, (_, i) => selectedAyahNumber + i)}
@@ -800,17 +800,17 @@ export default function RecitationModeScreen({ navigation, route }) {
                 <TouchableOpacity
                   onPress={() => handleStopAyahSelected(item)}
                   style={{
-                    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.border,
+                    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E8F0EA',
                     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
                   }}
                 >
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: C.text }}>Ayah {item}</Text>
-                  <Ionicons name="chevron-forward" size={18} color={C.muted} />
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#064E3B' }}>Ayah {item}</Text>
+                  <Ionicons name="chevron-forward" size={18} color={'#6B7280'} />
                 </TouchableOpacity>
               )}
             />
             <TouchableOpacity onPress={() => setStopAyahModalVisible(false)} style={{ marginTop: 16, alignItems: 'center' }}>
-              <Text style={{ color: C.red, fontWeight: '700', paddingVertical: 10 }}>Cancel Analysis</Text>
+              <Text style={{ color: '#DC2626', fontWeight: '700', paddingVertical: 10 }}>Cancel Analysis</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -819,18 +819,18 @@ export default function RecitationModeScreen({ navigation, route }) {
       {/* Surah Modal */}
       <Modal visible={surahModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: C.card, height: '72%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 }}>
+          <View style={{ backgroundColor: '#FFFFFF', height: '72%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: C.text }}>Select Surah</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>Select Surah</Text>
               <TouchableOpacity onPress={() => { setSurahModalVisible(false); setSearchQuery(''); }}>
-                <Ionicons name="close-circle" size={32} color={C.muted} />
+                <Ionicons name="close-circle" size={32} color={'#6B7280'} />
               </TouchableOpacity>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg, borderRadius: 14, paddingHorizontal: 14, marginBottom: 14 }}>
-              <Ionicons name="search" size={18} color={C.muted} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFDF0', borderRadius: 14, paddingHorizontal: 14, marginBottom: 14 }}>
+              <Ionicons name="search" size={18} color={'#6B7280'} />
               <TextInput
                 placeholder="Search surah name or number..."
-                style={{ flex: 1, padding: 12, fontSize: 15, color: C.text }}
+                style={{ flex: 1, padding: 12, fontSize: 15, color: '#064E3B' }}
                 onChangeText={setSearchQuery}
                 value={searchQuery}
               />
@@ -849,14 +849,14 @@ export default function RecitationModeScreen({ navigation, route }) {
                     setSurahModalVisible(false);
                     setSearchQuery('');
                   }}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border || '#F0F0F0' }}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E8F0EA' || '#F0F0F0' }}
                 >
-                  <View style={{ backgroundColor: C.accent, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                    <Text style={{ color: C.primary, fontWeight: '700', fontSize: 12 }}>{parseInt(item.index)}</Text>
+                  <View style={{ backgroundColor: '#D4AF37', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                    <Text style={{ color: '#0B6E4F', fontWeight: '700', fontSize: 12 }}>{parseInt(item.index)}</Text>
                   </View>
                   <View>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: C.text }}>{item.name}</Text>
-                    <Text style={{ fontSize: 12, color: C.muted }}>{item.count} verses</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#064E3B' }}>{item.name}</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.count} verses</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -868,11 +868,11 @@ export default function RecitationModeScreen({ navigation, route }) {
       {/* Ayah Modal */}
       <Modal visible={ayahModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: C.card, height: '50%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 }}>
+          <View style={{ backgroundColor: '#FFFFFF', height: '50%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: C.text }}>Select Ayah</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>Select Ayah</Text>
               <TouchableOpacity onPress={() => setAyahModalVisible(false)}>
-                <Ionicons name="close-circle" size={32} color={C.muted} />
+                <Ionicons name="close-circle" size={32} color={'#6B7280'} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -884,11 +884,11 @@ export default function RecitationModeScreen({ navigation, route }) {
                   onPress={() => { setSelectedAyahNumber(item); setAyahModalVisible(false); }}
                   style={{
                     width: '18%', aspectRatio: 1, borderRadius: 12, margin: '1%',
-                    backgroundColor: item === selectedAyahNumber ? C.primary : C.bg,
+                    backgroundColor: item === selectedAyahNumber ? '#0B6E4F' : '#FFFDF0',
                     alignItems: 'center', justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontWeight: '700', color: item === selectedAyahNumber ? '#FFF' : C.primary, fontSize: 14 }}>{item}</Text>
+                  <Text style={{ fontWeight: '700', color: item === selectedAyahNumber ? '#FFF' : '#0B6E4F', fontSize: 14 }}>{item}</Text>
                 </TouchableOpacity>
               )}
             />

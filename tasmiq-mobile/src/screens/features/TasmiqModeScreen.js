@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import IslamicBackground from '../../components/IslamicBackground';
 import { saveRecitationResult } from '../../services/recitationService';
 import { analyzeRecitation } from '../../services/api';
 import { supabase } from '../../services/supabaseClient';
@@ -22,7 +21,7 @@ const P = {
   green:    '#0B6E4F',
   red:      '#DC2626',
   amber:    '#D97706',
-  bg:       '#FEFCE8',
+  bg:       '#FFFDF0',
   card:     '#FFFFFF',
   muted:    '#6B7280',
   text:     '#1A2E1C',
@@ -752,8 +751,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
   if (submitSuccess) {
     return (
-      <IslamicBackground variant="minimal">
-        <SafeAreaView style={{ flex: 1, backgroundColor: P.bg }}>
+      
           <StatusBar barStyle="dark-content" />
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
             <View style={{
@@ -761,14 +759,14 @@ export default function TasmiqModeScreen({ navigation, route }) {
               backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center',
               marginBottom: 24,
             }}>
-              <Ionicons name="checkmark-circle" size={64} color={P.primary} />
+              <Ionicons name="checkmark-circle" size={64} color={'#0B6E4F'} />
             </View>
 
-            <Text style={{ fontSize: 26, fontWeight: '900', color: P.primary, marginBottom: 8, textAlign: 'center' }}>
+            <Text style={{ fontSize: 26, fontWeight: '900', color: '#0B6E4F', marginBottom: 8, textAlign: 'center' }}>
               Submission Successful!
             </Text>
-            <Text style={{ fontSize: 15, color: P.muted, textAlign: 'center', lineHeight: 24, marginBottom: 36 }}>
-              Your recordings for <Text style={{ fontWeight: '800', color: P.text }}>{currentSurah.name}</Text> have been saved.
+            <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 24, marginBottom: 36 }}>
+              Your recordings for <Text style={{ fontWeight: '800', color: '#064E3B' }}>{currentSurah.name}</Text> have been saved.
               {isExercise 
                 ? '\nSince this was an AI Exercise, it is completed!' 
                 : '\nOfficial assessment submitted for teacher review.'
@@ -779,7 +777,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
               onPress={() => navigation.navigate('History')}
               style={{
                 width: '100%', padding: 18, borderRadius: 16,
-                backgroundColor: P.primary, alignItems: 'center', marginBottom: 12,
+                backgroundColor: '#0B6E4F', alignItems: 'center', marginBottom: 12,
                 flexDirection: 'row', justifyContent: 'center', gap: 8,
               }}
             >
@@ -792,14 +790,14 @@ export default function TasmiqModeScreen({ navigation, route }) {
               style={{
                 width: '100%', padding: 18, borderRadius: 16,
                 backgroundColor: 'white', alignItems: 'center',
-                borderWidth: 1.5, borderColor: P.primary,
+                borderWidth: 1.5, borderColor: '#0B6E4F',
               }}
             >
-              <Text style={{ color: P.primary, fontSize: 16, fontWeight: '800' }}>Back to Dashboard</Text>
+              <Text style={{ color: '#0B6E4F', fontSize: 16, fontWeight: '800' }}>Back to Dashboard</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
-      </IslamicBackground>
+      
     );
   }
 
@@ -808,8 +806,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
   // ═══════════════════════════════════════════════════════════════
 
   return (
-    <IslamicBackground variant="minimal">
-      <SafeAreaView style={{ flex: 1 }}>
+    
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
         {/* Top Header bar */}
@@ -828,18 +825,18 @@ export default function TasmiqModeScreen({ navigation, route }) {
             }}
             style={{
               width: 40, height: 40, borderRadius: 12,
-              backgroundColor: P.primary + '12',
+              backgroundColor: '#0B6E4F' + '12',
               alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <Ionicons name="arrow-back" size={22} color={P.primary} />
+            <Ionicons name="arrow-back" size={22} color={'#0B6E4F'} />
           </TouchableOpacity>
 
           <View style={{ flex: 1, marginHorizontal: 14 }}>
-            <Text style={{ fontSize: 11, color: P.gold, fontWeight: '800', letterSpacing: 1.2 }}>
+            <Text style={{ fontSize: 11, color: '#D4AF37', fontWeight: '800', letterSpacing: 1.2 }}>
               {isExercise ? `AI PRACTICE EXERCISE (ATTEMPT #${attemptNumber})` : 'OFFICIAL ASSESSMENT'}
             </Text>
-            <Text style={{ fontSize: 17, fontWeight: '900', color: P.primary }}>
+            <Text style={{ fontSize: 17, fontWeight: '900', color: '#0B6E4F' }}>
               {currentSurah.name} · {selectedAyahs.length} Ayat
               {initMode === 'continuous' ? ' · Continuous' : ''}
             </Text>
@@ -847,10 +844,10 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
           {/* Recording mode badge */}
           <View style={{
-            backgroundColor: recordingMode === 'advanced' ? '#EDE9FE' : P.lightGreen,
+            backgroundColor: recordingMode === 'advanced' ? '#EDE9FE' : '#D1FAE5',
             paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
           }}>
-            <Text style={{ fontSize: 10, fontWeight: '800', color: recordingMode === 'advanced' ? '#6D28D9' : P.primary }}>
+            <Text style={{ fontSize: 10, fontWeight: '800', color: recordingMode === 'advanced' ? '#6D28D9' : '#0B6E4F' }}>
               {recordingMode === 'advanced' ? 'ADVANCED' : 'BEGINNER'}
             </Text>
           </View>
@@ -866,27 +863,27 @@ export default function TasmiqModeScreen({ navigation, route }) {
           >
             {/* Surah / Ayah info card */}
             <View style={{
-              backgroundColor: P.card, borderRadius: 20, padding: 20, marginBottom: 16,
+              backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16,
               borderWidth: 1, borderColor: '#E5E7EB',
               shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2,
             }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: P.primary, letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#0B6E4F', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>
                 {initMode === 'continuous' ? 'Continuous Recitation' : `${initMode === 'single' ? 'Single Ayah' : initMode + ' Ayat/Group'} Recording`}
               </Text>
-              <Text style={{ fontSize: 16, fontWeight: '900', color: P.text, marginBottom: 4 }}>
+              <Text style={{ fontSize: 16, fontWeight: '900', color: '#064E3B', marginBottom: 4 }}>
                 {currentSurah.name}
               </Text>
-              <Text style={{ fontSize: 13, color: P.muted }}>
+              <Text style={{ fontSize: 13, color: '#6B7280' }}>
                 Ayah {initialAyahStart} → Ayah {targetEndAyahNumber}
                 {' '}·{' '}{selectedAyahs.length} Ayat total
               </Text>
               {initMode === 'continuous' && (
                 <View style={{
-                  marginTop: 10, backgroundColor: P.primary + '10', borderRadius: 8,
+                  marginTop: 10, backgroundColor: '#0B6E4F' + '10', borderRadius: 8,
                   padding: 8, flexDirection: 'row', alignItems: 'center', gap: 6,
                 }}>
-                  <Ionicons name="information-circle" size={14} color={P.primary} />
-                  <Text style={{ fontSize: 11, color: P.primary, fontWeight: '600', flex: 1 }}>
+                  <Ionicons name="information-circle" size={14} color={'#0B6E4F'} />
+                  <Text style={{ fontSize: 11, color: '#0B6E4F', fontWeight: '600', flex: 1 }}>
                     Record Ayah {initialAyahStart}–{targetEndAyahNumber} continuously without pausing. The AI will verify which ayat were recited.
                   </Text>
                 </View>
@@ -899,8 +896,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
                 backgroundColor: '#FAFAF9', padding: 16, borderRadius: 14, alignItems: 'center',
                 borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', marginBottom: 16,
               }}>
-                <Ionicons name="eye-off" size={24} color={P.muted} style={{ marginBottom: 6 }} />
-                <Text style={{ fontSize: 13, color: P.muted, fontWeight: '600', textAlign: 'center' }}>
+                <Ionicons name="eye-off" size={24} color={'#6B7280'} style={{ marginBottom: 6 }} />
+                <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '600', textAlign: 'center' }}>
                   Quran text hidden. Recite all {selectedAyahs.length} Ayat/Pause from memory continuously.
                 </Text>
               </View>
@@ -908,7 +905,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
               <View style={{ backgroundColor: '#FAFAF9', padding: 14, borderRadius: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' }}>
                 {selectedAyahs.map(ayahNum => (
                   <Text key={ayahNum} style={{
-                    fontSize: 19, color: P.text, textAlign: 'right', fontFamily: 'serif',
+                    fontSize: 19, color: '#064E3B', textAlign: 'right', fontFamily: 'serif',
                     lineHeight: 34, marginVertical: 4, paddingHorizontal: 6,
                   }}>
                     {currentSurah.verse[`verse_${ayahNum}`]}
@@ -919,8 +916,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
             {/* Recording controls */}
             <View style={{
-              backgroundColor: P.card, borderRadius: 20, padding: 24, marginBottom: 16,
-              borderWidth: 1, borderColor: isRecording ? P.red : '#E5E7EB',
+              backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, marginBottom: 16,
+              borderWidth: 1, borderColor: isRecording ? '#DC2626' : '#E5E7EB',
               alignItems: 'center',
             }}>
               {/* Timer */}
@@ -928,15 +925,15 @@ export default function TasmiqModeScreen({ navigation, route }) {
                 <Animated.View style={{ transform: [{ scale: micPulse }], marginBottom: 16 }}>
                   <View style={{
                     width: 80, height: 80, borderRadius: 40,
-                    backgroundColor: P.red + '15', alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: '#DC2626' + '15', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Ionicons name="mic" size={36} color={P.red} />
+                    <Ionicons name="mic" size={36} color={'#DC2626'} />
                   </View>
                 </Animated.View>
               )}
 
               {isRecording && (
-                <Text style={{ fontSize: 28, fontWeight: '900', color: P.red, marginBottom: 16, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ fontSize: 28, fontWeight: '900', color: '#DC2626', marginBottom: 16, fontVariant: ['tabular-nums'] }}>
                   {fmtTime(recordingSeconds)}
                 </Text>
               )}
@@ -947,7 +944,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                   onPress={() => isRecording ? stopRecording() : startRecording('advanced')}
                   style={{
                     paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16,
-                    backgroundColor: isRecording ? P.red : P.primary,
+                    backgroundColor: isRecording ? '#DC2626' : '#0B6E4F',
                     flexDirection: 'row', alignItems: 'center', gap: 10,
                   }}
                 >
@@ -960,7 +957,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                 // Recording exists — show playback controls
                 <View style={{ width: '100%' }}>
                   {/* Duration info */}
-                  <Text style={{ fontSize: 13, color: P.muted, textAlign: 'center', marginBottom: 14 }}>
+                  <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', marginBottom: 14 }}>
                     Recording: {fmtTime(advancedRecording.duration)}
                   </Text>
 
@@ -970,12 +967,12 @@ export default function TasmiqModeScreen({ navigation, route }) {
                       onPress={handlePlayAdvanced}
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 6,
-                        backgroundColor: advancedIsPlaying ? '#FEF3C7' : P.lightGreen,
+                        backgroundColor: advancedIsPlaying ? '#FEF3C7' : '#D1FAE5',
                         paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12,
                       }}
                     >
-                      <Ionicons name={advancedIsPlaying ? "pause" : "play"} size={18} color={advancedIsPlaying ? P.amber : P.primary} />
-                      <Text style={{ fontSize: 14, fontWeight: '800', color: advancedIsPlaying ? P.amber : P.primary }}>
+                      <Ionicons name={advancedIsPlaying ? "pause" : "play"} size={18} color={advancedIsPlaying ? '#D97706' : '#0B6E4F'} />
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: advancedIsPlaying ? '#D97706' : '#0B6E4F' }}>
                         {advancedIsPlaying ? 'Pause' : 'Play'}
                       </Text>
                     </TouchableOpacity>
@@ -987,8 +984,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
                         backgroundColor: '#F3F4F6', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12,
                       }}
                     >
-                      <Ionicons name="refresh" size={17} color={P.muted} />
-                      <Text style={{ fontSize: 14, fontWeight: '800', color: P.muted }}>Replay</Text>
+                      <Ionicons name="refresh" size={17} color={'#6B7280'} />
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#6B7280' }}>Replay</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -997,10 +994,10 @@ export default function TasmiqModeScreen({ navigation, route }) {
                     onPress={() => { setAdvancedRecording(null); }}
                     style={{
                       paddingVertical: 10, borderRadius: 12, alignItems: 'center',
-                      borderWidth: 1.5, borderColor: P.red, marginBottom: 12,
+                      borderWidth: 1.5, borderColor: '#DC2626', marginBottom: 12,
                     }}
                   >
-                    <Text style={{ color: P.red, fontWeight: '800', fontSize: 13 }}>Re-record Entire Recording</Text>
+                    <Text style={{ color: '#DC2626', fontWeight: '800', fontSize: 13 }}>Re-record Entire Recording</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1011,7 +1008,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
               <TouchableOpacity
                 onPress={submitAdvancedToAi}
                 style={{
-                  backgroundColor: P.primary, borderRadius: 14,
+                  backgroundColor: '#0B6E4F', borderRadius: 14,
                   paddingVertical: 14, alignItems: 'center', marginBottom: 16,
                   flexDirection: 'row', justifyContent: 'center', gap: 8,
                 }}
@@ -1023,9 +1020,9 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
             {/* AI Analyzing indicator */}
             {advancedRecording?.isAnalyzing && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: P.lightGreen, borderRadius: 12, marginBottom: 16 }}>
-                <ActivityIndicator size="small" color={P.primary} />
-                <Text style={{ fontSize: 13, color: P.primary, fontWeight: '700' }}>Evaluating recitation details...</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#D1FAE5', borderRadius: 12, marginBottom: 16 }}>
+                <ActivityIndicator size="small" color={'#0B6E4F'} />
+                <Text style={{ fontSize: 13, color: '#0B6E4F', fontWeight: '700' }}>Evaluating recitation details...</Text>
               </View>
             )}
 
@@ -1033,10 +1030,10 @@ export default function TasmiqModeScreen({ navigation, route }) {
             {advancedRecording?.isSubmittedToAi && advancedRecording.analysis && (
               <View style={{
                 backgroundColor: '#F7FAF7', borderRadius: 16, padding: 18, marginBottom: 16,
-                borderWidth: 1, borderColor: P.primary + '15',
+                borderWidth: 1, borderColor: '#0B6E4F' + '15',
               }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: P.primary, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#0B6E4F', letterSpacing: 0.8, textTransform: 'uppercase' }}>
                     AI Practice Result
                   </Text>
                   <AiPracticeBadge score={advancedRecording.score} />
@@ -1086,7 +1083,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                         )}
                       </>
                     ) : (
-                      <Text style={{ fontSize: 12, color: P.muted, fontWeight: '500' }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>
                         {advancedRecording.analysis.completionStatus === 'complete'
                           ? `All ${selectedAyahs.length} ayat detected in recitation.`
                           : 'Could not verify individual ayat — check transcription quality.'}
@@ -1097,25 +1094,25 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                   <View style={{ backgroundColor: 'white', padding: 10, borderRadius: 10, flex: 1, minWidth: '45%' }}>
-                    <Text style={{ fontSize: 10, color: P.muted }}>Memorization</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '850', color: P.text }}>{advancedRecording.analysis.memorization}%</Text>
+                    <Text style={{ fontSize: 10, color: '#6B7280' }}>Memorization</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '850', color: '#064E3B' }}>{advancedRecording.analysis.memorization}%</Text>
                   </View>
                   <View style={{ backgroundColor: 'white', padding: 10, borderRadius: 10, flex: 1, minWidth: '45%' }}>
-                    <Text style={{ fontSize: 10, color: P.muted }}>Pronunciation</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '850', color: P.text }}>{advancedRecording.analysis.pronunciation}%</Text>
+                    <Text style={{ fontSize: 10, color: '#6B7280' }}>Pronunciation</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '850', color: '#064E3B' }}>{advancedRecording.analysis.pronunciation}%</Text>
                   </View>
                   <View style={{ backgroundColor: 'white', padding: 10, borderRadius: 10, flex: 1, minWidth: '45%' }}>
-                    <Text style={{ fontSize: 10, color: P.muted }}>Tajweed</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '850', color: P.text }}>{advancedRecording.analysis.tajwid}%</Text>
+                    <Text style={{ fontSize: 10, color: '#6B7280' }}>Tajweed</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '850', color: '#064E3B' }}>{advancedRecording.analysis.tajwid}%</Text>
                   </View>
                   <View style={{ backgroundColor: 'white', padding: 10, borderRadius: 10, flex: 1, minWidth: '45%' }}>
-                    <Text style={{ fontSize: 10, color: P.muted }}>Fluency</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '850', color: P.text }}>{advancedRecording.analysis.fluency}%</Text>
+                    <Text style={{ fontSize: 10, color: '#6B7280' }}>Fluency</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '850', color: '#064E3B' }}>{advancedRecording.analysis.fluency}%</Text>
                   </View>
                 </View>
 
-                <Text style={{ fontSize: 12, color: P.muted, fontStyle: 'italic' }}>
-                  Suggestions: <Text style={{ color: P.text, fontWeight: '500' }}>{advancedRecording.analysis.feedbackText}</Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', fontStyle: 'italic' }}>
+                  Suggestions: <Text style={{ color: '#064E3B', fontWeight: '500' }}>{advancedRecording.analysis.feedbackText}</Text>
                 </Text>
               </View>
             )}
@@ -1125,9 +1122,9 @@ export default function TasmiqModeScreen({ navigation, route }) {
               onPress={handleSubmit}
               disabled={submitting || !advancedRecording?.audioUri}
               style={{
-                backgroundColor: advancedRecording?.audioUri ? P.primary : '#D1D5DB',
+                backgroundColor: advancedRecording?.audioUri ? '#0B6E4F' : '#D1D5DB',
                 borderRadius: 16, paddingVertical: 18, alignItems: 'center',
-                marginTop: 10, shadowColor: P.primary, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
+                marginTop: 10, shadowColor: '#0B6E4F', shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
                 opacity: submitting ? 0.7 : 1,
               }}
             >
@@ -1148,8 +1145,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
                 backgroundColor: '#FEE2E2', borderRadius: 14, padding: 16,
                 marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
               }}>
-                <Ionicons name="alert-circle" size={20} color={P.red} />
-                <Text style={{ color: P.red, fontSize: 13, fontWeight: '600', flex: 1 }}>{submitError}</Text>
+                <Ionicons name="alert-circle" size={20} color={'#DC2626'} />
+                <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600', flex: 1 }}>{submitError}</Text>
               </View>
             ) : null}
           </ScrollView>
@@ -1161,13 +1158,13 @@ export default function TasmiqModeScreen({ navigation, route }) {
             {/* Replay All + Controls strip */}
             {Object.keys(recordings).length > 0 && (
               <View style={{
-                backgroundColor: P.goldBg, paddingVertical: 12, paddingHorizontal: 20,
+                backgroundColor: '#FFF9E6', paddingVertical: 12, paddingHorizontal: 20,
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                 borderBottomWidth: 1, borderBottomColor: '#FDF0CD',
               }}>
                 <TouchableOpacity onPress={toggleSequentialPlay} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name={isSequentialPlay ? "stop-circle" : "play-circle"} size={22} color={P.primary} />
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: P.primary }}>
+                  <Ionicons name={isSequentialPlay ? "stop-circle" : "play-circle"} size={22} color={'#0B6E4F'} />
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#0B6E4F' }}>
                     {isSequentialPlay ? 'Playing Sequential' : 'Replay All'}
                   </Text>
                 </TouchableOpacity>
@@ -1182,7 +1179,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                         }
                       }
                     }}>
-                      <Ionicons name="play-skip-back" size={20} color={P.primary} />
+                      <Ionicons name="play-skip-back" size={20} color={'#0B6E4F'} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => {
                       if (playingAyah !== null) {
@@ -1192,7 +1189,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                         }
                       }
                     }}>
-                      <Ionicons name="play-skip-forward" size={20} color={P.primary} />
+                      <Ionicons name="play-skip-forward" size={20} color={'#0B6E4F'} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1212,17 +1209,17 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
                 return (
                   <View key={ayahNum} style={{
-                    backgroundColor: P.card, borderRadius: 20, padding: 18, marginBottom: 14,
-                    borderWidth: 1, borderColor: isThisRecording ? P.red : '#E5E7EB',
+                    backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, marginBottom: 14,
+                    borderWidth: 1, borderColor: isThisRecording ? '#DC2626' : '#E5E7EB',
                     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2,
                   }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <View style={{
-                          backgroundColor: P.primary + '12',
+                          backgroundColor: '#0B6E4F' + '12',
                           paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
                         }}>
-                          <Text style={{ fontSize: 13, fontWeight: '800', color: P.primary }}>Ayat/Pause {ayahNum}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#0B6E4F' }}>Ayat/Pause {ayahNum}</Text>
                         </View>
 
                         {rec?.score !== undefined && isExercise && rec.isSubmittedToAi && (
@@ -1237,7 +1234,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                           disabled={isRecording && !isThisRecording}
                           style={{
                             paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12,
-                            backgroundColor: isThisRecording ? P.red : P.primary,
+                            backgroundColor: isThisRecording ? '#DC2626' : '#0B6E4F',
                             opacity: (isRecording && !isThisRecording) ? 0.5 : 1,
                             flexDirection: 'row', alignItems: 'center', gap: 6,
                           }}
@@ -1253,11 +1250,11 @@ export default function TasmiqModeScreen({ navigation, route }) {
                           disabled={isRecording}
                           style={{
                             paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
-                            borderWidth: 1.5, borderColor: P.red,
+                            borderWidth: 1.5, borderColor: '#DC2626',
                             opacity: isRecording ? 0.5 : 1,
                           }}
                         >
-                          <Text style={{ color: P.red, fontWeight: '800', fontSize: 11 }}>Record Again</Text>
+                          <Text style={{ color: '#DC2626', fontWeight: '800', fontSize: 11 }}>Record Again</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1268,14 +1265,14 @@ export default function TasmiqModeScreen({ navigation, route }) {
                         backgroundColor: '#FAFAF9', padding: 12, borderRadius: 12, alignItems: 'center',
                         borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed',
                       }}>
-                        <Ionicons name="eye-off" size={20} color={P.muted} style={{ marginBottom: 4 }} />
-                        <Text style={{ fontSize: 12, color: P.muted, fontWeight: '600' }}>
+                        <Ionicons name="eye-off" size={20} color={'#6B7280'} style={{ marginBottom: 4 }} />
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '600' }}>
                           Quran text hidden. Recite from memory.
                         </Text>
                       </View>
                     ) : (
                       <Text style={{
-                        fontSize: 21, color: P.text, textAlign: 'right', fontFamily: 'serif',
+                        fontSize: 21, color: '#064E3B', textAlign: 'right', fontFamily: 'serif',
                         lineHeight: 36, marginVertical: 8, paddingHorizontal: 6,
                       }}>
                         {currentSurah.verse[`verse_${ayahNum}`]}
@@ -1287,7 +1284,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                       <TouchableOpacity
                         onPress={() => submitToAi(ayahNum)}
                         style={{
-                          backgroundColor: P.primary, borderRadius: 12,
+                          backgroundColor: '#0B6E4F', borderRadius: 12,
                           paddingVertical: 10, alignItems: 'center', marginTop: 12,
                           flexDirection: 'row', justifyContent: 'center', gap: 6
                         }}
@@ -1299,9 +1296,9 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
                     {/* Ayah Analysis loading indicator */}
                     {rec?.isAnalyzing && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, backgroundColor: P.lightGreen, borderRadius: 10 }}>
-                        <ActivityIndicator size="small" color={P.primary} />
-                        <Text style={{ fontSize: 12, color: P.primary, fontWeight: '700' }}>Evaluating recitation details...</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, backgroundColor: '#D1FAE5', borderRadius: 10 }}>
+                        <ActivityIndicator size="small" color={'#0B6E4F'} />
+                        <Text style={{ fontSize: 12, color: '#0B6E4F', fontWeight: '700' }}>Evaluating recitation details...</Text>
                       </View>
                     )}
 
@@ -1309,31 +1306,31 @@ export default function TasmiqModeScreen({ navigation, route }) {
                     {rec?.audioUri && isExercise && rec.isSubmittedToAi && rec.analysis && (
                       <View style={{
                         backgroundColor: '#F7FAF7', borderRadius: 12, padding: 12, marginTop: 12,
-                        borderWidth: 1, borderColor: P.primary + '15'
+                        borderWidth: 1, borderColor: '#0B6E4F' + '15'
                       }}>
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: P.primary, letterSpacing: 0.8, marginBottom: 8, textTransform: 'uppercase' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#0B6E4F', letterSpacing: 0.8, marginBottom: 8, textTransform: 'uppercase' }}>
                           AI Evaluation breakdown
                         </Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                           <View style={{ backgroundColor: 'white', padding: 8, borderRadius: 8, flex: 1, minWidth: '45%' }}>
-                            <Text style={{ fontSize: 10, color: P.muted }}>Memorization</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '850', color: P.text }}>{rec.analysis.memorization}%</Text>
+                            <Text style={{ fontSize: 10, color: '#6B7280' }}>Memorization</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '850', color: '#064E3B' }}>{rec.analysis.memorization}%</Text>
                           </View>
                           <View style={{ backgroundColor: 'white', padding: 8, borderRadius: 8, flex: 1, minWidth: '45%' }}>
-                            <Text style={{ fontSize: 10, color: P.muted }}>Pronunciation</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '850', color: P.text }}>{rec.analysis.pronunciation}%</Text>
+                            <Text style={{ fontSize: 10, color: '#6B7280' }}>Pronunciation</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '850', color: '#064E3B' }}>{rec.analysis.pronunciation}%</Text>
                           </View>
                           <View style={{ backgroundColor: 'white', padding: 8, borderRadius: 8, flex: 1, minWidth: '45%' }}>
-                            <Text style={{ fontSize: 10, color: P.muted }}>Tajweed</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '850', color: P.text }}>{rec.analysis.tajwid}%</Text>
+                            <Text style={{ fontSize: 10, color: '#6B7280' }}>Tajweed</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '850', color: '#064E3B' }}>{rec.analysis.tajwid}%</Text>
                           </View>
                           <View style={{ backgroundColor: 'white', padding: 8, borderRadius: 8, flex: 1, minWidth: '45%' }}>
-                            <Text style={{ fontSize: 10, color: P.muted }}>Fluency</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '850', color: P.text }}>{rec.analysis.fluency}%</Text>
+                            <Text style={{ fontSize: 10, color: '#6B7280' }}>Fluency</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '850', color: '#064E3B' }}>{rec.analysis.fluency}%</Text>
                           </View>
                         </View>
-                        <Text style={{ fontSize: 11, color: P.muted, fontStyle: 'italic' }}>
-                          Suggestions: <Text style={{ color: P.text, fontWeight: '500' }}>{rec.analysis.feedbackText}</Text>
+                        <Text style={{ fontSize: 11, color: '#6B7280', fontStyle: 'italic' }}>
+                          Suggestions: <Text style={{ color: '#064E3B', fontWeight: '500' }}>{rec.analysis.feedbackText}</Text>
                         </Text>
                       </View>
                     )}
@@ -1348,12 +1345,12 @@ export default function TasmiqModeScreen({ navigation, route }) {
                           onPress={() => isThisPlaying ? handlePausePlayback() : handlePlayAyah(ayahNum)}
                           style={{
                             flexDirection: 'row', alignItems: 'center', gap: 6,
-                            backgroundColor: isThisPlaying ? '#FEF3C7' : P.lightGreen,
+                            backgroundColor: isThisPlaying ? '#FEF3C7' : '#D1FAE5',
                             paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
                           }}
                         >
-                          <Ionicons name={isThisPlaying ? "pause" : "play"} size={16} color={isThisPlaying ? P.amber : P.primary} />
-                          <Text style={{ fontSize: 12, fontWeight: '800', color: isThisPlaying ? P.amber : P.primary }}>
+                          <Ionicons name={isThisPlaying ? "pause" : "play"} size={16} color={isThisPlaying ? '#D97706' : '#0B6E4F'} />
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: isThisPlaying ? '#D97706' : '#0B6E4F' }}>
                             {isThisPlaying ? 'Pause' : 'Play Ayat/Pause'}
                           </Text>
                         </TouchableOpacity>
@@ -1365,8 +1362,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
                             backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
                           }}
                         >
-                          <Ionicons name="refresh" size={15} color={P.muted} />
-                          <Text style={{ fontSize: 12, fontWeight: '800', color: P.muted }}>Replay</Text>
+                          <Ionicons name="refresh" size={15} color={'#6B7280'} />
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: '#6B7280' }}>Replay</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -1377,8 +1374,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
                             paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
                           }}
                         >
-                          <Ionicons name="repeat" size={15} color={isThisLooping ? '#4F46E5' : P.muted} />
-                          <Text style={{ fontSize: 12, fontWeight: '800', color: isThisLooping ? '#4F46E5' : P.muted }}>
+                          <Ionicons name="repeat" size={15} color={isThisLooping ? '#4F46E5' : '#6B7280'} />
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: isThisLooping ? '#4F46E5' : '#6B7280' }}>
                             {isThisLooping ? 'Looping' : 'Loop'}
                           </Text>
                         </TouchableOpacity>
@@ -1393,8 +1390,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
                   backgroundColor: '#FEE2E2', borderRadius: 14, padding: 16,
                   marginVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
                 }}>
-                  <Ionicons name="alert-circle" size={20} color={P.red} />
-                  <Text style={{ color: P.red, fontSize: 13, fontWeight: '600', flex: 1 }}>{submitError}</Text>
+                  <Ionicons name="alert-circle" size={20} color={'#DC2626'} />
+                  <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600', flex: 1 }}>{submitError}</Text>
                 </View>
               ) : null}
 
@@ -1404,12 +1401,12 @@ export default function TasmiqModeScreen({ navigation, route }) {
                   onPress={() => navigation.navigate('History')}
                   style={{
                     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    backgroundColor: P.goldBg, borderRadius: 12, paddingVertical: 12, marginTop: 8,
-                    borderWidth: 1, borderColor: P.gold + '40',
+                    backgroundColor: '#FFF9E6', borderRadius: 12, paddingVertical: 12, marginTop: 8,
+                    borderWidth: 1, borderColor: '#D4AF37' + '40',
                   }}
                 >
-                  <Ionicons name="time-outline" size={16} color={P.gold} />
-                  <Text style={{ color: P.amber, fontSize: 13, fontWeight: '700' }}>View Practice History</Text>
+                  <Ionicons name="time-outline" size={16} color={'#D4AF37'} />
+                  <Text style={{ color: '#D97706', fontSize: 13, fontWeight: '700' }}>View Practice History</Text>
                 </TouchableOpacity>
               )}
 
@@ -1418,9 +1415,9 @@ export default function TasmiqModeScreen({ navigation, route }) {
                 onPress={handleSubmit}
                 disabled={submitting || Object.keys(recordings).length === 0}
                 style={{
-                  backgroundColor: Object.keys(recordings).length > 0 ? P.primary : '#D1D5DB',
+                  backgroundColor: Object.keys(recordings).length > 0 ? '#0B6E4F' : '#D1D5DB',
                   borderRadius: 16, paddingVertical: 18, alignItems: 'center',
-                  marginTop: 10, shadowColor: P.primary, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
+                  marginTop: 10, shadowColor: '#0B6E4F', shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
                   opacity: submitting ? 0.7 : 1,
                 }}
               >
@@ -1439,6 +1436,6 @@ export default function TasmiqModeScreen({ navigation, route }) {
           </>
         )}
       </SafeAreaView>
-    </IslamicBackground>
+    
   );
 }

@@ -1,598 +1,360 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, SafeAreaView, ScrollView,
-  StatusBar, ActivityIndicator, Alert, Modal, FlatList
+  StatusBar, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { Audio } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../services/supabaseClient';
 import { useTheme } from '../../context/ThemeContext';
-import IslamicBackground from '../../components/IslamicBackground';
 import quranData from '../../data/quran_data.json';
 
-const P = {
-  primary: '#0B6E4F',
-  accent: '#D4AF37',
-  gold: '#D4AF37',
-  goldBg: '#FDF8E7',
-  red: '#DC2626',
-  card: '#FFFFFF',
-  text: '#1A2E1C',
-  muted: '#6B7280',
-  lightGreen: '#E8F5EC',
-  bg: '#FEFCE8',
-};
+const P  = '#0B6E4F';
+const PD = '#064E3B';
+const PL = '#D1FAE5';
+const G  = '#D4AF37';
+const GL = '#F8E7A1';
+const BG = '#F8FAF8';
+const RED = '#DC2626';
+
+// ── Circular progress ring ────────────────────────────────────────────────────
+function CircleProgress({ pct, size = 90, strokeWidth = 8, color = P, label, sub }) {
+  const r   = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * Math.min(pct, 100) / 100;
+  // SVG-like via border — use a simple arc approximation with View borders
+  const rotation = -90; // start from top
+  const fillAngle = (pct / 100) * 360;
+
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <View style={{
+        width: size, height: size, borderRadius: size / 2,
+        alignItems: 'center', justifyContent: 'center',
+        borderWidth: strokeWidth,
+        borderColor: PL,
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        {/* Filled arc approximation via opacity overlay */}
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          borderRadius: size / 2,
+          borderWidth: strokeWidth,
+          borderColor: color,
+          borderTopColor: pct > 0 ? color : 'transparent',
+          borderRightColor: pct > 25 ? color : 'transparent',
+          borderBottomColor: pct > 50 ? color : 'transparent',
+          borderLeftColor: pct > 75 ? color : 'transparent',
+        }} />
+        <Text style={{ fontSize: size === 90 ? 18 : 14, fontWeight: '900', color: P }}>{pct}%</Text>
+      </View>
+      {label ? <Text style={{ fontSize: 12, fontWeight: '700', color: P, marginTop: 6 }}>{label}</Text> : null}
+      {sub   ? <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{sub}</Text>            : null}
+    </View>
+  );
+}
+
+// ── Stat card ─────────────────────────────────────────────────────────────────
+function StatCard({ icon, color, bg, label, value }) {
+  return (
+    <View style={{
+      flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16,
+      padding: 14, alignItems: 'center',
+      shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    }}>
+      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <Text style={{ fontSize: 20, fontWeight: '900', color: '#1A2E1C' }}>{value}</Text>
+      <Text style={{ fontSize: 10, fontWeight: '600', color: '#9CA3AF', textAlign: 'center', marginTop: 2 }}>{label}</Text>
+    </View>
+  );
+}
 
 export default function ProgressScreen({ navigation }) {
-  const { isDark, colors: C } = useTheme();
+  const { colors: C } = useTheme();
 
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [profile,    setProfile]    = useState(null);
   const [recitations, setRecitations] = useState([]);
-  const [selectedSurahIndex, setSelectedSurahIndex] = useState(0);
-  const [surahModalVisible, setSurahModalVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
-  /* Audio player state for Ayah progress */
-  const [playingUrl, setPlayingUrl] = useState(null);
-  const playbackSoundRef = useRef(null);
+  useFocusEffect(useCallback(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { getCurrentUser } = await import('../../services/authService');
+        const session = await getCurrentUser();
+        if (!session?.id) { setLoading(false); return; }
 
-  useFocusEffect(
-    useCallback(() => {
-      loadProgressData();
-      return () => {
-        if (playbackSoundRef.current) {
-          playbackSoundRef.current.unloadAsync().catch(() => {});
-        }
-      };
-    }, [])
-  );
+        const [profRes, recsRes] = await Promise.all([
+          supabase.from('users').select('streak_days,total_sessions,avg_score,progress_percentage').eq('id', session.id).maybeSingle(),
+          supabase.from('recitations').select('*').eq('user_id', session.id).order('submitted_at', { ascending: false }),
+        ]);
 
-  const loadProgressData = async () => {
-    setLoading(true);
-    try {
-      const { getCurrentUser } = await import('../../services/authService');
-      const session = await getCurrentUser();
-      if (!session?.id) { setLoading(false); return; }
-
-      // 1. User profile
-      const { data: prof } = await supabase
-        .from('users')
-        .select('streak_days, total_sessions, avg_score, progress_percentage')
-        .eq('id', session.id)
-        .maybeSingle();
-      setProfile(prof);
-
-      // 2. All recitations
-      const { data: recs } = await supabase
-        .from('recitations')
-        .select('*')
-        .eq('user_id', session.id)
-        .order('submitted_at', { ascending: false });
-
-      const allRecs = recs || [];
-      setRecitations(allRecs);
-
-      // Default selected Surah to the latest recited surah if available
-      if (allRecs.length > 0) {
-        const latestRec = allRecs[0];
-        const matchIndex = quranData.findIndex(q => q.name === latestRec.surah || parseInt(q.index) === latestRec.surah_number);
-        if (matchIndex !== -1) {
-          setSelectedSurahIndex(matchIndex);
-        }
+        setProfile(profRes.data);
+        setRecitations(recsRes.data || []);
+      } catch (err) {
+        console.error('[ProgressScreen]', err);
+      } finally {
+        setLoading(false);
       }
+    };
+    load();
+  }, []));
 
-    } catch (err) {
-      console.error('Progress load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Play audio directly from the report
-  const handlePlayAudio = async (url) => {
-    if (!url) return;
-
-    try {
-      if (playingUrl === url && playbackSoundRef.current) {
-        await playbackSoundRef.current.pauseAsync();
-        setPlayingUrl(null);
-        return;
-      }
-
-      if (playbackSoundRef.current) {
-        await playbackSoundRef.current.stopAsync();
-        await playbackSoundRef.current.unloadAsync();
-        playbackSoundRef.current = null;
-      }
-
-      setPlayingUrl(url);
-
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: url },
-        { shouldPlay: true },
-        (status) => {
-          if (status.didJustFinish) {
-            setPlayingUrl(null);
-          }
-        }
-      );
-      playbackSoundRef.current = sound;
-    } catch (err) {
-      console.error('Playback error:', err);
-      setPlayingUrl(null);
-      Alert.alert('Playback Error', 'Could not play recording.');
-    }
-  };
-
-  // Calculations for Student Performance Report
-  const performanceStats = useMemo(() => {
+  // ── Derived stats ─────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const exercises   = recitations.filter(r => r.is_exercise);
     const assessments = recitations.filter(r => !r.is_exercise);
-    const exercises = recitations.filter(r => r.is_exercise);
-    
-    const completed = assessments.filter(r => r.reviewed).length;
-    const approved = assessments.filter(r => r.status === 'approved').length;
-    const repeats = assessments.filter(r => r.status === 'repeat').length;
-    
-    // Average AI score for practice exercises
-    const avgAi = exercises.length 
+    const approved    = assessments.filter(r => r.status === 'approved');
+    const avgAI       = exercises.length
       ? Math.round(exercises.reduce((s, r) => s + (r.score || 0), 0) / exercises.length)
       : 0;
 
-    // Latest teacher result
-    const latestReviewedAssessment = assessments.find(r => r.reviewed);
-    const latestResult = latestReviewedAssessment 
-      ? {
-          surah: latestReviewedAssessment.surah || `Surah ${latestReviewedAssessment.surah_number}`,
-          ayah: latestReviewedAssessment.ayah,
-          status: latestReviewedAssessment.status === 'approved' ? 'PASS' : 'REPEAT',
-          feedback: latestReviewedAssessment.feedback || 'No comments',
-          date: latestReviewedAssessment.reviewed_at || latestReviewedAssessment.recorded_at || latestReviewedAssessment.submitted_at,
-        }
-      : null;
+    // Week activity — last 7 days
+    const now   = Date.now();
+    const week  = recitations.filter(r => {
+      const d = new Date(r.submitted_at || r.recorded_at || 0).getTime();
+      return now - d < 7 * 86400000;
+    });
+
+    // Surah spread
+    const surahSet = new Set(recitations.map(r => r.surah_number).filter(Boolean));
+
+    // Recent AI results (last 5 exercises)
+    const recent = exercises.slice(0, 5).map(r => ({
+      id:    r.id,
+      surah: r.surah || `Surah ${r.surah_number}`,
+      ayah:  r.ayah  || `${r.start_verse}–${r.end_verse}`,
+      score: r.score || 0,
+      date:  r.submitted_at || r.recorded_at,
+    }));
+
+    // Improvement: compare first 3 vs last 3 exercises
+    let improvement = null;
+    if (exercises.length >= 4) {
+      const newer = exercises.slice(0, 3);
+      const older = exercises.slice(-3);
+      const avgN  = newer.reduce((s, r) => s + (r.score || 0), 0) / 3;
+      const avgO  = older.reduce((s, r) => s + (r.score || 0), 0) / 3;
+      improvement = Math.round(avgN - avgO);
+    }
 
     return {
-      completed,
-      approved,
-      repeats,
-      avgAi,
-      latestResult
+      exercises: exercises.length,
+      assessments: assessments.length,
+      approved: approved.length,
+      avgAI,
+      weekActivity: week.length,
+      surahCount: surahSet.size,
+      recent,
+      improvement,
     };
   }, [recitations]);
 
-  // Calculations for Progress by Ayah according to Business Logic Rules
-  const surahAyahsProgress = useMemo(() => {
-    const activeSurah = quranData[selectedSurahIndex];
-    const totalAyahs = activeSurah.count;
-    
-    const progressList = [];
-    for (let a = 1; a <= totalAyahs; a++) {
-      // 1. AI Tasmiq Exercise status
-      const aiExerciseRecs = recitations.filter(r => 
-        r.is_exercise &&
-        (r.surah === activeSurah.name || r.surah_number === parseInt(activeSurah.index)) &&
-        (String(r.ayah) === String(a))
-      );
-      const hasAiExercise = aiExerciseRecs.length > 0;
-      const aiStatus = hasAiExercise ? 'Completed' : 'Not Started';
+  const streak    = profile?.streak_days        ?? 0;
+  const sessions  = profile?.total_sessions     ?? 0;
+  const progress  = profile?.progress_percentage ?? 0;
 
-      // 2. Official Teacher Assessment status
-      const teacherRecs = recitations.filter(r => 
-        !r.is_exercise &&
-        (r.surah === activeSurah.name || r.surah_number === parseInt(activeSurah.index)) &&
-        (String(r.ayah) === String(a))
-      );
-      const latestTeacherRec = teacherRecs[0];
-      
-      let teacherStatus = 'Not Submitted';
-      let audioUrl = null;
+  // ─────────────────────────────────────────────────────────────────────────────
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
+      <StatusBar barStyle="light-content" />
 
-      if (latestTeacherRec) {
-        audioUrl = latestTeacherRec.audio_url;
-        if (latestTeacherRec.status === 'approved') teacherStatus = 'PASS';
-        else if (latestTeacherRec.status === 'repeat') teacherStatus = 'REPEAT';
-        else teacherStatus = 'Pending';
-      } else if (hasAiExercise) {
-        audioUrl = aiExerciseRecs[0]?.audio_url;
-      }
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
 
-      // 3. Final Tasmiq Status
-      let finalStatus = 'NOT ELIGIBLE';
-      if (!hasAiExercise) {
-        finalStatus = 'NOT ELIGIBLE';
-      } else if (!latestTeacherRec) {
-        finalStatus = 'IN PROGRESS';
-      } else if (latestTeacherRec.status === 'approved') {
-        finalStatus = 'FULLY PASSED';
-      } else if (latestTeacherRec.status === 'repeat') {
-        finalStatus = 'REPEAT REQUIRED';
-      } else {
-        finalStatus = 'IN PROGRESS';
-      }
+        {/* ── HEADER ─────────────────────────────────────────────────────── */}
+        <LinearGradient
+          colors={[P, PD]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ paddingHorizontal: 24, paddingTop: 28, paddingBottom: 36, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <View>
+              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '700', letterSpacing: 1.5 }}>YOUR JOURNEY</Text>
+              <Text style={{ fontSize: 26, fontWeight: '900', color: '#FFFFFF', marginTop: 2 }}>Progress</Text>
+            </View>
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="trophy" size={22} color={G} />
+            </View>
+          </View>
 
-      progressList.push({
-        ayah: a,
-        aiStatus,
-        teacherStatus,
-        finalStatus,
-        audioUrl
-      });
-    }
+          {/* Overall progress ring + key stats */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+            <CircleProgress pct={progress} size={90} color={G} label="Memorization" />
+            <View style={{ flex: 1, gap: 10 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: 10 }}>
+                  <Text style={{ color: G, fontSize: 18, fontWeight: '900' }}>{streak}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10, fontWeight: '600' }}>Day Streak 🔥</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: 10 }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>{sessions}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10, fontWeight: '600' }}>Sessions</Text>
+                </View>
+              </View>
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: 10 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }}>
+                  AI Score: {stats.avgAI}%
+                  {stats.improvement !== null && (
+                    <Text style={{ color: stats.improvement >= 0 ? '#86EFAC' : '#FCA5A5', fontSize: 13 }}>
+                      {'  '}{stats.improvement >= 0 ? '▲' : '▼'} {Math.abs(stats.improvement)}%
+                    </Text>
+                  )}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10, fontWeight: '600' }}>Average AI Practice Score</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
 
-    return progressList;
-  }, [recitations, selectedSurahIndex]);
+        {loading ? (
+          <View style={{ flex: 1, alignItems: 'center', paddingTop: 60 }}>
+            <ActivityIndicator size="large" color={P} />
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 20, paddingTop: 22 }}>
 
-  // AI-to-AI Practice Comparison data
-  const aiAttemptsForSurah = useMemo(() => {
-    const activeSurah = quranData[selectedSurahIndex];
-    return recitations
-      .filter(r => r.is_exercise && (r.surah === activeSurah.name || r.surah_number === parseInt(activeSurah.index)))
-      .sort((a, b) => new Date(b.submitted_at || b.recorded_at) - new Date(a.submitted_at || a.recorded_at));
-  }, [recitations, selectedSurahIndex]);
+            {/* ── STAT CARDS ────────────────────────────────────────────── */}
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 14 }}>OVERVIEW</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+              <StatCard icon="mic"         color={P}       bg={PL}          label="AI Practices"  value={stats.exercises} />
+              <StatCard icon="ribbon"      color="#7C3AED" bg="#EDE9FE"      label="Official"      value={stats.assessments} />
+              <StatCard icon="checkmark-circle" color="#059669" bg="#D1FAE5" label="Approved"      value={stats.approved} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 22 }}>
+              <StatCard icon="book"        color="#0891B2" bg="#E0F2FE"      label="Surahs"        value={stats.surahCount} />
+              <StatCard icon="calendar"    color={G}       bg={GL}          label="This Week"     value={stats.weekActivity} />
+              <StatCard icon="flame"       color="#EA580C" bg="#FED7AA"      label="Streak"        value={streak} />
+            </View>
 
-  if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={P.primary} />
-        <Text style={{ color: C.muted, marginTop: 12 }}>Loading progress report...</Text>
-      </SafeAreaView>
-    );
-  }
+            {/* ── WEEKLY ACTIVITY ───────────────────────────────────────── */}
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 14 }}>WEEKLY ACTIVITY</Text>
+            <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, marginBottom: 22, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
+              <WeeklyBars recitations={recitations} />
+            </View>
+
+            {/* ── RECENT AI RESULTS ─────────────────────────────────────── */}
+            {stats.recent.length > 0 && (
+              <>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1.2 }}>RECENT AI PRACTICE</Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('History')}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: P }}>See All →</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, paddingHorizontal: 16, marginBottom: 22, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
+                  {stats.recent.map((r, i) => {
+                    const passed = r.score >= 70;
+                    return (
+                      <View key={r.id || i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < stats.recent.length - 1 ? 1 : 0, borderBottomColor: '#F3F4F6' }}>
+                        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: passed ? PL : '#FEF3C7', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Ionicons name="sparkles" size={17} color={passed ? P : '#D97706'} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1C' }}>{r.surah}</Text>
+                          <Text style={{ fontSize: 12, color: '#9CA3AF' }}>Ayah {r.ayah}</Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <View style={{ backgroundColor: passed ? PL : '#FEF3C7', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '900', color: passed ? PD : '#92400E' }}>{r.score}%</Text>
+                          </View>
+                          <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{passed ? 'PASS' : 'NEEDS PRACTICE'}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
+            {/* ── IMPROVEMENT TIP ───────────────────────────────────────── */}
+            {stats.exercises > 0 && (
+              <View style={{ backgroundColor: PL, borderRadius: 16, padding: 18, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: P + '20', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="bulb" size={22} color={P} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: PD }}>
+                    {stats.avgAI >= 80 ? 'Excellent Progress! 🌟' : stats.avgAI >= 60 ? 'Keep It Up! 💪' : 'Practice Makes Perfect 📖'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: P, marginTop: 2 }}>
+                    {stats.avgAI >= 80
+                      ? 'Your AI scores are outstanding. Ready for official assessment!'
+                      : stats.avgAI >= 60
+                        ? 'You\'re improving. Aim for 70% to unlock official assessment.'
+                        : 'Practice daily with Murajaah to strengthen your memorization.'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* ── EMPTY STATE ────────────────────────────────────────────── */}
+            {recitations.length === 0 && !loading && (
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 36, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
+                <Ionicons name="stats-chart-outline" size={52} color="#D1D5DB" style={{ marginBottom: 14 }} />
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#9CA3AF', marginBottom: 6 }}>No data yet</Text>
+                <Text style={{ fontSize: 13, color: '#D1D5DB', textAlign: 'center', lineHeight: 20 }}>
+                  Complete your first Tasmiq or Murajaah session to see your progress here.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Tasmiq')}
+                  style={{ marginTop: 20, backgroundColor: P, borderRadius: 14, paddingHorizontal: 28, paddingVertical: 12 }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>Start First Session</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ── Weekly bar chart ──────────────────────────────────────────────────────────
+function WeeklyBars({ recitations }) {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const today = new Date();
+  const todayIdx = (today.getDay() + 6) % 7; // Mon=0
+
+  const counts = days.map((_, i) => {
+    const target = new Date(today);
+    target.setDate(today.getDate() - ((todayIdx - i + 7) % 7));
+    target.setHours(0, 0, 0, 0);
+    const next = new Date(target); next.setDate(next.getDate() + 1);
+    return recitations.filter(r => {
+      const d = new Date(r.submitted_at || r.recorded_at || 0);
+      return d >= target && d < next;
+    }).length;
+  });
+
+  const maxCount = Math.max(...counts, 1);
 
   return (
-    <IslamicBackground variant="minimal">
-      <SafeAreaView style={{ flex: 1 }}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bg} />
-
-        {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 16 }}>
-            <Ionicons name="arrow-back" size={24} color={C.text} />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: '900', color: C.text }}>Progress Report</Text>
-        </View>
-
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-
-          {/* ── PART 6: Student Performance Report Card ── */}
-          <View style={{
-            backgroundColor: C.card, borderRadius: 20, padding: 20, marginBottom: 24,
-            shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
-            borderWidth: 1, borderColor: '#F0F0F0',
-          }}>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: P.primary, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Student Performance Report
+    <View>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A2E1C', marginBottom: 16 }}>
+        {counts.reduce((a, b) => a + b, 0)} sessions this week
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 60 }}>
+        {counts.map((count, i) => (
+          <View key={i} style={{ flex: 1, alignItems: 'center' }}>
+            <View style={{
+              width: '100%',
+              height: count > 0 ? Math.max((count / maxCount) * 52, 8) : 6,
+              backgroundColor: i === todayIdx ? P : count > 0 ? PL : '#F3F4F6',
+              borderRadius: 6,
+            }} />
+            <Text style={{ fontSize: 9, color: i === todayIdx ? P : '#9CA3AF', fontWeight: i === todayIdx ? '800' : '600', marginTop: 4 }}>
+              {days[i]}
             </Text>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 }}>
-              <View>
-                <Text style={{ fontSize: 13, color: P.muted, fontWeight: '600' }}>Total Tasmiq Completed</Text>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: P.text, marginTop: 2 }}>{performanceStats.completed} assessed</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 13, color: P.muted, fontWeight: '600' }}>Average AI Score</Text>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: P.accent, marginTop: 2 }}>{performanceStats.avgAi}%</Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginVertical: 10 }}>
-              <View style={{ flex: 1, backgroundColor: P.lightGreen, padding: 12, borderRadius: 12, alignItems: 'center' }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: P.primary }}>{performanceStats.approved}</Text>
-                <Text style={{ fontSize: 11, color: P.primary, fontWeight: '700', marginTop: 2 }}>Total Approved</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: '#FEE2E2', padding: 12, borderRadius: 12, alignItems: 'center' }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: P.red }}>{performanceStats.repeats}</Text>
-                <Text style={{ fontSize: 11, color: P.red, fontWeight: '700', marginTop: 2 }}>Repeat Requests</Text>
-              </View>
-            </View>
-
-            {/* Latest Teacher Result */}
-            {performanceStats.latestResult ? (
-              <View style={{
-                marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6',
-              }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: P.primary, marginBottom: 6 }}>LATEST TEACHER RESULT</Text>
-                
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: P.text }}>
-                    {performanceStats.latestResult.surah} (Ayah {performanceStats.latestResult.ayah})
-                  </Text>
-                  
-                  <View style={{
-                    backgroundColor: performanceStats.latestResult.status === 'PASS' ? '#D1FAE5' : '#FEE2E2',
-                    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
-                  }}>
-                    <Text style={{
-                      fontSize: 11, fontWeight: '800',
-                      color: performanceStats.latestResult.status === 'PASS' ? '#065F46' : '#B91C1C',
-                    }}>
-                      {performanceStats.latestResult.status}
-                    </Text>
-                  </View>
-                </View>
-                
-                <Text style={{ fontSize: 13, color: P.muted, fontStyle: 'italic', lineHeight: 18 }}>
-                  "{performanceStats.latestResult.feedback}"
-                </Text>
-              </View>
-            ) : (
-              <Text style={{ fontSize: 13, color: P.muted, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>
-                No teacher reviews received yet.
-              </Text>
-            )}
           </View>
-
-          {/* ── AI Practice Recitation Comparison (AI Attempt vs AI Attempt Only) ── */}
-          <View style={{
-            backgroundColor: C.card, borderRadius: 20, padding: 20, marginBottom: 24,
-            shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
-            borderWidth: 1, borderColor: '#F0F0F0',
-          }}>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: P.primary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
-              AI Practice Comparison
-            </Text>
-            <Text style={{ fontSize: 12, color: P.muted, marginBottom: 16 }}>
-              Compare AI practice attempt history for {quranData[selectedSurahIndex].name}
-            </Text>
-
-            {aiAttemptsForSurah.length < 2 ? (
-              <View style={{ backgroundColor: '#FAFAF8', padding: 14, borderRadius: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' }}>
-                <Ionicons name="stats-chart-outline" size={24} color={P.muted} style={{ marginBottom: 6 }} />
-                <Text style={{ fontSize: 13, color: P.muted, textAlign: 'center', fontWeight: '500' }}>
-                  {aiAttemptsForSurah.length === 1
-                    ? 'Complete at least 2 AI practice attempts to view comparison delta.'
-                    : 'No AI practice attempts recorded for this surah yet.'}
-                </Text>
-              </View>
-            ) : (() => {
-              const latest = aiAttemptsForSurah[0];
-              const previous = aiAttemptsForSurah[1];
-              const scoreDelta = (latest.score || 0) - (previous.score || 0);
-
-              return (
-                <View>
-                  {/* Score comparison header */}
-                  <View style={{
-                    backgroundColor: P.lightGreen, borderRadius: 14, padding: 14,
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14,
-                  }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: P.primary, textTransform: 'uppercase' }}>
-                        Attempt #{previous.attempt_number || 1} → #{latest.attempt_number || 2}
-                      </Text>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: P.text, marginTop: 2 }}>
-                        Progress Delta
-                      </Text>
-                    </View>
-
-                    <View style={{
-                      backgroundColor: scoreDelta >= 0 ? '#D1FAE5' : '#FEE2E2',
-                      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
-                      flexDirection: 'row', alignItems: 'center', gap: 4,
-                    }}>
-                      <Ionicons
-                        name={scoreDelta >= 0 ? "trending-up" : "trending-down"}
-                        size={16}
-                        color={scoreDelta >= 0 ? '#065F46' : '#B91C1C'}
-                      />
-                      <Text style={{
-                        fontSize: 14, fontWeight: '900',
-                        color: scoreDelta >= 0 ? '#065F46' : '#B91C1C',
-                      }}>
-                        {scoreDelta >= 0 ? `+${scoreDelta}%` : `${scoreDelta}%`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Side-by-side comparison cards */}
-                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-                    {/* Previous Attempt Card */}
-                    <View style={{ flex: 1, backgroundColor: '#FAFAF8', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' }}>
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: P.muted, textTransform: 'uppercase' }}>
-                        PREVIOUS (Attempt #{previous.attempt_number || 1})
-                      </Text>
-                      <Text style={{ fontSize: 20, fontWeight: '900', color: P.text, marginVertical: 4 }}>
-                        {previous.score || 0}%
-                      </Text>
-                      <Text style={{ fontSize: 11, color: P.muted }}>
-                        Ayat/Pause: {previous.ayah}
-                      </Text>
-                      <Text style={{ fontSize: 10, color: P.primary, fontWeight: '700', marginTop: 2 }}>
-                        Mode: {previous.recording_mode === 'advanced' ? 'Advanced' : 'Beginner'}
-                      </Text>
-                      {previous.audio_url && (
-                        <TouchableOpacity
-                          onPress={() => handlePlayAudio(previous.audio_url)}
-                          style={{
-                            marginTop: 8, paddingVertical: 6, backgroundColor: P.primary + '15',
-                            borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4,
-                          }}
-                        >
-                          <Ionicons name={playingUrl === previous.audio_url ? "pause" : "play"} size={12} color={P.primary} />
-                          <Text style={{ fontSize: 10, fontWeight: '800', color: P.primary }}>
-                            {playingUrl === previous.audio_url ? 'Pause' : 'Play Audio'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    {/* Latest Attempt Card */}
-                    <View style={{ flex: 1, backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: P.primary + '40' }}>
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: P.primary, textTransform: 'uppercase' }}>
-                        LATEST (Attempt #{latest.attempt_number || 2})
-                      </Text>
-                      <Text style={{ fontSize: 20, fontWeight: '900', color: P.primary, marginVertical: 4 }}>
-                        {latest.score || 0}%
-                      </Text>
-                      <Text style={{ fontSize: 11, color: P.muted }}>
-                        Ayat/Pause: {latest.ayah}
-                      </Text>
-                      <Text style={{ fontSize: 10, color: P.primary, fontWeight: '700', marginTop: 2 }}>
-                        Mode: {latest.recording_mode === 'advanced' ? 'Advanced' : 'Beginner'}
-                      </Text>
-                      {latest.audio_url && (
-                        <TouchableOpacity
-                          onPress={() => handlePlayAudio(latest.audio_url)}
-                          style={{
-                            marginTop: 8, paddingVertical: 6, backgroundColor: P.primary,
-                            borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4,
-                          }}
-                        >
-                          <Ionicons name={playingUrl === latest.audio_url ? "pause" : "play"} size={12} color="white" />
-                          <Text style={{ fontSize: 10, fontWeight: '800', color: 'white' }}>
-                            {playingUrl === latest.audio_url ? 'Pause' : 'Play Audio'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Feedback contrast */}
-                  {latest.feedback ? (
-                    <View style={{ backgroundColor: '#FAFAF8', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#E5E7EB' }}>
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: P.muted, textTransform: 'uppercase', marginBottom: 2 }}>
-                        Latest AI Feedback
-                      </Text>
-                      <Text style={{ fontSize: 12, color: P.text, fontStyle: 'italic', lineHeight: 16 }}>
-                        "{latest.feedback}"
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })()}
-          </View>
-
-          {/* ── PART 6: Progress by Ayah ── */}
-          <View style={{
-            backgroundColor: C.card, borderRadius: 20, padding: 20,
-            shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
-            borderWidth: 1, borderColor: '#F0F0F0',
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: P.primary, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Progress by Ayah
-              </Text>
-              
-              <TouchableOpacity
-                onPress={() => setSurahModalVisible(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: P.primary + '10', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '800', color: P.primary }}>
-                  {quranData[selectedSurahIndex].name}
-                </Text>
-                <Ionicons name="chevron-down" size={14} color={P.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* List of Ayahs */}
-            {surahAyahsProgress.map((item) => {
-              const isPlaying = playingUrl === item.audioUrl;
-
-              const badgeColor = item.finalStatus === 'FULLY PASSED'
-                ? { bg: '#D1FAE5', text: '#065F46' }
-                : item.finalStatus === 'REPEAT REQUIRED'
-                ? { bg: '#FEE2E2', text: '#B91C1C' }
-                : item.finalStatus === 'IN PROGRESS'
-                ? { bg: '#FEF3C7', text: '#92400E' }
-                : { bg: '#F3F4F6', text: P.muted };
-
-              return (
-                <View key={item.ayah} style={{
-                  paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-                  flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
-                }}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '800', color: P.text }}>Ayah {item.ayah}</Text>
-                      
-                      {/* Final Tasmiq Status Badge */}
-                      <View style={{
-                        backgroundColor: badgeColor.bg,
-                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
-                      }}>
-                        <Text style={{
-                          fontSize: 10, fontWeight: '800',
-                          color: badgeColor.text,
-                        }}>{item.finalStatus}</Text>
-                      </View>
-                    </View>
-
-                    {/* Separate Stage Statuses */}
-                    <Text style={{ fontSize: 11, color: P.muted, marginTop: 2 }}>
-                      AI Exercise: <Text style={{ fontWeight: '700', color: item.aiStatus === 'Completed' ? P.primary : P.muted }}>{item.aiStatus}</Text>
-                      {'  •  '}
-                      Teacher: <Text style={{ fontWeight: '700', color: item.teacherStatus === 'PASS' ? '#065F46' : item.teacherStatus === 'REPEAT' ? P.red : P.muted }}>{item.teacherStatus}</Text>
-                    </Text>
-                  </View>
-
-                  {/* Play audio button if recording available */}
-                  {item.audioUrl ? (
-                    <TouchableOpacity
-                      onPress={() => handlePlayAudio(item.audioUrl)}
-                      style={{
-                        width: 36, height: 36, borderRadius: 18,
-                        backgroundColor: isPlaying ? '#FFFBEB' : '#F3F4F6',
-                        alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <Ionicons name={isPlaying ? "pause" : "play"} size={16} color={isPlaying ? P.accent : P.primary} />
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={{ fontSize: 11, color: '#CCCCCC', fontWeight: '600' }}>No Audio</Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-
-        </ScrollView>
-      </SafeAreaView>
-
-      {/* Surah Picker Modal */}
-      <Modal visible={surahModalVisible} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{
-            backgroundColor: '#FFFFFF', height: '72%',
-            borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24,
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: '900', color: P.primary }}>Select Surah for Report</Text>
-              <TouchableOpacity onPress={() => { setSurahModalVisible(false); setSearchQuery(''); }}>
-                <Ionicons name="close-circle" size={32} color="#CCC" />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={quranData}
-              keyExtractor={item => item.index}
-              renderItem={({ item, index }) => (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSelectedSurahIndex(index);
-                    setSurahModalVisible(false);
-                  }}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center',
-                    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
-                  }}
-                >
-                  <View style={{
-                    backgroundColor: P.primary + '18', width: 34, height: 34,
-                    borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 14,
-                  }}>
-                    <Text style={{ color: P.primary, fontWeight: '800', fontSize: 12 }}>{parseInt(item.index)}</Text>
-                  </View>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#2C2C2C', flex: 1 }}>{item.name}</Text>
-                  {selectedSurahIndex === index && (
-                    <Ionicons name="checkmark-circle" size={20} color={P.primary} />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-    </IslamicBackground>
+        ))}
+      </View>
+    </View>
   );
 }

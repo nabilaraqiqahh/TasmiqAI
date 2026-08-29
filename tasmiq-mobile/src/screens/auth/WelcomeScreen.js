@@ -61,7 +61,7 @@ export default function WelcomeScreen({ navigation }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
@@ -85,7 +85,7 @@ export default function WelcomeScreen({ navigation }) {
                 />
               </View>
               <Text style={styles.logoText}>
-                Tasmiq<Text style={{ color: C.accent }}>AI</Text>
+                Tasmiq<Text style={{ color: '#D4AF37' }}>AI</Text>
               </Text>
             </View>
 
@@ -99,7 +99,7 @@ export default function WelcomeScreen({ navigation }) {
         {/* ── STATS BAR (real data) ─────────────────────────────────────── */}
         <View style={styles.statsBar}>
           {statsLoading ? (
-            <ActivityIndicator color={C.primary} style={{ flex: 1 }} />
+            <ActivityIndicator color={'#0B6E4F'} style={{ flex: 1 }} />
           ) : (
             <>
               <View style={styles.statItem}>
@@ -143,7 +143,7 @@ export default function WelcomeScreen({ navigation }) {
               activeOpacity={0.85}
               style={styles.secondaryBtn}
             >
-              <Ionicons name="person-add" size={20} color={C.primary} style={{ marginRight: 10 }} />
+              <Ionicons name="person-add" size={20} color={'#0B6E4F'} style={{ marginRight: 10 }} />
               <Text style={styles.secondaryBtnText}>Create Account</Text>
             </TouchableOpacity>
 
@@ -154,7 +154,7 @@ export default function WelcomeScreen({ navigation }) {
             >
               <Text style={styles.signUpText}>
                 Teacher?{' '}
-                <Text style={{ color: C.primary, fontWeight: '800' }}>Open Teacher Portal →</Text>
+                <Text style={{ color: '#0B6E4F', fontWeight: '800' }}>Open Teacher Portal →</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -219,7 +219,7 @@ const getStyles = (C) => StyleSheet.create({
     marginTop: 10,
   },
   heroTag: {
-    color: C.accent,
+    color: '#D4AF37',
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -255,12 +255,12 @@ const getStyles = (C) => StyleSheet.create({
   statNum: {
     fontSize: 22,
     fontWeight: '900',
-    color: C.primary,
+    color: '#0B6E4F',
   },
   statLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: C.muted,
+    color: '#6B7280',
     textTransform: 'uppercase',
     marginTop: 3,
   },
@@ -275,7 +275,7 @@ const getStyles = (C) => StyleSheet.create({
   },
   welcomeText: {
     fontSize: 15,
-    color: C.muted,
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
@@ -286,13 +286,13 @@ const getStyles = (C) => StyleSheet.create({
     marginBottom: 36,
   },
   primaryBtn: {
-    backgroundColor: C.primary,
+    backgroundColor: '#0B6E4F',
     borderRadius: 18,
     paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: C.primary,
+    shadowColor: '#0B6E4F',
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 5,
@@ -310,10 +310,10 @@ const getStyles = (C) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: C.primary + '25',
+    borderColor: '#0B6E4F' + '25',
   },
   secondaryBtnText: {
-    color: C.primary,
+    color: '#0B6E4F',
     fontSize: 17,
     fontWeight: '800',
   },
@@ -322,7 +322,7 @@ const getStyles = (C) => StyleSheet.create({
     alignSelf: 'center',
   },
   signUpText: {
-    color: C.muted,
+    color: '#6B7280',
     fontSize: 14,
   },
   quoteCard: {
@@ -336,14 +336,14 @@ const getStyles = (C) => StyleSheet.create({
   },
   quoteArabic: {
     fontSize: 26,
-    color: C.primary,
+    color: '#0B6E4F',
     textAlign: 'center',
     marginBottom: 12,
     lineHeight: 42,
   },
   quoteTranslation: {
     fontSize: 14,
-    color: C.muted,
+    color: '#6B7280',
     textAlign: 'center',
     fontStyle: 'italic',
     fontWeight: '600',
@@ -357,12 +357,12 @@ const getStyles = (C) => StyleSheet.create({
   footerText: {
     fontSize: 11,
     fontWeight: '700',
-    color: C.muted,
+    color: '#6B7280',
     letterSpacing: 1.2,
   },
   footerSubtext: {
     fontSize: 11,
-    color: C.muted,
+    color: '#6B7280',
     marginTop: 4,
   },
 });

@@ -16,11 +16,11 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
  */
 export default function IslamicBackground({ variant = 'full', opacity = 1, children }) {
   const { isDark, colors: C } = useTheme();
-  const motifColor = isDark ? C.accent : '#0B6E4F';
+  const motifColor = isDark ? '#D4AF37' : '#0B6E4F';
   const motifGold  = isDark ? '#B89C4A' : '#D4AF37';
 
   return (
-    <View style={[styles.container, { backgroundColor: C.bg }]}>
+    <View style={[styles.container, { backgroundColor: '#FFFDF0' }]}>
       {/* ── DECORATIVE LAYER ─────────────────────────────────────── */}
       <View style={[styles.decoLayer, { opacity }]} pointerEvents="none">
 
@@ -56,7 +56,7 @@ export default function IslamicBackground({ variant = 'full', opacity = 1, child
             borderColor: motifGold,
           }]}>
             <View style={[styles.crescentCutout, {
-              backgroundColor: C.bg,
+              backgroundColor: '#FFFDF0',
             }]} />
           </View>
         )}

@@ -4,18 +4,20 @@ import {
   StatusBar, Modal, FlatList, TextInput, Animated, ActivityIndicator, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import IslamicBackground from '../../components/IslamicBackground';
 import { supabase } from '../../services/supabaseClient';
 import quranData from '../../data/quran_data.json';
 
 /* ── Design constants ───────────────────────────────────────── */
-const PRIMARY  = '#0B6E4F';
-const GOLD     = '#D4AF37';
-const GOLD_BG  = '#FDF8E7';
-const LIGHT_GREEN = '#E8F5EC';
-const RED      = '#C0392B';
+const PRIMARY     = '#0B6E4F';
+const DARK_EM     = '#064E3B';
+const GOLD        = '#D4AF37';
+const GOLD_BG     = '#FDF8E7';
+const LIGHT_GREEN = '#D1FAE5';
+const RED         = '#DC2626';
+const BG          = '#F8FAF8';
 
 const RULES = [
   { id: 1, icon: 'book-outline',        text: 'Recite entirely from memory' },
@@ -224,37 +226,39 @@ export default function TasmiqPrepScreen({ navigation }) {
   };
 
   return (
-    <IslamicBackground variant="top">
-      <SafeAreaView style={{ flex: 1 }}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
+      <StatusBar barStyle="light-content" />
 
         {/* ── Header ── */}
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
-        }}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={{
-              width: 40, height: 40, borderRadius: 12,
-              backgroundColor: 'rgba(20,83,45,0.08)',
-              alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="arrow-back" size={22} color={PRIMARY} />
-          </TouchableOpacity>
-          <View style={{ flex: 1, marginLeft: 14 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: PRIMARY + '99', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-              Assessment
-            </Text>
-            <Text style={{ fontSize: 20, fontWeight: '900', color: PRIMARY }}>
-              Tasmiq Preparation
-            </Text>
+        <LinearGradient
+          colors={[PRIMARY, DARK_EM]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="arrow-back" size={22} color="white" />
+            </TouchableOpacity>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                Assessment
+              </Text>
+              <Text style={{ fontSize: 20, fontWeight: '900', color: '#FFFFFF' }}>
+                Tasmiq Preparation
+              </Text>
+            </View>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: GOLD + '30', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="mic" size={20} color={GOLD} />
+            </View>
           </View>
-        </View>
+        </LinearGradient>
 
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }}
+      <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, paddingTop: 20 }}
           showsVerticalScrollIndicator={false}
         >
 
@@ -763,7 +767,6 @@ export default function TasmiqPrepScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-    </IslamicBackground>
   );
 }
 

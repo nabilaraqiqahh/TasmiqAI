@@ -23,7 +23,7 @@ const PRIMARY   = '#0B6E4F';
 const DARK_EM   = '#064E3B';
 const GOLD      = '#D4AF37';
 const GOLD_LIGHT = '#FDF6DC';
-const BG        = '#FEFCE8';
+const BG        = '#FFFDF0';
 const CARD      = '#FFFFFF';
 const RED       = '#DC2626';
 
@@ -102,10 +102,10 @@ function ActivityRow({ item, C }) {
         <Ionicons name={isExercise ? 'sparkles' : 'ribbon'} size={18} color={isExercise ? PRIMARY : GOLD} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: '#064E3B' }}>
           {item.surah || `Surah ${item.surah_number}`}
         </Text>
-        <Text style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>
+        <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 1 }}>
           {isExercise ? 'AI Practice' : 'Official Assessment'} · Ayah {item.ayah || `${item.start_verse}–${item.end_verse}`}
         </Text>
       </View>
