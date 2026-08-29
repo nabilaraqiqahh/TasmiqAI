@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, SafeAreaView, ScrollView,
   StatusBar, ActivityIndicator, Alert, Dimensions,

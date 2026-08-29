@@ -1,6 +1,6 @@
 /**
  * TeacherEvaluationScreen.js
- * ─────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------
  * Displays the teacher's official evaluation for a specific Tasmiq
  * assessment. Navigated to when a student taps a
  * TEACHER_TASMIQ_EVALUATION notification.
@@ -8,7 +8,7 @@
  * Route params (either):
  *   { recitationId }  — from notification deep-link
  *   { recitation }    — full object passed directly (history screen)
- * ─────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------
  */
 import React, { useEffect, useState, useRef } from 'react';
 import {
@@ -22,7 +22,7 @@ import { getCurrentUser } from '../../services/authService';
 import { markAsRead } from '../../services/notificationService';
 import { useTheme } from '../../context/ThemeContext';
 
-// ── helpers ──────────────────────────────────────────────────────
+// -- helpers ------------------------------------------------------
 function formatDate(ts) {
   if (!ts) return '—';
   try {
@@ -53,7 +53,7 @@ function StatusBadge({ status }) {
   );
 }
 
-// ── component ────────────────────────────────────────────────────
+// -- component ----------------------------------------------------
 export default function TeacherEvaluationScreen({ navigation, route }) {
   const { isDark, colors: C } = useTheme();
 
@@ -70,7 +70,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
   const [playingAudio, setPlayingAudio] = useState(false);
   const soundRef = useRef(null);
 
-  // ── Load recitation + teacher name ─────────────────────────────
+  // -- Load recitation + teacher name -----------------------------
   useEffect(() => {
     const load = async () => {
       // Determine the recitation ID to fetch
@@ -130,7 +130,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
     load();
   }, [paramRecitationId, paramRecitation?.id]);
 
-  // ── Audio playback ──────────────────────────────────────────────
+  // -- Audio playback ----------------------------------------------
   useEffect(() => {
     return () => {
       if (soundRef.current) {
@@ -171,7 +171,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
     }
   };
 
-  // ── Resolve display values ──────────────────────────────────────
+  // -- Resolve display values --------------------------------------
   const surahLabel   = recitation?.surah    || `Surah ${recitation?.surah_number || ''}`;
   const ayahLabel    = recitation?.ayah     || `${recitation?.start_verse || ''}–${recitation?.end_verse || ''}`;
   const evalStatus   = recitation?.teacher_status || recitation?.status || 'pending';
@@ -183,7 +183,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
     || '';
   const assessmentDate = recitation?.reviewed_at || recitation?.submitted_at;
 
-  // ── Render ──────────────────────────────────────────────────────
+  // -- Render ------------------------------------------------------
   if (loading) {
     return (
       
@@ -222,7 +222,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
     
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-        {/* ── Header ────────────────────────────────────────────── */}
+        {/* -- Header ---------------------------------------------- */}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
           paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
@@ -254,7 +254,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
         >
 
-          {/* ── Status Banner ───────────────────────────────────── */}
+          {/* -- Status Banner ------------------------------------- */}
           <View style={{
             borderRadius: 20, padding: 24,
             backgroundColor: isPass ? '#D1FAE5' : isRepeat ? '#FEE2E2' : '#FEF3C7',
@@ -293,7 +293,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
             )}
           </View>
 
-          {/* ── Assessment Info ──────────────────────────────────── */}
+          {/* -- Assessment Info ------------------------------------ */}
           <View style={{
             backgroundColor: '#FFFFFF', borderRadius: 18, padding: 20,
             marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB',
@@ -329,7 +329,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
             ))}
           </View>
 
-          {/* ── Teacher Feedback ─────────────────────────────────── */}
+          {/* -- Teacher Feedback ----------------------------------- */}
           {evalFeedback ? (
             <View style={{
               backgroundColor: '#FFFFFF', borderRadius: 18, padding: 20,
@@ -354,7 +354,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
             </View>
           ) : null}
 
-          {/* ── Audio Playback ───────────────────────────────────── */}
+          {/* -- Audio Playback ------------------------------------- */}
           {recitation?.audio_url ? (
             <View style={{
               backgroundColor: '#032D20', borderRadius: 18, padding: 20,
@@ -379,7 +379,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
             </View>
           ) : null}
 
-          {/* ── Action: Re-record button (REPEAT only) ───────────── */}
+          {/* -- Action: Re-record button (REPEAT only) ------------- */}
           {isRepeat && (
             <TouchableOpacity
               onPress={() => navigation.navigate('TasmiqPrep')}
@@ -395,7 +395,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
 
-          {/* ── Back to Dashboard ────────────────────────────────── */}
+          {/* -- Back to Dashboard ---------------------------------- */}
           <TouchableOpacity
             onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
             style={{

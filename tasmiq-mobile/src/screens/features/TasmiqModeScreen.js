@@ -269,7 +269,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
       const response = await analyzeRecitation(rec.audioUri, initialSurahIndex + 1, String(ayahNum), expectedText);
       const result = response?.result || response || {};
 
-      // ── No speech detected ────────────────────────────────────────────────
+      // -- No speech detected ------------------------------------------------
       if (result.status === 'no_speech') {
         setRecordings(prev => ({
           ...prev,
@@ -289,9 +289,9 @@ export default function TasmiqModeScreen({ navigation, route }) {
         );
         return;
       }
-      // ─────────────────────────────────────────────────────────────────────
+      // ---------------------------------------------------------------------
 
-      // ── Wrong surah detected ───────────────────────────────────────────────
+      // -- Wrong surah detected -----------------------------------------------
       if (result.status === 'wrong_surah') {
         // Reset to unanalyzed state so the student can re-record
         setRecordings(prev => ({
@@ -312,7 +312,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
         );
         return;
       }
-      // ─────────────────────────────────────────────────────────────────────
+      // ---------------------------------------------------------------------
 
       const score = typeof result.overall_score === 'number' ? Math.round(result.overall_score) : 75;
 
@@ -366,7 +366,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
       const response = await analyzeRecitation(advancedRecording.audioUri, initialSurahIndex + 1, ayahRange, expectedText);
       const result = response?.result || response || {};
 
-      // ── No speech detected ────────────────────────────────────────────────
+      // -- No speech detected ------------------------------------------------
       if (result.status === 'no_speech') {
         setAdvancedRecording({
           audioUri: null,
@@ -383,9 +383,9 @@ export default function TasmiqModeScreen({ navigation, route }) {
         );
         return;
       }
-      // ─────────────────────────────────────────────────────────────────────
+      // ---------------------------------------------------------------------
 
-      // ── Wrong surah detected ───────────────────────────────────────────────
+      // -- Wrong surah detected -----------------------------------------------
       if (result.status === 'wrong_surah') {
         setAdvancedRecording({
           audioUri: null,
@@ -402,7 +402,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
         );
         return;
       }
-      // ─────────────────────────────────────────────────────────────────────
+      // ---------------------------------------------------------------------
 
       const score = typeof result.overall_score === 'number' ? Math.round(result.overall_score) : 75;
 
@@ -1039,7 +1039,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                   <AiPracticeBadge score={advancedRecording.score} />
                 </View>
 
-                {/* ── Ayah Detection Result (continuous mode only) ── */}
+                {/* -- Ayah Detection Result (continuous mode only) -- */}
                 {initMode === 'continuous' && (
                   <View style={{
                     marginBottom: 14, padding: 12, borderRadius: 12,

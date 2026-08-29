@@ -134,7 +134,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     }
   };
 
-  // ── Hint System ──────────────────────────────────────────────────────────────
+  // -- Hint System --------------------------------------------------------------
   const handleHint = () => {
     if (hintCount >= 5) {
       Alert.alert(
@@ -150,7 +150,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     setRevealedWords(prev => Math.min(ayahWords.length, prev + increment));
   };
 
-  // ── Live Word-by-word Detection Simulation ───────────────────────────────────
+  // -- Live Word-by-word Detection Simulation -----------------------------------
   const startWordDetection = (totalWords) => {
     let currentIndex = 0;
     const results = new Array(totalWords).fill(null);
@@ -184,7 +184,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     return results;
   };
 
-  // ── Recording ───────────────────────────────────────────────────────────────
+  // -- Recording ---------------------------------------------------------------
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -401,7 +401,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     setShowAIStatus(true);
   };
 
-  // ── Reference Audio ──────────────────────────────────────────────────────────
+  // -- Reference Audio ----------------------------------------------------------
   const playRefAudio = async () => {
     try {
       if (refSound) {
@@ -426,7 +426,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     finally { setIsLoadingRef(false); }
   };
 
-  // ── Submit ───────────────────────────────────────────────────────────────────
+  // -- Submit -------------------------------------------------------------------
   const handleSubmit = async () => {
     setLoading(true);
     try {
@@ -442,7 +442,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     finally { setLoading(false); }
   };
 
-  // ── Word rendering ───────────────────────────────────────────────────────────
+  // -- Word rendering -----------------------------------------------------------
   const getWordStyle = (index) => {
     if (isRecording) {
       if (index === detectedWordIndex) {
@@ -473,7 +473,7 @@ export default function RecitationModeScreen({ navigation, route }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
 
-      {/* ── Header ── */}
+      {/* -- Header -- */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -520,7 +520,7 @@ export default function RecitationModeScreen({ navigation, route }) {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
 
-        {/* ── Live Status Banner ── */}
+        {/* -- Live Status Banner -- */}
         {isRecording && (
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF0F0', borderRadius: 16, padding: 14, marginBottom: 20 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#E05252', marginRight: 10 }} />
@@ -531,7 +531,7 @@ export default function RecitationModeScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* ── Main Verse Card ── */}
+        {/* -- Main Verse Card -- */}
         <View style={{
           backgroundColor: '#FFFFFF', borderRadius: 28, padding: 28, marginBottom: 24,
           shadowColor: '#0B6E4F', shadowOpacity: 0.12, shadowRadius: 20, elevation: 6,
@@ -611,7 +611,7 @@ export default function RecitationModeScreen({ navigation, route }) {
           )}
         </View>
 
-        {/* ── AI Analysis Panel ── */}
+        {/* -- AI Analysis Panel -- */}
         {showAIStatus && aiAnalysis && (
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, marginBottom: 24, shadowColor: '#0B6E4F', shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
             <Text style={{ fontSize: 14, fontWeight: '800', color: '#064E3B', marginBottom: 16 }}>AI Analysis</Text>
@@ -657,7 +657,7 @@ export default function RecitationModeScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* ── Action Buttons ── */}
+        {/* -- Action Buttons -- */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', marginBottom: 28 }}>
           <TouchableOpacity
             onPress={handleHint}
@@ -704,7 +704,7 @@ export default function RecitationModeScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Submit & Retry Buttons ── */}
+        {/* -- Submit & Retry Buttons -- */}
         {isDone && !isRecording && (
           <View style={{ marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', marginBottom: 12 }}>

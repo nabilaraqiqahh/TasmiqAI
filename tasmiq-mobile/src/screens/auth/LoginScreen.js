@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import PlatformStorage from '../../services/storage';
 import { loginUser } from '../../services/authService';
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
+// -- Design tokens --------------------------------------------------------------
 const P   = '#0B6E4F';
 const PD  = '#064E3B';
 const PL  = '#D1FAE5';
@@ -52,7 +52,7 @@ export default function LoginScreen({ navigation, route }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          {/* ── Top gradient banner ── */}
+          {/* -- Top gradient banner -- */}
           <LinearGradient
             colors={[P, PD]}
             start={{ x: 0, y: 0 }}
@@ -75,7 +75,7 @@ export default function LoginScreen({ navigation, route }) {
             <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>Sign in to continue your journey</Text>
           </LinearGradient>
 
-          {/* ── Form ── */}
+          {/* -- Form -- */}
           <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40, maxWidth: 480, alignSelf: 'center', width: '100%' }}>
 
             {/* Error banner */}

@@ -29,7 +29,7 @@ const BG = '#FFFDF0';
 export default function MurajaahModeScreen({ navigation }) {
   const { isDark } = useTheme();
 
-  // ── Surah selection ─────────────────────────────────────────
+  // -- Surah selection -----------------------------------------
   const [surahIndex,   setSurahIndex]   = useState(0);
   const [surahModal,   setSurahModal]   = useState(false);
   const [searchQuery,  setSearchQuery]  = useState('');
@@ -37,7 +37,7 @@ export default function MurajaahModeScreen({ navigation }) {
   const surah      = quranData[surahIndex];
   const totalAyahs = surah?.count || 0;
 
-  // ── Revision state ───────────────────────────────────────────
+  // -- Revision state -------------------------------------------
   // revealed:  { ayahNum: boolean }  — currently visible?
   // cycles:    { ayahNum: number  }  — reveal/hide cycle count
   const [revealed,   setRevealed]   = useState({});
@@ -47,19 +47,19 @@ export default function MurajaahModeScreen({ navigation }) {
   const [saving,     setSaving]     = useState(false);
   const [done,       setDone]       = useState(false);
 
-  // ── Audio ────────────────────────────────────────────────────
+  // -- Audio ----------------------------------------------------
   const [sound,        setSound]        = useState(null);
   const [playingAyah,  setPlayingAyah]  = useState(null);
   const [audioLoading, setAudioLoading] = useState(false);
   const [isLooping,    setIsLooping]    = useState(false);
   const [isSlowMode,   setIsSlowMode]   = useState(false);
 
-  // ── Timer ────────────────────────────────────────────────────
+  // -- Timer ----------------------------------------------------
   const startTimeRef  = useRef(Date.now());
   const [elapsed,     setElapsed]     = useState(0); // seconds
   const timerRef      = useRef(null);
 
-  // ── Computed stats ───────────────────────────────────────────
+  // -- Computed stats -------------------------------------------
   const reviewedCount = useMemo(
     () => Object.values(cycles).filter(c => c >= 1).length,
     [cycles]
@@ -77,7 +77,7 @@ export default function MurajaahModeScreen({ navigation }) {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // ── Start timer ──────────────────────────────────────────────
+  // -- Start timer ----------------------------------------------
   useEffect(() => {
     startTimeRef.current = Date.now() - elapsed * 1000;
     timerRef.current = setInterval(() => {
@@ -86,7 +86,7 @@ export default function MurajaahModeScreen({ navigation }) {
     return () => clearInterval(timerRef.current);
   }, [surahIndex]);
 
-  // ── Load saved progress ──────────────────────────────────────
+  // -- Load saved progress --------------------------------------
   useFocusEffect(useCallback(() => {
     loadProgress();
     return () => {
@@ -130,7 +130,7 @@ export default function MurajaahModeScreen({ navigation }) {
     }
   };
 
-  // ── Auto-save progress ───────────────────────────────────────
+  // -- Auto-save progress ---------------------------------------
   const autoSave = async (newCycles, elapsedSec) => {
     try {
       const user = await getCurrentUser();
@@ -166,7 +166,7 @@ export default function MurajaahModeScreen({ navigation }) {
     }
   };
 
-  // ── Toggle reveal ─────────────────────────────────────────────
+  // -- Toggle reveal ---------------------------------------------
   const toggleReveal = (ayahNum) => {
     const isNowRevealed = !revealed[ayahNum];
     setRevealed(prev => ({ ...prev, [ayahNum]: isNowRevealed }));
@@ -179,7 +179,7 @@ export default function MurajaahModeScreen({ navigation }) {
     }
   };
 
-  // ── Audio playback ────────────────────────────────────────────
+  // -- Audio playback --------------------------------------------
   const playAudio = async (ayahNum) => {
     try {
       if (playingAyah === ayahNum && sound) {
@@ -221,7 +221,7 @@ export default function MurajaahModeScreen({ navigation }) {
     if (sound && playingAyah) await sound.setRateAsync(newSlow ? 0.75 : 1.0, true).catch(() => {});
   };
 
-  // ── Finish session ────────────────────────────────────────────
+  // -- Finish session --------------------------------------------
   const handleFinish = async () => {
     if (!allReviewed) {
       const missing = Array.from({ length: totalAyahs }, (_, i) => i + 1)
@@ -279,7 +279,7 @@ export default function MurajaahModeScreen({ navigation }) {
     }
   };
 
-  // ── Change surah ──────────────────────────────────────────────
+  // -- Change surah ----------------------------------------------
   const changeSurah = (index) => {
     if (sound) sound.unloadAsync().catch(() => {});
     setSound(null); setPlayingAyah(null);
@@ -289,7 +289,7 @@ export default function MurajaahModeScreen({ navigation }) {
     startTimeRef.current = Date.now(); setElapsed(0);
   };
 
-  // ── Verse list ────────────────────────────────────────────────
+  // -- Verse list ------------------------------------------------
   const verses = useMemo(() => {
     if (!surah?.verse) return [];
     return Object.entries(surah.verse)
@@ -297,7 +297,7 @@ export default function MurajaahModeScreen({ navigation }) {
       .sort((a, b) => a.num - b.num);
   }, [surah]);
 
-  // ── COMPLETION SCREEN ─────────────────────────────────────────
+  // -- COMPLETION SCREEN -----------------------------------------
   if (done) {
     const now = new Date();
     const mins = Math.floor(elapsed / 60);
@@ -372,7 +372,7 @@ export default function MurajaahModeScreen({ navigation }) {
     );
   }
 
-  // ── MAIN SCREEN ───────────────────────────────────────────────
+  // -- MAIN SCREEN -----------------------------------------------
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:BG }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={BG} />

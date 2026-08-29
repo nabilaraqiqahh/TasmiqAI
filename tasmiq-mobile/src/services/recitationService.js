@@ -38,9 +38,9 @@ const decodeBase64 = (base64) => {
   return bytes;
 };
 
-// ── SAVE RECITATION RESULT ────────────────────────────────────────────────────
+// -- SAVE RECITATION RESULT ----------------------------------------------------
 export const saveRecitationResult = async (studentId, dataObj) => {
-  // ── 1. Resolve student name ──────────────────────────────────────────────
+  // -- 1. Resolve student name ----------------------------------------------
   let studentName = dataObj.studentName || '';
   if (!studentName) {
     try {
@@ -50,13 +50,13 @@ export const saveRecitationResult = async (studentId, dataObj) => {
     } catch { studentName = 'Student'; }
   }
 
-  // ── 2. Parse surah / ayah ────────────────────────────────────────────────
+  // -- 2. Parse surah / ayah ------------------------------------------------
   const ayahStr    = String(dataObj.ayah || '1');
   const ayahParts  = ayahStr.split('-');
   const startVerse = parseInt(ayahParts[0]) || 1;
   const endVerse   = parseInt(ayahParts[1] || ayahParts[0]) || startVerse;
 
-  // ── 3. Upload audio (best-effort — never blocks submission) ──────────────
+  // -- 3. Upload audio (best-effort — never blocks submission) --------------
   let finalAudioUrl = '';
   if (dataObj.audioUri) {
     try {
@@ -134,7 +134,7 @@ export const saveRecitationResult = async (studentId, dataObj) => {
     }
   }
 
-  // ── 4. Insert recitation record ──────────────────────────────────────────
+  // -- 4. Insert recitation record ------------------------------------------
   const insertPayload = {
     user_id:             studentId,
     student_name:        studentName,
@@ -197,7 +197,7 @@ export const saveRecitationResult = async (studentId, dataObj) => {
     throw new Error(error.message);
   }
 
-  // ── 5. Save assessment (non-fatal) ───────────────────────────────────────
+  // -- 5. Save assessment (non-fatal) ---------------------------------------
   if (data?.id) {
     supabase.from('assessments').insert([{
       recitation_id:       data.id,
@@ -217,7 +217,7 @@ export const saveRecitationResult = async (studentId, dataObj) => {
     );
   }
 
-  // ── 6. Update streak & progress (fire-and-forget) ────────────────────────
+  // -- 6. Update streak & progress (fire-and-forget) ------------------------
   updateUserStreak(studentId).catch(() => {});
   supabase.from('users')
     .update({ progress_percentage: Number(dataObj.memorization_score) || 0 })
@@ -227,7 +227,7 @@ export const saveRecitationResult = async (studentId, dataObj) => {
   return data;
 };
 
-// ── GET RECITATION HISTORY ────────────────────────────────────────────────────
+// -- GET RECITATION HISTORY ----------------------------------------------------
 export const getRecitationHistory = async (studentId) => {
   const { data, error } = await supabase
     .from('recitations')
@@ -250,7 +250,7 @@ export const getRecitationHistory = async (studentId) => {
   }));
 };
 
-// ── GET PENDING (teacher portal) ─────────────────────────────────────────────
+// -- GET PENDING (teacher portal) ---------------------------------------------
 export const getPendingRecitations = async () => {
   const { data, error } = await supabase
     .from('recitations')
@@ -271,7 +271,7 @@ export const getPendingRecitations = async () => {
   }));
 };
 
-// ── SUBMIT TEACHER REVIEW ─────────────────────────────────────────────────────
+// -- SUBMIT TEACHER REVIEW -----------------------------------------------------
 export const submitReview = async (recitationId, grade, feedback) => {
   const { data, error } = await supabase
     .from('recitations')
@@ -306,7 +306,7 @@ export const submitReview = async (recitationId, grade, feedback) => {
   return data;
 };
 
-// ── UPLOAD RECITATION WRAPPER FOR RECITATION MODE ────────────────────────────
+// -- UPLOAD RECITATION WRAPPER FOR RECITATION MODE ----------------------------
 export const uploadRecitation = async (audioUri, surah, ayah, transcription, score, errors) => {
   const session = await getCurrentUser();
   const studentId = session?.id || session?.uid;

@@ -18,7 +18,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import quranData from '../../data/quran_data.json';
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
+// -- Design tokens --------------------------------------------------------------
 const PRIMARY   = '#0B6E4F';
 const DARK_EM   = '#064E3B';
 const GOLD      = '#D4AF37';
@@ -27,7 +27,7 @@ const BG        = '#FFFDF0';
 const CARD      = '#FFFFFF';
 const RED       = '#DC2626';
 
-// ── Helper: time-of-day greeting ───────────────────────────────────────────────
+// -- Helper: time-of-day greeting -----------------------------------------------
 function useGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good Morning';
@@ -35,7 +35,7 @@ function useGreeting() {
   return 'Good Evening';
 }
 
-// ── Small animated pulse dot (used on notification bell) ──────────────────────
+// -- Small animated pulse dot (used on notification bell) ----------------------
 function PulseDot() {
   const scale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -57,7 +57,7 @@ function PulseDot() {
   );
 }
 
-// ── Quick action tile ──────────────────────────────────────────────────────────
+// -- Quick action tile ----------------------------------------------------------
 function QuickTile({ icon, label, color, bgColor, onPress }) {
   return (
     <TouchableOpacity
@@ -85,7 +85,7 @@ function QuickTile({ icon, label, color, bgColor, onPress }) {
   );
 }
 
-// ── Recent activity row ────────────────────────────────────────────────────────
+// -- Recent activity row --------------------------------------------------------
 function ActivityRow({ item, C }) {
   const passed = (item.score || 0) >= 70;
   const isExercise = item.is_exercise;
@@ -135,13 +135,13 @@ function ActivityRow({ item, C }) {
   );
 }
 
-// ── Main screen ────────────────────────────────────────────────────────────────
+// -- Main screen ----------------------------------------------------------------
 export default function DashboardScreen({ navigation }) {
   const { isDark, colors: C } = useTheme();
   const { t } = useLanguage();
   const greeting = useGreeting();
 
-  // ── State ────────────────────────────────────────────────────────────────────
+  // -- State --------------------------------------------------------------------
   const [profile,   setProfile]   = useState(null);
   const [user,      setUser]      = useState(null);
   const [loading,   setLoading]   = useState(true);
@@ -155,7 +155,7 @@ export default function DashboardScreen({ navigation }) {
 
   const userRef = useRef(null);
 
-  // ── Notification modal load ──────────────────────────────────────────────────
+  // -- Notification modal load --------------------------------------------------
   useEffect(() => {
     if (!notifModalVisible || !userRef.current?.id) return;
     setNotifLoading(true);
@@ -165,7 +165,7 @@ export default function DashboardScreen({ navigation }) {
       .finally(() => setNotifLoading(false));
   }, [notifModalVisible]);
 
-  // ── Realtime notification subscription ──────────────────────────────────────
+  // -- Realtime notification subscription --------------------------------------
   useEffect(() => {
     let cleanup = () => {};
     getCurrentUser().then(s => {
@@ -178,7 +178,7 @@ export default function DashboardScreen({ navigation }) {
     return () => cleanup();
   }, []);
 
-  // ── Notification tap ─────────────────────────────────────────────────────────
+  // -- Notification tap ---------------------------------------------------------
   const handleNotifClick = async (notif) => {
     if (!notif.is_read && userRef.current?.id) {
       await markAsRead(notif.id, userRef.current.id);
@@ -201,7 +201,7 @@ export default function DashboardScreen({ navigation }) {
     setUnreadCount(0);
   };
 
-  // ── Data load on screen focus ────────────────────────────────────────────────
+  // -- Data load on screen focus ------------------------------------------------
   useFocusEffect(useCallback(() => {
     const load = async () => {
       try {
@@ -233,7 +233,7 @@ export default function DashboardScreen({ navigation }) {
     load();
   }, []));
 
-  // ── Derived values ────────────────────────────────────────────────────────────
+  // -- Derived values ------------------------------------------------------------
   const firstName  = (profile?.full_name || user?.full_name || 'Student').split(' ')[0];
   const streak     = profile?.streak_days        ?? 0;
   const sessions   = profile?.total_sessions     ?? 0;
@@ -247,7 +247,7 @@ export default function DashboardScreen({ navigation }) {
     return { surah: s, ayah: a, text: s.verse[`verse_${a}`] };
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // -----------------------------------------------------------------------------
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -257,7 +257,7 @@ export default function DashboardScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+        {/* -- HEADER ----------------------------------------------------------- */}
         <LinearGradient
           colors={[PRIMARY, DARK_EM]}
           start={{ x: 0, y: 0 }}
@@ -322,7 +322,7 @@ export default function DashboardScreen({ navigation }) {
 
         <View style={{ paddingHorizontal: 20 }}>
 
-          {/* ── BACKEND OFFLINE BANNER ──────────────────────────────────────── */}
+          {/* -- BACKEND OFFLINE BANNER ---------------------------------------- */}
           {!backendOnline && (
             <View style={{
               backgroundColor: '#FEF3C7', borderRadius: 14, padding: 14,
@@ -339,7 +339,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
           )}
 
-          {/* ── TODAY'S PROGRESS CARD ───────────────────────────────────────── */}
+          {/* -- TODAY'S PROGRESS CARD ----------------------------------------- */}
           <View style={{ marginTop: 22, backgroundColor: CARD, borderRadius: 20, padding: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <Text style={{ fontSize: 15, fontWeight: '800', color: '#1F2937' }}>Today's Progress</Text>
@@ -357,7 +357,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
           </View>
 
-          {/* ── QUICK ACTIONS ───────────────────────────────────────────────── */}
+          {/* -- QUICK ACTIONS ------------------------------------------------- */}
           <Text style={{ fontSize: 13, fontWeight: '800', color: '#6B7280', letterSpacing: 1.2, marginTop: 24, marginBottom: 14 }}>
             QUICK ACTIONS
           </Text>
@@ -394,7 +394,7 @@ export default function DashboardScreen({ navigation }) {
             />
           </View>
 
-          {/* ── ANNOUNCEMENTS ───────────────────────────────────────────────── */}
+          {/* -- ANNOUNCEMENTS ------------------------------------------------- */}
           {announcements.length > 0 && (
             <View style={{ marginTop: 24 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -424,7 +424,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
           )}
 
-          {/* ── RECENT ACTIVITY ─────────────────────────────────────────────── */}
+          {/* -- RECENT ACTIVITY ----------------------------------------------- */}
           <View style={{ marginTop: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <Text style={{ fontSize: 13, fontWeight: '800', color: '#6B7280', letterSpacing: 1.2 }}>RECENT ACTIVITY</Text>
@@ -454,7 +454,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
           </View>
 
-          {/* ── VERSE OF THE DAY ────────────────────────────────────────────── */}
+          {/* -- VERSE OF THE DAY ---------------------------------------------- */}
           <View style={{ marginTop: 24 }}>
             <Text style={{ fontSize: 13, fontWeight: '800', color: '#6B7280', letterSpacing: 1.2, marginBottom: 14 }}>
               VERSE OF THE DAY
@@ -474,7 +474,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
           </View>
 
-          {/* ── JOIN CLASS CTA (shown if no announcements / first time) ─────── */}
+          {/* -- JOIN CLASS CTA (shown if no announcements / first time) ------- */}
           <TouchableOpacity
             onPress={() => navigation.navigate('JoinClass')}
             activeOpacity={0.85}
@@ -498,7 +498,7 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* ── NOTIFICATION CENTRE MODAL ─────────────────────────────────────────── */}
+      {/* -- NOTIFICATION CENTRE MODAL ------------------------------------------- */}
       <Modal
         visible={notifModalVisible}
         animationType="slide"

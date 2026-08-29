@@ -1,6 +1,6 @@
 /**
  * authService.js
- * ─────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------
  * Auth flow:
  *   Login / Register → FastAPI backend (/api/auth/login, /api/auth/register)
  *   The backend handles bcrypt password verification and issues a real JWT.
@@ -9,7 +9,7 @@
  * Migration note:
  *   Existing users with plain-text passwords are automatically upgraded to
  *   bcrypt by the backend on their next successful login (transparent).
- * ─────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------
  */
 import { supabase } from './supabaseClient';
 import { Platform } from 'react-native';
@@ -34,7 +34,7 @@ const storage = {
   },
 };
 
-// ── HELPERS ──────────────────────────────────────────────────────
+// -- HELPERS ------------------------------------------------------
 export const getRoleFromEmail = (email = '') => {
   const e = email.toLowerCase();
   if (e.endsWith('@staff.tahfiz.my') || e.endsWith('@ustaz.tasmiq.ai')) return 'teacher';
@@ -59,7 +59,7 @@ function buildSession(apiResponse) {
   };
 }
 
-// ── AUTH API CALL HELPER ──────────────────────────────────────────
+// -- AUTH API CALL HELPER ------------------------------------------
 async function callAuthApi(endpoint, body) {
   const url = `${API_URL}${endpoint}`;
   const response = await fetch(url, {
@@ -75,7 +75,7 @@ async function callAuthApi(endpoint, body) {
   return response.json();
 }
 
-// ── REGISTER ─────────────────────────────────────────────────────
+// -- REGISTER -----------------------------------------------------
 export const registerUser = async (email, password, displayName, selectedRole) => {
   const trimmed = email.trim().toLowerCase();
   let role = getRoleFromEmail(trimmed) || selectedRole || 'student';
@@ -98,7 +98,7 @@ export const registerUser = async (email, password, displayName, selectedRole) =
 export const registerStudent = (e, p, n) => registerUser(e, p, n, 'student');
 export const registerTeacher = (e, p, n) => registerUser(e, p, n, 'teacher');
 
-// ── LOGIN ─────────────────────────────────────────────────────────
+// -- LOGIN ---------------------------------------------------------
 export const loginUser = async (email, password) => {
   const trimmed = email.trim().toLowerCase();
 
@@ -129,13 +129,13 @@ export const loginUser = async (email, password) => {
   return enriched;
 };
 
-// ── LOGOUT ───────────────────────────────────────────────────────
+// -- LOGOUT -------------------------------------------------------
 export const logoutUser = async () => {
   await storage.remove(SESSION_KEY);
   await storage.remove('user_role');
 };
 
-// ── GET CURRENT USER (from AsyncStorage) ─────────────────────────
+// -- GET CURRENT USER (from AsyncStorage) -------------------------
 export const getCurrentUser = async () => {
   try {
     const saved = await storage.get(SESSION_KEY);
@@ -146,7 +146,7 @@ export const getCurrentUser = async () => {
   }
 };
 
-// ── GET USER PROFILE (from DB) ───────────────────────────────────
+// -- GET USER PROFILE (from DB) -----------------------------------
 export const getUserProfile = async (userId) => {
   const { data, error } = await supabase
     .from('users')
@@ -167,7 +167,7 @@ export const getUserProfile = async (userId) => {
   };
 };
 
-// ── UPDATE STREAK ─────────────────────────────────────────────────
+// -- UPDATE STREAK -------------------------------------------------
 export const updateUserStreak = async (userId) => {
   try {
     const profile = await getUserProfile(userId);
@@ -206,7 +206,7 @@ export const updateUserStreak = async (userId) => {
   }
 };
 
-// ── UPDATE PROFILE ────────────────────────────────────────────────
+// -- UPDATE PROFILE ------------------------------------------------
 export const updateUserProfile = async (userId, updates) => {
   const normalized = { ...updates };
   if (normalized.displayName) {
@@ -270,7 +270,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
   if (!result.success) throw new Error(result.error || 'Password change failed.');
 };
 
-// ── STUDENT SETTINGS (DB with AsyncStorage Fallback) ─────────────
+// -- STUDENT SETTINGS (DB with AsyncStorage Fallback) -------------
 export const getStudentSettings = async (studentId) => {
   const localKey = `tasmiq_student_settings_${studentId}`;
   
@@ -371,7 +371,7 @@ export const updateStudentSettings = async (studentId, patch) => {
   return merged;
 };
 
-// ── SUBSCRIBE TO AUTH STATE ───────────────────────────────────────
+// -- SUBSCRIBE TO AUTH STATE ---------------------------------------
 // Kept for API compatibility — uses AsyncStorage polling
 export const subscribeToAuthState = (callback) => {
   let active = true;
@@ -379,7 +379,7 @@ export const subscribeToAuthState = (callback) => {
   return () => { active = false; };
 };
 
-// ── ANNOUNCEMENTS ─────────────────────────────────────────────────
+// -- ANNOUNCEMENTS -------------------------------------------------
 export const getStudentAnnouncements = async (studentId) => {
   try {
     const { data: memberships } = await supabase

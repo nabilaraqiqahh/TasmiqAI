@@ -10,7 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../services/supabaseClient';
 import quranData from '../../data/quran_data.json';
 
-/* ── Design constants ───────────────────────────────────────── */
+/* -- Design constants ----------------------------------------- */
 const PRIMARY     = '#0B6E4F';
 const DARK_EM     = '#064E3B';
 const GOLD        = '#D4AF37';
@@ -28,7 +28,7 @@ const RULES = [
   { id: 6, icon: 'list-outline',        text: 'Complete all assigned verses' },
 ];
 
-/* ── Animated Rule Row ─────────────────────────────────────── */
+/* -- Animated Rule Row --------------------------------------- */
 function RuleRow({ icon, text, delay }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -63,7 +63,7 @@ function RuleRow({ icon, text, delay }) {
   );
 }
 
-/* ── Main Screen ───────────────────────────────────────────── */
+/* -- Main Screen --------------------------------------------- */
 export default function TasmiqPrepScreen({ navigation }) {
   const { isDark, colors: C } = useTheme();
 
@@ -106,7 +106,7 @@ export default function TasmiqPrepScreen({ navigation }) {
       const session = await getCurrentUser();
       if (!session?.id) { setLoadingAssignment(false); return; }
 
-      // ── 1. Check if student has completed at least ONE AI Tasmiq Exercise for this surah ──
+      // -- 1. Check if student has completed at least ONE AI Tasmiq Exercise for this surah --
       const { data: aiRecs } = await supabase
         .from('recitations')
         .select('id')
@@ -123,7 +123,7 @@ export default function TasmiqPrepScreen({ navigation }) {
         setIsExercise(true);
       }
 
-      // ── 2. Get teacher name from enrolled class ──
+      // -- 2. Get teacher name from enrolled class --
       const { data: membership } = await supabase
         .from('class_members')
         .select('classes(id, name, teacher_id)')
@@ -142,7 +142,7 @@ export default function TasmiqPrepScreen({ navigation }) {
         setTeacherName(membership.classes.name);
       }
 
-      // ── 3. Fetch formal assignment ──
+      // -- 3. Fetch formal assignment --
       const { data: assigns } = await supabase
         .from('assignments')
         .select('*, classes(name, teacher_name)')
@@ -229,7 +229,7 @@ export default function TasmiqPrepScreen({ navigation }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
       <StatusBar barStyle="light-content" />
 
-        {/* ── Header ── */}
+        {/* -- Header -- */}
         <LinearGradient
           colors={[PRIMARY, DARK_EM]}
           start={{ x: 0, y: 0 }}
@@ -262,7 +262,7 @@ export default function TasmiqPrepScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         >
 
-          {/* ── Today's Assignment Card ── */}
+          {/* -- Today's Assignment Card -- */}
           <View style={{
             backgroundColor: PRIMARY,
             borderRadius: 24, padding: 24,
@@ -371,7 +371,7 @@ export default function TasmiqPrepScreen({ navigation }) {
             )}
           </View>
 
-          {/* ── Tasmiq Type Chips ── */}
+          {/* -- Tasmiq Type Chips -- */}
           <View style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 11, fontWeight: '800', color: PRIMARY + '80', letterSpacing: 1.2, marginBottom: 12 }}>
               TASMIQ TYPE
@@ -422,7 +422,7 @@ export default function TasmiqPrepScreen({ navigation }) {
             )}
           </View>
 
-          {/* ── Recording Mode Selector ── */}
+          {/* -- Recording Mode Selector -- */}
           <View style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 11, fontWeight: '800', color: PRIMARY + '80', letterSpacing: 1.2, marginBottom: 12 }}>
               RECORDING MODE
@@ -488,7 +488,7 @@ export default function TasmiqPrepScreen({ navigation }) {
             </View>
           </View>
 
-          {/* ── Mode Selector Chips ── */}
+          {/* -- Mode Selector Chips -- */}
           <View style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 11, fontWeight: '800', color: PRIMARY + '80', letterSpacing: 1.2, marginBottom: 12 }}>
               RECITATION MODE
@@ -551,7 +551,7 @@ export default function TasmiqPrepScreen({ navigation }) {
             </View>
           </View>
 
-          {/* ── Assessment Rules ── */}
+          {/* -- Assessment Rules -- */}
           <View style={{
             backgroundColor: '#FAFAF8', borderRadius: 20,
             padding: 22, marginBottom: 24,
@@ -568,7 +568,7 @@ export default function TasmiqPrepScreen({ navigation }) {
             ))}
           </View>
 
-          {/* ── Warning Banner ── */}
+          {/* -- Warning Banner -- */}
           <View style={{
             backgroundColor: '#FEF3C7', borderRadius: 14,
             padding: 14, marginBottom: 24,
@@ -582,7 +582,7 @@ export default function TasmiqPrepScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* ── Begin Assessment Button ── */}
+          {/* -- Begin Assessment Button -- */}
           <TouchableOpacity
             onPress={handleBegin}
             activeOpacity={0.88}
@@ -607,7 +607,7 @@ export default function TasmiqPrepScreen({ navigation }) {
         </ScrollView>
       </SafeAreaView>
 
-      {/* ── Surah Picker Modal ── */}
+      {/* -- Surah Picker Modal -- */}
       <Modal visible={surahModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
           <View style={{
@@ -673,7 +673,7 @@ export default function TasmiqPrepScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* ── From Ayah Picker Modal ── */}
+      {/* -- From Ayah Picker Modal -- */}
       <Modal visible={ayahStartModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
           <View style={{
@@ -719,7 +719,7 @@ export default function TasmiqPrepScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* ── To Ayah Picker Modal (Continuous mode only) ── */}
+      {/* -- To Ayah Picker Modal (Continuous mode only) -- */}
       <Modal visible={ayahEndModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
           <View style={{

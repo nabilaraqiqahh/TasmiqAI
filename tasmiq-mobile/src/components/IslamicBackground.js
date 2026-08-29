@@ -21,10 +21,10 @@ export default function IslamicBackground({ variant = 'full', opacity = 1, child
 
   return (
     <View style={[styles.container, { backgroundColor: '#FFFDF0' }]}>
-      {/* ── DECORATIVE LAYER ─────────────────────────────────────── */}
+      {/* -- DECORATIVE LAYER --------------------------------------- */}
       <View style={[styles.decoLayer, { opacity }]} pointerEvents="none">
 
-        {/* ─── TOP MIHRAB ARCH ─────────────────────────────────── */}
+        {/* --- TOP MIHRAB ARCH ----------------------------------- */}
         {(variant === 'full' || variant === 'top') && (
           <>
             {/* Large top arch */}
@@ -42,14 +42,14 @@ export default function IslamicBackground({ variant = 'full', opacity = 1, child
           </>
         )}
 
-        {/* ─── 8-POINTED STAR (top-right) ──────────────────────── */}
+        {/* --- 8-POINTED STAR (top-right) ------------------------ */}
         {(variant === 'full' || variant === 'top' || variant === 'minimal') && (
           <View style={[styles.starContainer, { top: 60, right: -12 }]}>
             <EightPointStar size={70} color={motifGold} opacity={isDark ? 0.08 : 0.06} />
           </View>
         )}
 
-        {/* ─── CRESCENT (top-left) ─────────────────────────────── */}
+        {/* --- CRESCENT (top-left) ------------------------------- */}
         {(variant === 'full' || variant === 'top') && (
           <View style={[styles.crescentOuter, {
             top: 100, left: 20,
@@ -61,7 +61,7 @@ export default function IslamicBackground({ variant = 'full', opacity = 1, child
           </View>
         )}
 
-        {/* ─── GEOMETRIC DIAMOND LATTICE (center) ──────────────── */}
+        {/* --- GEOMETRIC DIAMOND LATTICE (center) ---------------- */}
         {(variant === 'full') && (
           <View style={[styles.latticeContainer]}>
             {[0, 1, 2, 3, 4].map(row => (
@@ -81,7 +81,7 @@ export default function IslamicBackground({ variant = 'full', opacity = 1, child
           </View>
         )}
 
-        {/* ─── BOTTOM ARABESQUE BORDER ─────────────────────────── */}
+        {/* --- BOTTOM ARABESQUE BORDER --------------------------- */}
         {(variant === 'full' || variant === 'bottom') && (
           <View style={[styles.bottomBorder]}>
             {/* Scalloped arch row */}
@@ -104,14 +104,14 @@ export default function IslamicBackground({ variant = 'full', opacity = 1, child
           </View>
         )}
 
-        {/* ─── 8-POINTED STAR (bottom-left) ────────────────────── */}
+        {/* --- 8-POINTED STAR (bottom-left) ---------------------- */}
         {(variant === 'full' || variant === 'bottom') && (
           <View style={[styles.starContainer, { bottom: 120, left: -18 }]}>
             <EightPointStar size={90} color={motifColor} opacity={isDark ? 0.06 : 0.04} />
           </View>
         )}
 
-        {/* ─── CORNER ORNAMENTS ────────────────────────────────── */}
+        {/* --- CORNER ORNAMENTS ---------------------------------- */}
         {(variant === 'full' || variant === 'top') && (
           <>
             <CornerOrnament position="topRight" color={motifGold} isDark={isDark} />
@@ -126,7 +126,7 @@ export default function IslamicBackground({ variant = 'full', opacity = 1, child
         )}
       </View>
 
-      {/* ── CONTENT LAYER ────────────────────────────────────────── */}
+      {/* -- CONTENT LAYER ------------------------------------------ */}
       {children}
     </View>
   );

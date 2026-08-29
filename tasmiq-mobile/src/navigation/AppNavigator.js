@@ -34,7 +34,7 @@ const Tab   = createBottomTabNavigator();
 const PRIMARY = '#0B6E4F';
 const GOLD    = '#D4AF37';
 
-// ── Student Tab Navigator ─────────────────────────────────────────────────────
+// -- Student Tab Navigator -----------------------------------------------------
 function MainTabNavigator() {
   return (
     <Tab.Navigator
@@ -94,7 +94,7 @@ function MainTabNavigator() {
   );
 }
 
-// ── Root Navigator ────────────────────────────────────────────────────────────
+// -- Root Navigator ------------------------------------------------------------
 export default function AppNavigator() {
   // null = not logged in | object = session | undefined = loading
   const [session, setSession] = useState(undefined);
@@ -145,14 +145,14 @@ export default function AppNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {isLoggedIn ? (
         isStaff ? (
-          // ── TEACHER ZONE ──
+          // -- TEACHER ZONE --
           <>
             <Stack.Screen name="TeacherDashboard" component={TeacherDashboard} />
             <Stack.Screen name="TeacherStudents"  component={TeacherStudents} />
             <Stack.Screen name="TeacherReview"    component={TeacherReview} />
           </>
         ) : (
-          // ── STUDENT ZONE ──
+          // -- STUDENT ZONE --
           <>
             <Stack.Screen name="MainTabs"          component={MainTabNavigator} />
             <Stack.Screen name="TasmiqPrep"        component={TasmiqPrepScreen} />
@@ -165,7 +165,7 @@ export default function AppNavigator() {
           </>
         )
       ) : (
-        // ── AUTH ZONE ──
+        // -- AUTH ZONE --
         <>
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Login"   component={LoginScreen} />

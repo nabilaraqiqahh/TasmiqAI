@@ -10,7 +10,7 @@ import { supabase } from '../../services/supabaseClient';
 
 const { height } = Dimensions.get('window');
 
-// ── Fetch real platform stats from Supabase ────────────────────────────────────
+// -- Fetch real platform stats from Supabase ------------------------------------
 async function fetchStats() {
   try {
     const [usersRes, recRes] = await Promise.all([
@@ -66,7 +66,7 @@ export default function WelcomeScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
 
-        {/* ── HERO ──────────────────────────────────────────────────────── */}
+        {/* -- HERO -------------------------------------------------------- */}
         <ImageBackground
           source={require('../../../assets/redesign/hero-bg.jpg')}
           style={styles.heroBackground}
@@ -96,7 +96,7 @@ export default function WelcomeScreen({ navigation }) {
           </View>
         </ImageBackground>
 
-        {/* ── STATS BAR (real data) ─────────────────────────────────────── */}
+        {/* -- STATS BAR (real data) --------------------------------------- */}
         <View style={styles.statsBar}>
           {statsLoading ? (
             <ActivityIndicator color={'#0B6E4F'} style={{ flex: 1 }} />
@@ -120,7 +120,7 @@ export default function WelcomeScreen({ navigation }) {
           )}
         </View>
 
-        {/* ── CONTENT ───────────────────────────────────────────────────── */}
+        {/* -- CONTENT ----------------------------------------------------- */}
         <View style={styles.contentSection}>
           <Text style={styles.welcomeText}>
             Your personal AI Quran recitation coach.{'\n'}Practice, improve, and get assessed with confidence.
@@ -159,7 +159,7 @@ export default function WelcomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* ── QUOTE ─────────────────────────────────────────────────── */}
+          {/* -- QUOTE --------------------------------------------------- */}
           <View style={styles.quoteCard}>
             <Text style={styles.quoteArabic}>خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ</Text>
             <Text style={styles.quoteTranslation}>
@@ -167,7 +167,7 @@ export default function WelcomeScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* ── FOOTER ────────────────────────────────────────────────── */}
+          {/* -- FOOTER -------------------------------------------------- */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>TASMIQAI · RECITE. IMPROVE. GROW.</Text>
             <Text style={styles.footerSubtext}>Inspired by UTeM & Islamic Heritage</Text>

@@ -11,7 +11,7 @@ import { useTheme } from '../../context/ThemeContext';
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 
-/* ── Score Ring ─────────────────────────────────────────────── */
+/* -- Score Ring ----------------------------------------------- */
 function MetricBar({ label, score, color }) {
   const scoreNum = typeof score === 'number' ? score : 0;
   const barColor = scoreNum >= 85 ? '#0B6E4F' : scoreNum >= 70 ? '#D4AF37' : '#DC2626';
@@ -98,7 +98,7 @@ export default function TeacherReview({ navigation, route }) {
     return <View style={{ flex: 1, backgroundColor: '#FFFDF0', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={'#0B6E4F'} /></View>;
   }
 
-  /* ── Parse metrics — supports both old errors object and new dedicated columns ── */
+  /* -- Parse metrics — supports both old errors object and new dedicated columns -- */
   const getMetrics = (s) => {
     if (!s) return { memorization: 0, pronunciation: 0, tajwid: 0, fluency: 0 };
     // New schema: dedicated score columns

@@ -9,7 +9,7 @@ import { supabase } from '../../services/supabaseClient';
 import { getCurrentUser } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 
-// ── Error boundary to prevent full app crash ─────────────────────
+// -- Error boundary to prevent full app crash ---------------------
 class NudgeErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -65,7 +65,7 @@ function NudgeScreenInner({ navigation }) {
   const [selectedPreset, setSelectedPreset]       = useState(PREDEFINED_MESSAGES[0]);
   const [customText, setCustomText]               = useState('');
 
-  // ── Load Data on Focus ───────────────────────────────────────────
+  // -- Load Data on Focus -------------------------------------------
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
@@ -187,7 +187,7 @@ function NudgeScreenInner({ navigation }) {
     }
   };
 
-  // ── Anti-Spam Verification ───────────────────────────────────────
+  // -- Anti-Spam Verification ---------------------------------------
   const checkSpamLimits = async (receiverId, messageText) => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
 
@@ -308,7 +308,7 @@ function NudgeScreenInner({ navigation }) {
     
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-        {/* ── HEADER ─────────────────────────────────────────────────── */}
+        {/* -- HEADER --------------------------------------------------- */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 16 }}>
             <Ionicons name="arrow-back" size={24} color={'#064E3B'} />
@@ -319,7 +319,7 @@ function NudgeScreenInner({ navigation }) {
           </View>
         </View>
 
-        {/* ── TABS ───────────────────────────────────────────────────── */}
+        {/* -- TABS ----------------------------------------------------- */}
         <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 16, gap: 8 }}>
           {[
             { key: 'send',    label: 'Send Nudge' },
@@ -338,7 +338,7 @@ function NudgeScreenInner({ navigation }) {
           ))}
         </View>
 
-        {/* ── TAB content: SEND NUDGE ───────────────────────────────── */}
+        {/* -- TAB content: SEND NUDGE --------------------------------- */}
         {tab === 'send' && (
           <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4 }}>
             {classmates.length === 0 ? (
@@ -389,7 +389,7 @@ function NudgeScreenInner({ navigation }) {
           </ScrollView>
         )}
 
-        {/* ── TAB content: NUDGE HISTORY ────────────────────────────── */}
+        {/* -- TAB content: NUDGE HISTORY ------------------------------ */}
         {tab === 'history' && (
           <View style={{ flex: 1 }}>
             {/* Sub-tabs */}
@@ -465,7 +465,7 @@ function NudgeScreenInner({ navigation }) {
           </View>
         )}
 
-        {/* ── 💬 SEND NUDGE MODAL ───────────────────────────────────── */}
+        {/* -- 💬 SEND NUDGE MODAL ------------------------------------- */}
         <Modal visible={nudgeModalVisible} animationType="fade" transparent>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
             <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '85%' }}>

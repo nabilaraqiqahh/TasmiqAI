@@ -1,6 +1,6 @@
 /**
  * notificationService.js
- * ─────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------
  * Handles all in-app notification logic for TasmiqAI students.
  *
  * Key responsibilities:
@@ -8,11 +8,11 @@
  *  - Mark individual / all notifications as read
  *  - Subscribe to real-time NEW notifications via Supabase channel
  *  - Typed helpers for TEACHER_TASMIQ_EVALUATION payloads
- * ─────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------
  */
 import { supabase } from './supabaseClient';
 
-// ── FETCH ─────────────────────────────────────────────────────────
+// -- FETCH ---------------------------------------------------------
 
 /**
  * Fetch all notifications for a student.
@@ -75,7 +75,7 @@ export const getUnreadCount = async (studentId) => {
   return count || 0;
 };
 
-// ── MARK READ ─────────────────────────────────────────────────────
+// -- MARK READ -----------------------------------------------------
 
 /**
  * Mark a single notification as read.
@@ -117,7 +117,7 @@ export const markAllAsRead = async (studentId) => {
   }
 };
 
-// ── REAL-TIME SUBSCRIPTION ────────────────────────────────────────
+// -- REAL-TIME SUBSCRIPTION ----------------------------------------
 
 /**
  * Subscribe to new notifications for a student via Supabase Realtime.
@@ -166,7 +166,7 @@ export const subscribeToNotifications = (studentId, onNew) => {
   };
 };
 
-// ── EVALUATION HELPERS ────────────────────────────────────────────
+// -- EVALUATION HELPERS --------------------------------------------
 
 /**
  * Returns true if the notification is a teacher Tasmiq evaluation.

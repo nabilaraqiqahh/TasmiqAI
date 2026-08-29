@@ -18,7 +18,7 @@ const GL = '#F8E7A1';
 const BG = '#F8FAF8';
 const RED = '#DC2626';
 
-// ── Circular progress ring ────────────────────────────────────────────────────
+// -- Circular progress ring ----------------------------------------------------
 function CircleProgress({ pct, size = 90, strokeWidth = 8, color = P, label, sub }) {
   const r   = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
@@ -56,7 +56,7 @@ function CircleProgress({ pct, size = 90, strokeWidth = 8, color = P, label, sub
   );
 }
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
+// -- Stat card -----------------------------------------------------------------
 function StatCard({ icon, color, bg, label, value }) {
   return (
     <View style={{
@@ -104,7 +104,7 @@ export default function ProgressScreen({ navigation }) {
     load();
   }, []));
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
+  // -- Derived stats ---------------------------------------------------------
   const stats = useMemo(() => {
     const exercises   = recitations.filter(r => r.is_exercise);
     const assessments = recitations.filter(r => !r.is_exercise);
@@ -158,14 +158,14 @@ export default function ProgressScreen({ navigation }) {
   const sessions  = profile?.total_sessions     ?? 0;
   const progress  = profile?.progress_percentage ?? 0;
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // -----------------------------------------------------------------------------
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
       <StatusBar barStyle="light-content" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
 
-        {/* ── HEADER ─────────────────────────────────────────────────────── */}
+        {/* -- HEADER ------------------------------------------------------- */}
         <LinearGradient
           colors={[P, PD]}
           start={{ x: 0, y: 0 }}
@@ -218,7 +218,7 @@ export default function ProgressScreen({ navigation }) {
         ) : (
           <View style={{ paddingHorizontal: 20, paddingTop: 22 }}>
 
-            {/* ── STAT CARDS ────────────────────────────────────────────── */}
+            {/* -- STAT CARDS ---------------------------------------------- */}
             <Text style={{ fontSize: 12, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 14 }}>OVERVIEW</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
               <StatCard icon="mic"         color={P}       bg={PL}          label="AI Practices"  value={stats.exercises} />
@@ -231,13 +231,13 @@ export default function ProgressScreen({ navigation }) {
               <StatCard icon="flame"       color="#EA580C" bg="#FED7AA"      label="Streak"        value={streak} />
             </View>
 
-            {/* ── WEEKLY ACTIVITY ───────────────────────────────────────── */}
+            {/* -- WEEKLY ACTIVITY ----------------------------------------- */}
             <Text style={{ fontSize: 12, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 14 }}>WEEKLY ACTIVITY</Text>
             <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, marginBottom: 22, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
               <WeeklyBars recitations={recitations} />
             </View>
 
-            {/* ── RECENT AI RESULTS ─────────────────────────────────────── */}
+            {/* -- RECENT AI RESULTS --------------------------------------- */}
             {stats.recent.length > 0 && (
               <>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -271,7 +271,7 @@ export default function ProgressScreen({ navigation }) {
               </>
             )}
 
-            {/* ── IMPROVEMENT TIP ───────────────────────────────────────── */}
+            {/* -- IMPROVEMENT TIP ----------------------------------------- */}
             {stats.exercises > 0 && (
               <View style={{ backgroundColor: PL, borderRadius: 16, padding: 18, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: P + '20', alignItems: 'center', justifyContent: 'center' }}>
@@ -292,7 +292,7 @@ export default function ProgressScreen({ navigation }) {
               </View>
             )}
 
-            {/* ── EMPTY STATE ────────────────────────────────────────────── */}
+            {/* -- EMPTY STATE ---------------------------------------------- */}
             {recitations.length === 0 && !loading && (
               <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 36, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
                 <Ionicons name="stats-chart-outline" size={52} color="#D1D5DB" style={{ marginBottom: 14 }} />
@@ -316,7 +316,7 @@ export default function ProgressScreen({ navigation }) {
   );
 }
 
-// ── Weekly bar chart ──────────────────────────────────────────────────────────
+// -- Weekly bar chart ----------------------------------------------------------
 function WeeklyBars({ recitations }) {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const today = new Date();

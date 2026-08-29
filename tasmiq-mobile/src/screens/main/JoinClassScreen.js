@@ -148,7 +148,7 @@ export default function JoinClassScreen({ navigation }) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
 
-            {/* ── STATUS: APPROVED ── */}
+            {/* -- STATUS: APPROVED -- */}
             {enrollment?.status === 'approved' && (
               <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 28, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 }}>
                 <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: '#E6F9F3', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
@@ -165,7 +165,7 @@ export default function JoinClassScreen({ navigation }) {
               </View>
             )}
 
-            {/* ── JOIN FORM — only show if not approved ── */}
+            {/* -- JOIN FORM — only show if not approved -- */}
             {(!enrollment || enrollment.status !== 'approved') && (
               <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 28, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, elevation: 4 }}>
                 <View style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: '#E6F9F3', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>

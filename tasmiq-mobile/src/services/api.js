@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 //  Production API URL — https://api.tasmiqai.com
 //
 //  For local development (Expo Go on same WiFi):
@@ -12,7 +12,7 @@ import { Platform } from 'react-native';
 //    export const API_URL = Platform.OS === 'web'
 //      ? 'http://localhost:8001'
 //      : `http://${MY_PC_IP}:8001`;
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 export const API_URL = 'https://api.tasmiqai.com';
 
 const api = axios.create({
@@ -20,9 +20,9 @@ const api = axios.create({
   timeout: 90000, // 90s — Gemini can take up to ~15s, audio upload adds more
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 //  analyzeRecitation — sends audio to backend AI for assessment
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 export const analyzeRecitation = async (audioUri, surah = 1, ayah = 1, expectedText = '') => {
   const formData = new FormData();
 
@@ -55,9 +55,9 @@ export const analyzeRecitation = async (audioUri, surah = 1, ayah = 1, expectedT
   return response.data;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 //  assessChunk — live word tracking (web only, native falls back silently)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 export const assessChunk = async (audioBlobOrUri, expectedText) => {
   try {
     const formData = new FormData();
@@ -80,9 +80,9 @@ export const assessChunk = async (audioBlobOrUri, expectedText) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 //  checkBackendConnection — call on app start to warn user if backend is down
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 export const checkBackendConnection = async () => {
   try {
     const res = await axios.get(`${API_URL}/health`, { timeout: 5000 });

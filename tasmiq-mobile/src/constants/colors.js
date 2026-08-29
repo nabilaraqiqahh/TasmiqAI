@@ -3,27 +3,27 @@
 
 export const Colors = {
   light: {
-    // ── Brand ──────────────────────────────────────────────────
+    // -- Brand --------------------------------------------------
     primary:      '#0B6E4F',   // Emerald Green — buttons, active nav, key actions
     primaryDark:  '#064E3B',   // Dark Emerald  — headings, icons, high contrast
     primaryLight: '#D1FAE5',   // Light Emerald — card bg, selected states, accents
 
-    // ── Gold ───────────────────────────────────────────────────
+    // -- Gold ---------------------------------------------------
     accent:       '#D4AF37',   // Primary Gold  — highlights, achievements
     accentLight:  '#F8E7A1',   // Light Gold    — badges, achievement bg
 
-    // ── Backgrounds ────────────────────────────────────────────
+    // -- Backgrounds --------------------------------------------
     bg:           '#FFFDF0',   // Warm Light Yellow — main app background
     bgSoft:       '#FFF9E6',   // Soft Cream — cards, sections, containers
     card:         '#FFFFFF',   // Pure white — prominent cards
 
-    // ── Text ───────────────────────────────────────────────────
+    // -- Text ---------------------------------------------------
     text:         '#064E3B',   // Dark Emerald for body text
     textStrong:   '#022B22',   // Very dark for headings
     muted:        '#6B7280',   // Grey for secondary text
     subtle:       '#9CA3AF',   // Light grey for hints
 
-    // ── Utility ────────────────────────────────────────────────
+    // -- Utility ------------------------------------------------
     border:       '#E8F0EA',   // Soft green-tinted border
     white:        '#FFFFFF',
     red:          '#DC2626',
@@ -57,7 +57,7 @@ export const Colors = {
   },
 };
 
-// ── Semantic aliases used across the app ──────────────────────────────────────
+// -- Semantic aliases used across the app --------------------------------------
 export const T = {
   PRIMARY:      '#0B6E4F',
   PRIMARY_DARK: '#064E3B',
