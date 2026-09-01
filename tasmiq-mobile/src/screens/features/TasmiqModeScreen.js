@@ -751,7 +751,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
   if (submitSuccess) {
     return (
-      
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
           <StatusBar barStyle="dark-content" />
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
             <View style={{
@@ -806,8 +806,8 @@ export default function TasmiqModeScreen({ navigation, route }) {
   // ═══════════════════════════════════════════════════════════════
 
   return (
-    
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <SafeAreaView style={{ flex: 1 }}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
         {/* Top Header bar */}
         <View style={{

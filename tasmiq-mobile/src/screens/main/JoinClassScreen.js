@@ -130,7 +130,6 @@ export default function JoinClassScreen({ navigation }) {
   if (checking) return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator size="large" color={PRIMARY} />
-    </SafeAreaView>
   );
 
   return (

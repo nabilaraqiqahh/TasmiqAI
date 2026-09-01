@@ -42,6 +42,7 @@ function StatusBadge({ status }) {
   const icon  = isPass ? 'checkmark-circle' : isRepeat ? 'refresh-circle' : 'time-outline';
 
   return (
+    <SafeAreaView style={{ flex: 1 }}>
     <View style={{
       flexDirection: 'row', alignItems: 'center', gap: 6,
       backgroundColor: bg, paddingHorizontal: 14, paddingVertical: 8,
@@ -189,8 +190,6 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
       
           <ActivityIndicator size="large" color="#0B6E4F" />
           <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>Loading evaluation…</Text>
-        </SafeAreaView>
-      
     );
   }
 
@@ -210,8 +209,6 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
           >
             <Text style={{ color: 'white', fontWeight: '800' }}>Go Back</Text>
           </TouchableOpacity>
-        </SafeAreaView>
-      
     );
   }
 

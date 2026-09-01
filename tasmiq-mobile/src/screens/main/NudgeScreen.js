@@ -31,7 +31,6 @@ class NudgeErrorBoundary extends Component {
           >
             <Text style={{ color: 'white', fontWeight: '700' }}>Try Again</Text>
           </TouchableOpacity>
-        </SafeAreaView>
       );
     }
     return this.props.children;

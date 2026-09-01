@@ -316,48 +316,40 @@ export default function ProfileScreen({ navigation }) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={'#0B6E4F'} />
-      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }} style={{ flex: 1 }}>
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
-                    {/* PROFILE GRADIENT HEADER */}
-          <LinearGradient
-            colors={['#0B6E4F', '#064E3B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ paddingTop: 28, paddingBottom: 36, alignItems: 'center', borderBottomLeftRadius: 32, borderBottomRightRadius: 32, marginBottom: 20 }}
-          >
-            <View style={{ position: 'relative', marginBottom: 12 }}>
-              <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)' }}>
-                <Text style={{ fontSize: 40 }}>👤</Text>
-              </View>
-              <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#D4AF37', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#064E3B' }}>
-                <Ionicons name="star" size={11} color="white" />
-              </View>
+        {/* PROFILE GRADIENT HEADER */}
+        <LinearGradient
+          colors={['#0B6E4F', '#064E3B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ paddingTop: 28, paddingBottom: 36, alignItems: 'center', borderBottomLeftRadius: 32, borderBottomRightRadius: 32, marginBottom: 20 }}
+        >
+          <View style={{ position: 'relative', marginBottom: 12 }}>
+            <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)' }}>
+              <Text style={{ fontSize: 40 }}>👤</Text>
             </View>
-            <Text style={{ fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginBottom: 4 }}>{studentName}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '600' }}>{studentEmail}</Text>
-              <View style={{ backgroundColor: 'rgba(212,175,55,0.3)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <Text style={{ fontSize: 10, fontWeight: '800', color: '#D4AF37', textTransform: 'uppercase' }}>{txt.student}</Text>
-              </View>
-            </View>
-          </LinearGradient>
-
-          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#CCC' }} />
-              <Text style={{ fontSize: 12, color: '#0B6E4F', fontWeight: '800', textTransform: 'uppercase' }}>
-                {txt.student}
-              </Text>
+            <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#D4AF37', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#064E3B' }}>
+              <Ionicons name="star" size={11} color="white" />
             </View>
           </View>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginBottom: 4 }}>{studentName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '600' }}>{studentEmail}</Text>
+            <View style={{ backgroundColor: 'rgba(212,175,55,0.3)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: '#D4AF37', textTransform: 'uppercase' }}>{txt.student}</Text>
+            </View>
+          </View>
+        </LinearGradient>
 
-          {/* ðŸ“Š NUDGE ANALYTICS GRID */}
+        {/* 📊 NUDGE ANALYTICS GRID */}
           <View style={{ paddingHorizontal: 20, marginBottom: 22 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
               <View style={{
