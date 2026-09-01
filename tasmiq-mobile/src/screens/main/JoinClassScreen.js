@@ -133,8 +133,8 @@ export default function JoinClassScreen({ navigation }) {
   );
 
   return (
-    
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={'#FFFDF0'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: \'#FFFDF0\' }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={'#FFFDF0'} />
 
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
@@ -227,5 +227,6 @@ export default function JoinClassScreen({ navigation }) {
         </KeyboardAvoidingView>
       </SafeAreaView>
     
+    </SafeAreaView>
   );
 }

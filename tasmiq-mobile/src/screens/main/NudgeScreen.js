@@ -31,6 +31,7 @@ class NudgeErrorBoundary extends Component {
           >
             <Text style={{ color: 'white', fontWeight: '700' }}>Try Again</Text>
           </TouchableOpacity>
+        </SafeAreaView>
       );
     }
     return this.props.children;
@@ -304,8 +305,8 @@ function NudgeScreenInner({ navigation }) {
   );
 
   return (
-    
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
         {/* -- HEADER --------------------------------------------------- */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
@@ -313,8 +314,8 @@ function NudgeScreenInner({ navigation }) {
             <Ionicons name="arrow-back" size={24} color={'#064E3B'} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 20, fontWeight: '900', color: '#0B6E4F', margin: 0 }}>Nudge System</h1>
-            <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Remind classmates to practice their Quran 🌿</p>
+            <Text style={{ fontSize: 20, fontWeight: '900', color: '#0B6E4F' }}>Nudge System</Text>
+            <Text style={{ fontSize: 13, color: '#6B7280' }}>Remind classmates to practice their Quran 🌿</Text>
           </View>
         </View>
 

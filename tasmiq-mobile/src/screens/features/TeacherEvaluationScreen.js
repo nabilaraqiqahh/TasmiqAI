@@ -42,7 +42,6 @@ function StatusBadge({ status }) {
   const icon  = isPass ? 'checkmark-circle' : isRepeat ? 'refresh-circle' : 'time-outline';
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
     <View style={{
       flexDirection: 'row', alignItems: 'center', gap: 6,
       backgroundColor: bg, paddingHorizontal: 14, paddingVertical: 8,
@@ -187,15 +186,16 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
   // -- Render ------------------------------------------------------
   if (loading) {
     return (
-      
-          <ActivityIndicator size="large" color="#0B6E4F" />
-          <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>Loading evaluation…</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#0B6E4F" />
+        <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>Loading evaluation…</Text>
+      </SafeAreaView>
     );
   }
 
   if (!recitation) {
     return (
-      
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <Ionicons name="alert-circle-outline" size={56} color={'#6B7280'} />
           <Text style={{ color: '#064E3B', fontSize: 18, fontWeight: '800', marginTop: 16 }}>
             Evaluation Not Found
@@ -209,6 +209,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
           >
             <Text style={{ color: 'white', fontWeight: '800' }}>Go Back</Text>
           </TouchableOpacity>
+      </SafeAreaView>
     );
   }
 
@@ -216,8 +217,8 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
   const isRepeat = evalStatus === 'REPEAT' || evalStatus === 'repeat';
 
   return (
-    
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         {/* -- Header ---------------------------------------------- */}
         <View style={{

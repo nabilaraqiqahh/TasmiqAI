@@ -316,6 +316,7 @@ export default function ProfileScreen({ navigation }) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={'#0B6E4F'} />
+      </SafeAreaView>
     );
   }
 
