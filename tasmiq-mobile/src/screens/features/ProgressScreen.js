@@ -285,7 +285,7 @@ export default function ProgressScreen({ navigation }) {
                     {stats.avgAI >= 80
                       ? 'Your AI scores are outstanding. Ready for official assessment!'
                       : stats.avgAI >= 60
-                        ? 'You\'re improving. Aim for 70% to unlock official assessment.'
+                        ? 'You're improving. Aim for 70% to unlock official assessment.'
                         : 'Practice daily with Murajaah to strengthen your memorization.'}
                   </Text>
                 </View>
