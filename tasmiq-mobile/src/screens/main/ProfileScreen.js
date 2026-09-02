@@ -14,194 +14,117 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function ProfileScreen({ navigation }) {
-  const { isDark, toggleTheme, colors: C } = useTheme();
-  const { language, changeLanguage, t } = useLanguage();
+const P  = '#0B6E4F';
+const PD = '#064E3B';
+const PL = '#D1FAE5';
+const G  = '#D4AF37';
+const BG = '#FFFDF0';
+const BS = '#FFF9E6';
 
-  // â”€â”€ States â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const [profile, setProfile]   = useState(null);
-  const [user, setUser]         = useState(null);
-  const [classes, setClasses]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [nudgesSent, setNudgesSent] = useState(0);
+export default function ProfileScreen({ navigation }) {
+  const { isDark, colors: C } = useTheme();
+  const { language, changeLanguage } = useLanguage();
+
+  const [profile,   setProfile]   = useState(null);
+  const [user,      setUser]      = useState(null);
+  const [classes,   setClasses]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [nudgesSent,     setNudgesSent]     = useState(0);
   const [nudgesReceived, setNudgesReceived] = useState(0);
 
-  // Notification Preferences
-  const [notifs, setNotifs]     = useState({
-    announcement: true,
-    feedback:     true,
-    nudge:        true,
-    tasmiq:       true,
-    murajaah:     true,
+  const [notifs, setNotifs] = useState({
+    announcement: true, feedback: true, nudge: true, tasmiq: true, murajaah: true,
   });
 
-  // Modals Visibility
-  const [nameModalVisible, setNameModalVisible] = useState(false);
-  const [pwdModalVisible, setPwdModalVisible]   = useState(false);
+  const [nameModalVisible,     setNameModalVisible]     = useState(false);
+  const [pwdModalVisible,      setPwdModalVisible]      = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
-  // Edit fields
-  const [newName, setNewName]               = useState('');
-  const [currentPwd, setCurrentPwd]         = useState('');
-  const [newPwd, setNewPwd]                 = useState('');
-  const [confirmPwd, setConfirmPwd]         = useState('');
-  const [updating, setUpdating]             = useState(false);
-  const [showCurrent, setShowCurrent]       = useState(false);
-  const [showNew, setShowNew]               = useState(false);
-  const [showConfirm, setShowConfirm]       = useState(false);
+  const [newName,    setNewName]    = useState('');
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd,     setNewPwd]     = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [updating,   setUpdating]   = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew,     setShowNew]     = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  // â”€â”€ Load Data on Focus â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  useFocusEffect(
-    useCallback(() => {
-      let isMounted = true;
-      const load = async () => {
-        setLoading(true);
-        try {
-          const session = await getCurrentUser();
-          if (!session?.id) {
-            if (isMounted) setLoading(false);
-            return;
-          }
-          if (isMounted) setUser(session);
+  useFocusEffect(useCallback(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const session = await getCurrentUser();
+        if (!session?.id) { if (mounted) setLoading(false); return; }
+        if (mounted) setUser(session);
 
-          // Get profile
-          const userProf = await getUserProfile(session.id);
-          if (isMounted) {
-            setProfile(userProf);
-            setNewName(userProf?.full_name || '');
-          }
+        const userProf = await getUserProfile(session.id);
+        if (mounted) { setProfile(userProf); setNewName(userProf?.full_name || ''); }
 
-          // Get student settings (DB/AsyncStorage fallback)
-          const settings = await getStudentSettings(session.id);
-          if (isMounted && settings) {
-            setNotifs({
-              announcement: settings.notify_announcement !== false,
-              feedback:     settings.notify_feedback     !== false,
-              nudge:        settings.notify_nudge        !== false,
-              tasmiq:       settings.notify_tasmiq       !== false,
-              murajaah:     settings.notify_murajaah     !== false,
-            });
-          }
-
-          // Fetch nudge analytics
-          const { count: sentCount } = await supabase
-            .from('nudges')
-            .select('*', { count: 'exact', head: true })
-            .eq('sender_id', session.id);
-            
-          const { count: receivedCount } = await supabase
-            .from('nudges')
-            .select('*', { count: 'exact', head: true })
-            .eq('receiver_id', session.id);
-
-          if (isMounted) {
-            setNudgesSent(sentCount || 0);
-            setNudgesReceived(receivedCount || 0);
-          }
-
-          // Fetch enrolled classes
-          const { data: memberships } = await supabase
-            .from('class_members')
-            .select('class_id, joined_at')
-            .eq('student_id', session.id);
-
-          let loadedClasses = [];
-          if (memberships?.length) {
-            const classIds = memberships.map(m => m.class_id);
-            const { data: classData } = await supabase
-              .from('classes')
-              .select('id, name, class_code, unique_code, teacher_id')
-              .in('id', classIds);
-
-            // Get teacher names
-            const teacherIds = [...new Set((classData || []).map(c => c.teacher_id).filter(Boolean))];
-            let teacherMap = {};
-            if (teacherIds.length) {
-              const { data: teachers } = await supabase
-                .from('users').select('id, full_name').in('id', teacherIds);
-              (teachers || []).forEach(t => { teacherMap[t.id] = t.full_name; });
-            }
-
-            // Count classmates
-            const countMap = {};
-            for (const cid of classIds) {
-              const { count } = await supabase
-                .from('class_members')
-                .select('*', { count: 'exact', head: true })
-                .eq('class_id', cid);
-              countMap[cid] = count || 0;
-            }
-
-            loadedClasses = (classData || []).map(c => {
-              const membership = memberships.find(m => m.class_id === c.id);
-              return {
-                ...c,
-                teacher_name:    teacherMap[c.teacher_id] || 'Teacher',
-                total_classmates: countMap[c.id] || 0,
-                joined_at:       membership?.joined_at,
-                code:            c.unique_code || c.class_code || 'â€”',
-                status:          'approved',
-              };
-            });
-          }
-
-          // Check pending join requests (decoupled to avoid PGRST200 join cache errors)
-          const { data: pending } = await supabase
-            .from('join_requests')
-            .select('class_id, status, created_at')
-            .eq('student_id', session.id)
-            .eq('status', 'pending');
-
-          if (pending?.length) {
-            const pendingClassIds = pending.map(p => p.class_id);
-            const { data: pendingClasses } = await supabase
-              .from('classes')
-              .select('id, name')
-              .in('id', pendingClassIds);
-
-            const pendingClassMap = Object.fromEntries((pendingClasses || []).map(c => [c.id, c.name]));
-
-            const mappedPending = pending.map(p => ({
-              id: p.class_id,
-              name: pendingClassMap[p.class_id] || 'Unknown Class',
-              status: 'pending',
-              joined_at: p.created_at,
-              teacher_name: 'â€”', total_classmates: 0, code: 'â€”',
-            }));
-
-            loadedClasses = [...loadedClasses, ...mappedPending];
-          }
-
-          if (isMounted) setClasses(loadedClasses);
-        } catch (err) {
-          console.error('[ProfileScreen] load error:', err);
-        } finally {
-          if (isMounted) setLoading(false);
+        const settings = await getStudentSettings(session.id);
+        if (mounted && settings) {
+          setNotifs({
+            announcement: settings.notify_announcement !== false,
+            feedback:     settings.notify_feedback     !== false,
+            nudge:        settings.notify_nudge        !== false,
+            tasmiq:       settings.notify_tasmiq       !== false,
+            murajaah:     settings.notify_murajaah     !== false,
+          });
         }
-      };
 
-      load();
-      return () => { isMounted = false; };
-    }, [])
-  );
+        const { count: sent }     = await supabase.from('nudges').select('*', { count: 'exact', head: true }).eq('sender_id', session.id);
+        const { count: received } = await supabase.from('nudges').select('*', { count: 'exact', head: true }).eq('receiver_id', session.id);
+        if (mounted) { setNudgesSent(sent || 0); setNudgesReceived(received || 0); }
 
-  // â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const handleLogout = async () => {
-    const doLogout = async () => {
-      await logoutUser();
-      navigation.replace('Welcome');
+        const { data: memberships } = await supabase.from('class_members').select('class_id, joined_at').eq('student_id', session.id);
+        let loadedClasses = [];
+        if (memberships?.length) {
+          const classIds = memberships.map(m => m.class_id);
+          const { data: classData } = await supabase.from('classes').select('id, name, class_code, unique_code, teacher_id').in('id', classIds);
+          const teacherIds = [...new Set((classData || []).map(c => c.teacher_id).filter(Boolean))];
+          let teacherMap = {};
+          if (teacherIds.length) {
+            const { data: teachers } = await supabase.from('users').select('id, full_name').in('id', teacherIds);
+            (teachers || []).forEach(t => { teacherMap[t.id] = t.full_name; });
+          }
+          const countMap = {};
+          for (const cid of classIds) {
+            const { count } = await supabase.from('class_members').select('*', { count: 'exact', head: true }).eq('class_id', cid);
+            countMap[cid] = count || 0;
+          }
+          loadedClasses = (classData || []).map(c => {
+            const mem = memberships.find(m => m.class_id === c.id);
+            return { ...c, teacher_name: teacherMap[c.teacher_id] || 'Teacher', total_classmates: countMap[c.id] || 0, joined_at: mem?.joined_at, code: c.unique_code || c.class_code || '—', status: 'approved' };
+          });
+        }
+
+        const { data: pending } = await supabase.from('join_requests').select('class_id, status, created_at').eq('student_id', session.id).eq('status', 'pending');
+        if (pending?.length) {
+          const pids = pending.map(p => p.class_id);
+          const { data: pc } = await supabase.from('classes').select('id, name').in('id', pids);
+          const pm = Object.fromEntries((pc || []).map(c => [c.id, c.name]));
+          loadedClasses = [...loadedClasses, ...pending.map(p => ({ id: p.class_id, name: pm[p.class_id] || 'Unknown', status: 'pending', joined_at: p.created_at, teacher_name: '—', total_classmates: 0, code: '—' }))];
+        }
+        if (mounted) setClasses(loadedClasses);
+      } catch (err) {
+        console.error('[ProfileScreen]', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
+    load();
+    return () => { mounted = false; };
+  }, []));
+
+  const handleLogout = async () => {
+    const doLogout = async () => { await logoutUser(); navigation.replace('Welcome'); };
     if (Platform.OS === 'web') {
-      if (window.confirm(language === 'ms' ? 'Anda pasti ingin log keluar?' : 'Are you sure you want to logout?')) doLogout();
+      if (window.confirm('Are you sure you want to logout?')) doLogout();
     } else {
-      Alert.alert(
-        language === 'ms' ? 'Log Keluar' : 'Logout',
-        language === 'ms' ? 'Anda pasti ingin log keluar?' : 'Are you sure you want to logout?',
-        [
-          { text: language === 'ms' ? 'Batal' : 'Cancel', style: 'cancel' },
-          { text: language === 'ms' ? 'Log Keluar' : 'Logout', style: 'destructive', onPress: doLogout }
-        ]
-      );
+      Alert.alert('Logout', 'Are you sure you want to logout?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: doLogout },
+      ]);
     }
   };
 
@@ -210,125 +133,94 @@ export default function ProfileScreen({ navigation }) {
     setUpdating(true);
     try {
       await updateUserProfile(user.id, { full_name: newName.trim(), display_name: newName.trim() });
-      setProfile(prev => ({ ...prev, full_name: newName.trim(), displayName: newName.trim() }));
+      setProfile(prev => ({ ...prev, full_name: newName.trim() }));
       setNameModalVisible(false);
-      Alert.alert(language === 'ms' ? "Berjaya" : "Success", language === 'ms' ? "Profil dikemas kini!" : "Profile updated successfully!");
-    } catch (err) {
-      Alert.alert("Error", err.message || "Failed to update profile.");
-    } finally {
-      setUpdating(false);
-    }
+      Alert.alert('Success', 'Name updated!');
+    } catch (err) { Alert.alert('Error', err.message); }
+    finally { setUpdating(false); }
   };
 
   const handleSavePassword = async () => {
-    if (!currentPwd || !newPwd || !confirmPwd) {
-      Alert.alert("Error", language === 'ms' ? "Sila isi semua ruangan kata laluan." : "Please fill in all password fields.");
-      return;
-    }
-    if (newPwd !== confirmPwd) {
-      Alert.alert("Error", language === 'ms' ? "Kata laluan baru tidak sepadan." : "New password and confirmation do not match.");
-      return;
-    }
-    if (newPwd.length < 6) {
-      Alert.alert("Error", language === 'ms' ? "Kata laluan mesti sekurang-kurangnya 6 aksara." : "New password must be at least 6 characters.");
-      return;
-    }
-
+    if (!currentPwd || !newPwd || !confirmPwd) { Alert.alert('Error', 'Fill in all fields.'); return; }
+    if (newPwd !== confirmPwd) { Alert.alert('Error', 'Passwords do not match.'); return; }
+    if (newPwd.length < 6) { Alert.alert('Error', 'Password must be at least 6 characters.'); return; }
     setUpdating(true);
     try {
       await changePassword(user.id, currentPwd, newPwd);
-      setCurrentPwd('');
-      setNewPwd('');
-      setConfirmPwd('');
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
       setPwdModalVisible(false);
-      Alert.alert(
-        language === 'ms' ? "Berjaya" : "Success",
-        language === 'ms' ? "Kata laluan dikemas kini berjaya." : "Password updated successfully."
-      );
-    } catch (err) {
-      Alert.alert("Error", err.message || "Incorrect current password or update failed.");
-    } finally {
-      setUpdating(false);
-    }
+      Alert.alert('Success', 'Password updated.');
+    } catch (err) { Alert.alert('Error', err.message || 'Incorrect current password.'); }
+    finally { setUpdating(false); }
   };
 
   const handleToggleNotif = async (key, val) => {
-    const updated = { ...notifs, [key]: val };
-    setNotifs(updated);
-    try {
-      await updateStudentSettings(user.id, {
-        [`notify_${key}`]: val
-      });
-    } catch (e) {
-      console.error(e);
-    }
+    setNotifs(prev => ({ ...prev, [key]: val }));
+    try { await updateStudentSettings(user.id, { [`notify_${key}`]: val }); } catch {}
   };
 
   const handleSelectLanguage = async (langCode) => {
     await changeLanguage(langCode);
     setLanguageModalVisible(false);
-    try {
-      await updateStudentSettings(user.id, { language: langCode });
-    } catch (e) {
-      console.error(e);
-    }
+    try { await updateStudentSettings(user.id, { language: langCode }); } catch {}
   };
 
-  // Helper translations
+  const ms = language === 'ms';
   const txt = {
-    classInfo:     language === 'ms' ? 'Maklumat Kelas' : 'Class Information',
-    noClass:       language === 'ms' ? 'Belum berdaftar dalam mana-mana kelas.' : 'Not enrolled in any class yet.',
-    joinBtn:       language === 'ms' ? 'Sertai Kelas' : 'Join a Class',
-    enrollDate:    language === 'ms' ? 'Tarikh Daftar' : 'Enrollment Date',
-    teacher:       language === 'ms' ? 'Guru' : 'Teacher',
-    classCode:     language === 'ms' ? 'Kod Kelas' : 'Class Code',
-    classmates:    language === 'ms' ? 'Rakan Sekelas' : 'Classmates',
-    student:       language === 'ms' ? 'Pelajar' : 'Student',
-    status:        language === 'ms' ? 'Status' : 'Status',
-    enrolled:      language === 'ms' ? 'Aktif' : 'Enrolled',
-    pending:       language === 'ms' ? 'Menunggu Kelulusan' : 'Pending Approval',
-    leaveBtn:      language === 'ms' ? 'Keluar Kelas' : 'Leave Class',
-    leaveConfirm:  language === 'ms' ? 'Adakah anda pasti mahu keluar kelas?' : 'Are you sure you want to leave class?',
-    profileInfo:   language === 'ms' ? 'Maklumat Profil' : 'Profile Information',
-    fullName:      language === 'ms' ? 'Nama Penuh' : 'Full Name',
-    email:         language === 'ms' ? 'Alamat Emel' : 'Email Address',
-    editName:      language === 'ms' ? 'Kemas Kini Nama' : 'Edit Name',
-    notifsTitle:   language === 'ms' ? 'Tetapan Notifikasi' : 'Notification Preferences',
-    annNotif:      language === 'ms' ? 'Pengumuman Kelas' : 'Class Announcements',
-    feedbackNotif: language === 'ms' ? 'Maklum Balas Guru' : 'Teacher Feedback',
-    nudgeNotif:    language === 'ms' ? 'Notifikasi Nudge' : 'Nudge Notifications',
-    tasmiqNotif:   language === 'ms' ? 'Kemaskini Tasmiq' : 'Tasmiq Updates',
-    murajaahNotif: language === 'ms' ? 'Kemaskini Murajaah' : 'Murajaah Updates',
-    langTitle:     language === 'ms' ? 'Bahasa Aplikasi' : 'App Language',
-    secTitle:      language === 'ms' ? 'Keselamatan Akaun' : 'Account Security',
-    logoutBtn:     language === 'ms' ? 'Log Keluar Akaun' : 'Logout Account',
-    currentPass:   language === 'ms' ? 'Kata Laluan Semasa' : 'Current Password',
-    newPass:       language === 'ms' ? 'Kata Laluan Baru' : 'New Password',
-    confirmPass:   language === 'ms' ? 'Sahkan Kata Laluan Baru' : 'Confirm New Password',
-    saveBtn:       language === 'ms' ? 'Simpan Perubahan' : 'Save Changes',
-    cancelBtn:     language === 'ms' ? 'Batal' : 'Cancel',
+    classInfo:     ms ? 'Maklumat Kelas'       : 'Class Information',
+    noClass:       ms ? 'Belum berdaftar.'     : 'Not enrolled in any class yet.',
+    joinBtn:       ms ? 'Sertai Kelas'         : 'Join a Class',
+    enrollDate:    ms ? 'Tarikh Daftar'        : 'Enrollment Date',
+    teacher:       ms ? 'Guru'                 : 'Teacher',
+    classCode:     ms ? 'Kod Kelas'            : 'Class Code',
+    classmates:    ms ? 'Rakan Sekelas'        : 'Classmates',
+    student:       ms ? 'Pelajar'              : 'Student',
+    enrolled:      ms ? 'Aktif'                : 'Enrolled',
+    pending:       ms ? 'Menunggu Kelulusan'   : 'Pending Approval',
+    leaveBtn:      ms ? 'Keluar Kelas'         : 'Leave Class',
+    leaveConfirm:  ms ? 'Pasti mahu keluar?'   : 'Are you sure you want to leave?',
+    profileInfo:   ms ? 'Maklumat Profil'      : 'Profile Information',
+    fullName:      ms ? 'Nama Penuh'           : 'Full Name',
+    email:         ms ? 'Emel'                 : 'Email Address',
+    editName:      ms ? 'Kemas Kini Nama'      : 'Edit Name',
+    notifsTitle:   ms ? 'Tetapan Notifikasi'   : 'Notification Preferences',
+    annNotif:      ms ? 'Pengumuman Kelas'     : 'Class Announcements',
+    feedbackNotif: ms ? 'Maklum Balas Guru'    : 'Teacher Feedback',
+    nudgeNotif:    ms ? 'Notifikasi Nudge'     : 'Nudge Notifications',
+    tasmiqNotif:   ms ? 'Kemaskini Tasmiq'     : 'Tasmiq Updates',
+    murajaahNotif: ms ? 'Kemaskini Murajaah'   : 'Murajaah Updates',
+    langTitle:     ms ? 'Bahasa Aplikasi'      : 'App Language',
+    secTitle:      ms ? 'Keselamatan Akaun'    : 'Account Security',
+    logoutBtn:     ms ? 'Log Keluar'           : 'Logout Account',
+    saveBtn:       ms ? 'Simpan'               : 'Save Changes',
+    cancelBtn:     ms ? 'Batal'                : 'Cancel',
+    changePwd:     ms ? 'Tukar Kata Laluan'    : 'Change Password',
+    currentPass:   ms ? 'Kata Laluan Semasa'   : 'Current Password',
+    newPass:       ms ? 'Kata Laluan Baru'     : 'New Password',
+    confirmPass:   ms ? 'Sahkan Kata Laluan'   : 'Confirm New Password',
   };
 
-  const studentName = profile?.full_name || profile?.display_name || user?.user_metadata?.displayName || 'Student';
+  const studentName  = profile?.full_name || profile?.display_name || user?.user_metadata?.displayName || 'Student';
   const studentEmail = profile?.email || user?.email || '';
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={'#0B6E4F'} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={P} />
       </SafeAreaView>
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
+      <StatusBar barStyle="light-content" />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
-        {/* PROFILE GRADIENT HEADER */}
+        {/* ── GRADIENT HEADER ── */}
         <LinearGradient
-          colors={['#0B6E4F', '#064E3B']}
+          colors={[P, PD]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: 28, paddingBottom: 36, alignItems: 'center', borderBottomLeftRadius: 32, borderBottomRightRadius: 32, marginBottom: 20 }}
@@ -337,7 +229,7 @@ export default function ProfileScreen({ navigation }) {
             <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)' }}>
               <Text style={{ fontSize: 40 }}>👤</Text>
             </View>
-            <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#D4AF37', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#064E3B' }}>
+            <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: G, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: PD }}>
               <Ionicons name="star" size={11} color="white" />
             </View>
           </View>
@@ -345,867 +237,252 @@ export default function ProfileScreen({ navigation }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '600' }}>{studentEmail}</Text>
             <View style={{ backgroundColor: 'rgba(212,175,55,0.3)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Text style={{ fontSize: 10, fontWeight: '800', color: '#D4AF37', textTransform: 'uppercase' }}>{txt.student}</Text>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: G, textTransform: 'uppercase' }}>{txt.student}</Text>
             </View>
           </View>
         </LinearGradient>
 
-        {/* 📊 NUDGE ANALYTICS GRID */}
-          <View style={{ paddingHorizontal: 20, marginBottom: 22 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-              <View style={{
-                flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14,
-                alignItems: 'center', borderWidth: 1, borderColor: '#E8F0EA',
-                shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1
-              }}>
-                <Ionicons name="paper-plane-outline" size={20} color={'#0B6E4F'} style={{ marginBottom: 6 }} />
-                <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>{nudgesSent}</Text>
-                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                  {language === 'ms' ? 'Nudge Dihantar' : 'Nudges Sent'}
-                </Text>
+        {/* ── NUDGE STATS ── */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 22 }}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {[
+              { icon: 'paper-plane-outline', color: P,  bg: PL, label: ms ? 'Nudge Dihantar' : 'Nudges Sent',     value: nudgesSent },
+              { icon: 'mail-unread-outline', color: G,  bg: '#FEF3C7', label: ms ? 'Nudge Diterima' : 'Nudges Received', value: nudgesReceived },
+            ].map((item, i) => (
+              <View key={i} style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E8F0EA', shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: item.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                  <Ionicons name={item.icon} size={18} color={item.color} />
+                </View>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: PD }}>{item.value}</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2, textAlign: 'center' }}>{item.label}</Text>
               </View>
-              <View style={{
-                flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14,
-                alignItems: 'center', borderWidth: 1, borderColor: '#E8F0EA',
-                shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1
-              }}>
-                <Ionicons name="mail-unread-outline" size={20} color={'#D4AF37'} style={{ marginBottom: 6 }} />
-                <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>{nudgesReceived}</Text>
-                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                  {language === 'ms' ? 'Nudge Diterima' : 'Nudges Received'}
-                </Text>
-              </View>
-            </View>
+            ))}
           </View>
+        </View>
 
-          {/* âš™ï¸ CONTROLLERS & SECTIONS */}
-          <View style={{ paddingHorizontal: 20 }}>
+        <View style={{ paddingHorizontal: 20 }}>
 
-            {/* 1. CLASS INFORMATION SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.classInfo}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                {classes.length === 0 ? (
-                  <View style={{ paddingVertical: 14, alignItems: 'center' }}>
-                    <Text style={{ color: '#6B7280', fontSize: 14, marginBottom: 12 }}>{txt.noClass}</Text>
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate('JoinClass')}
-                      style={{ backgroundColor: '#0B6E4F', borderRadius: 12, paddingHorizontal: 22, paddingVertical: 10 }}
-                    >
-                      <Text style={{ color: 'white', fontWeight: '800', fontSize: 13 }}>{txt.joinBtn}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : classes.map((cls, i) => (
-                  <View key={cls.id || i} style={{
-                    paddingVertical: 12,
-                    borderBottomWidth: i < classes.length - 1 ? 1 : 0,
-                    borderBottomColor: 'rgba(0,0,0,0.06)',
-                  }}>
-                    {/* Class Title and status badge */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#064E3B', flex: 1 }}>{cls.name}</Text>
-                      <View style={{
-                        paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-                        backgroundColor: cls.status === 'pending' ? '#FEF3C7' : '#D1FAE5',
-                      }}>
-                        <Text style={{
-                          fontSize: 10, fontWeight: '800',
-                          color: cls.status === 'pending' ? '#B45309' : '#047857',
-                        }}>
-                          {cls.status === 'pending' ? txt.pending : txt.enrolled}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Class fields */}
-                    {[
-                      { icon: 'person-outline',    label: txt.teacher,   value: cls.teacher_name },
-                      { icon: 'key-outline',        label: txt.classCode, value: cls.code },
-                      { icon: 'people-outline',     label: txt.classmates,value: `${cls.total_classmates} ${txt.student}` },
-                      { icon: 'calendar-outline',   label: txt.enrollDate,value: cls.joined_at ? new Date(cls.joined_at).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”' },
-                    ].map((row, j) => (
-                      <View key={j} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                        <Ionicons name={row.icon} size={14} color={'#6B7280'} style={{ marginRight: 8, width: 14 }} />
-                        <Text style={{ fontSize: 12, color: '#6B7280', width: 85 }}>{row.label}:</Text>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#064E3B' }}>{row.value}</Text>
-                      </View>
-                    ))}
-
-                    {/* Leave class option */}
-                    {cls.status === 'approved' && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          const triggerLeave = async () => {
-                            try {
-                              await supabase.from('class_members').delete().eq('class_id', cls.id).eq('student_id', user.id);
-                              await supabase.from('join_requests').delete().eq('class_id', cls.id).eq('student_id', user.id);
-                              setClasses(prev => prev.filter(c => c.id !== cls.id));
-                              Alert.alert('Done', 'Left class.');
-                            } catch (e) {
-                              Alert.alert('Error', e.message);
-                            }
-                          };
-
-                          if (Platform.OS === 'web') {
-                            if (window.confirm(txt.leaveConfirm)) triggerLeave();
-                          } else {
-                            Alert.alert(txt.leaveBtn, txt.leaveConfirm, [
-                              { text: txt.cancelBtn, style: 'cancel' },
-                              { text: txt.leaveBtn, style: 'destructive', onPress: triggerLeave }
-                            ]);
-                          }
-                        }}
-                        style={{
-                          marginTop: 10, alignSelf: 'flex-start',
-                          borderWidth: 1, borderColor: '#EF4444',
-                          borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5,
-                          flexDirection: 'row', alignItems: 'center', gap: 4,
-                        }}
-                      >
-                        <Ionicons name="log-out-outline" size={13} color="#EF4444" />
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#EF4444' }}>{txt.leaveBtn}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* 2. PROFILE INFORMATION SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.profileInfo}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '800', marginBottom: 2 }}>{txt.fullName}</Text>
-                  <Text style={{ fontSize: 14, color: '#064E3B', fontWeight: '700' }}>{studentName}</Text>
-                </View>
-                <View style={{ marginBottom: 14 }}>
-                  <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '800', marginBottom: 2 }}>{txt.email}</Text>
-                  <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '700' }}>{studentEmail}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setNameModalVisible(true)}
-                  style={{
-                    backgroundColor: '#0B6E4F' + '12', borderRadius: 10, paddingVertical: 10, alignItems: 'center',
-                    borderWidth: 1, borderColor: '#0B6E4F' + '20'
-                  }}
-                >
-                  <Text style={{ color: '#0B6E4F', fontWeight: '800', fontSize: 13 }}>{txt.editName}</Text>
+          {/* ── CLASS INFO ── */}
+          <SectionHeader label={txt.classInfo} />
+          <Card>
+            {classes.length === 0 ? (
+              <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                <Text style={{ color: '#6B7280', fontSize: 14, marginBottom: 12 }}>{txt.noClass}</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('JoinClass')} style={{ backgroundColor: P, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 10 }}>
+                  <Text style={{ color: 'white', fontWeight: '800', fontSize: 13 }}>{txt.joinBtn}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-
-            {/* 3. LANGUAGE SETTINGS SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.langTitle}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setLanguageModalVisible(true)}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}
-                >
-                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#0B6E4F' + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name="globe-outline" size={18} color={'#0B6E4F'} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#064E3B' }}>{txt.langTitle}</Text>
-                    <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                      {language === 'en' ? 'English (US)' : 'Bahasa Melayu'}
+            ) : classes.map((cls, i) => (
+              <View key={cls.id || i} style={{ paddingVertical: 12, borderBottomWidth: i < classes.length - 1 ? 1 : 0, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: PD, flex: 1 }}>{cls.name}</Text>
+                  <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: cls.status === 'pending' ? '#FEF3C7' : PL }}>
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: cls.status === 'pending' ? '#B45309' : '#047857' }}>
+                      {cls.status === 'pending' ? txt.pending : txt.enrolled}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#BBB" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* 4. NOTIFICATION SETTINGS SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.notifsTitle}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 8,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
+                </View>
                 {[
-                  { key: 'announcement', label: txt.annNotif, icon: 'megaphone-outline' },
-                  { key: 'feedback',     label: txt.feedbackNotif, icon: 'chatbox-ellipses-outline' },
-                  { key: 'nudge',        label: txt.nudgeNotif, icon: 'notifications-outline' },
-                  { key: 'tasmiq',       label: txt.tasmiqNotif, icon: 'book-outline' },
-                  { key: 'murajaah',     label: txt.murajaahNotif, icon: 'repeat-outline' },
-                ].map((item, idx) => (
-                  <View key={item.key} style={{
-                    flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
-                    borderBottomWidth: idx < 4 ? 1 : 0, borderBottomColor: 'rgba(0,0,0,0.06)'
-                  }}>
-                    <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#0B6E4F' + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                      <Ionicons name={item.icon} size={18} color={'#0B6E4F'} />
-                    </View>
-                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#064E3B' }}>{item.label}</Text>
-                    <Switch
-                      value={notifs[item.key]}
-                      onValueChange={(val) => handleToggleNotif(item.key, val)}
-                      trackColor={{ false: '#DDD', true: '#0B6E4F' }}
-                      thumbColor="#FFF"
-                    />
+                  { icon: 'person-outline',  label: txt.teacher,   value: cls.teacher_name },
+                  { icon: 'key-outline',     label: txt.classCode, value: cls.code },
+                  { icon: 'people-outline',  label: txt.classmates,value: `${cls.total_classmates} ${txt.student}` },
+                  { icon: 'calendar-outline',label: txt.enrollDate,value: cls.joined_at ? new Date(cls.joined_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
+                ].map((row, j) => (
+                  <View key={j} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                    <Ionicons name={row.icon} size={14} color="#6B7280" style={{ marginRight: 8, width: 14 }} />
+                    <Text style={{ fontSize: 12, color: '#6B7280', width: 85 }}>{row.label}:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: PD }}>{row.value}</Text>
                   </View>
                 ))}
+                {cls.status === 'approved' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const doLeave = async () => {
+                        try {
+                          await supabase.from('class_members').delete().eq('class_id', cls.id).eq('student_id', user.id);
+                          await supabase.from('join_requests').delete().eq('class_id', cls.id).eq('student_id', user.id);
+                          setClasses(prev => prev.filter(c => c.id !== cls.id));
+                        } catch (e) { Alert.alert('Error', e.message); }
+                      };
+                      if (Platform.OS === 'web') { if (window.confirm(txt.leaveConfirm)) doLeave(); }
+                      else Alert.alert(txt.leaveBtn, txt.leaveConfirm, [{ text: txt.cancelBtn, style: 'cancel' }, { text: txt.leaveBtn, style: 'destructive', onPress: doLeave }]);
+                    }}
+                    style={{ marginTop: 10, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#EF4444', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                  >
+                    <Ionicons name="log-out-outline" size={13} color="#EF4444" />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#EF4444' }}>{txt.leaveBtn}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            </View>
+            ))}
+          </Card>
 
-            {/* 5. ACCOUNT SECURITY (CHANGE PASSWORD) */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.secTitle}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setPwdModalVisible(true)}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}
-                >
-                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#0B6E4F' + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name="key-outline" size={18} color={'#0B6E4F'} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#064E3B' }}>{language === 'ms' ? 'Tukar Kata Laluan' : 'Change Password'}</Text>
-                    <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                      {language === 'ms' ? 'Kemas kini kata laluan keselamatan anda' : 'Update your account security password'}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#BBB" />
-                </TouchableOpacity>
-              </View>
+          {/* ── PROFILE INFO ── */}
+          <SectionHeader label={txt.profileInfo} />
+          <Card>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '800', marginBottom: 2 }}>{txt.fullName}</Text>
+              <Text style={{ fontSize: 14, color: PD, fontWeight: '700' }}>{studentName}</Text>
             </View>
-
-            {/* ðŸšª LOGOUT BUTTON */}
-            <TouchableOpacity
-              onPress={handleLogout}
-              activeOpacity={0.7}
-              style={{
-                marginTop: 10, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18,
-                flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1.5, borderColor: '#DC2626' + '20',
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 1
-              }}
-            >
-              <Ionicons name="log-out-outline" size={20} color={'#DC2626'} style={{ marginRight: 10 }} />
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#DC2626' }}>{txt.logoutBtn}</Text>
+            <View style={{ marginBottom: 14 }}>
+              <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '800', marginBottom: 2 }}>{txt.email}</Text>
+              <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '700' }}>{studentEmail}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setNameModalVisible(true)} style={{ backgroundColor: P + '12', borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: P + '20' }}>
+              <Text style={{ color: P, fontWeight: '800', fontSize: 13 }}>{txt.editName}</Text>
             </TouchableOpacity>
+          </Card>
 
-          </View>
-        </ScrollView>
-
-        {/* â”€â”€ ðŸ“ EDIT NAME MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <Modal visible={nameModalVisible} animationType="fade" transparent>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#064E3B', marginBottom: 6 }}>{txt.editName}</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>
-                {language === 'ms' ? 'Sila masukkan nama penuh anda untuk dipaparkan.' : 'Please enter your full name for display.'}
-              </Text>
-
-              <TextInput
-                style={{
-                  backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, fontSize: 15,
-                  color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 20
-                }}
-                placeholder="Full name"
-                value={newName}
-                onChangeText={setNewName}
-                autoFocus
-              />
-
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  onPress={() => setNameModalVisible(false)}
-                  style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}
-                >
-                  <Text style={{ fontWeight: '700', color: '#6B7280' }}>{txt.cancelBtn}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleUpdateName}
-                  disabled={updating}
-                  style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#0B6E4F' }}
-                >
-                  {updating ? <ActivityIndicator color="white" /> : (
-                    <Text style={{ fontWeight: '700', color: 'white' }}>{txt.saveBtn}</Text>
-                  )}
-                </TouchableOpacity>
+          {/* ── LANGUAGE ── */}
+          <SectionHeader label={txt.langTitle} />
+          <Card>
+            <TouchableOpacity onPress={() => setLanguageModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+              <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: P + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Ionicons name="globe-outline" size={18} color={P} />
               </View>
-            </View>
-          </View>
-        </Modal>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: PD }}>{txt.langTitle}</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{language === 'en' ? 'English (US)' : 'Bahasa Melayu'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#BBB" />
+            </TouchableOpacity>
+          </Card>
 
-        {/* â”€â”€ ðŸ”’ CHANGE PASSWORD MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <Modal visible={pwdModalVisible} animationType="fade" transparent>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#064E3B', marginBottom: 6 }}>{language === 'ms' ? 'Tukar Kata Laluan' : 'Change Password'}</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>
-                {language === 'ms' ? 'Sila lengkapkan butiran untuk menukar kata laluan.' : 'Please fill details to change password.'}
-              </Text>
-
-              {/* Current Password */}
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{txt.currentPass}</Text>
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, paddingRight: 45, fontSize: 14, color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
-                    secureTextEntry={!showCurrent}
-                    placeholder={txt.currentPass}
-                    value={currentPwd}
-                    onChangeText={setCurrentPwd}
-                  />
-                  <TouchableOpacity style={{ position: 'absolute', right: 12, top: 14 }} onPress={() => setShowCurrent(!showCurrent)}>
-                    <Ionicons name={showCurrent ? "eye-off-outline" : "eye-outline"} size={18} color="#6B7280" />
-                  </TouchableOpacity>
+          {/* ── NOTIFICATIONS ── */}
+          <SectionHeader label={txt.notifsTitle} />
+          <Card>
+            {[
+              { key: 'announcement', label: txt.annNotif,      icon: 'megaphone-outline' },
+              { key: 'feedback',     label: txt.feedbackNotif, icon: 'chatbox-ellipses-outline' },
+              { key: 'nudge',        label: txt.nudgeNotif,    icon: 'notifications-outline' },
+              { key: 'tasmiq',       label: txt.tasmiqNotif,   icon: 'book-outline' },
+              { key: 'murajaah',     label: txt.murajaahNotif, icon: 'repeat-outline' },
+            ].map((item, idx) => (
+              <View key={item.key} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: idx < 4 ? 1 : 0, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
+                <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: P + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <Ionicons name={item.icon} size={18} color={P} />
                 </View>
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: PD }}>{item.label}</Text>
+                <Switch value={notifs[item.key]} onValueChange={val => handleToggleNotif(item.key, val)} trackColor={{ false: '#DDD', true: P }} thumbColor="#FFF" />
               </View>
+            ))}
+          </Card>
 
-              {/* New Password */}
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{txt.newPass}</Text>
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, paddingRight: 45, fontSize: 14, color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
-                    secureTextEntry={!showNew}
-                    placeholder={txt.newPass}
-                    value={newPwd}
-                    onChangeText={setNewPwd}
-                  />
-                  <TouchableOpacity style={{ position: 'absolute', right: 12, top: 14 }} onPress={() => setShowNew(!showNew)}>
-                    <Ionicons name={showNew ? "eye-off-outline" : "eye-outline"} size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
+          {/* ── SECURITY ── */}
+          <SectionHeader label={txt.secTitle} />
+          <Card>
+            <TouchableOpacity onPress={() => setPwdModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+              <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: P + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Ionicons name="key-outline" size={18} color={P} />
               </View>
-
-              {/* Confirm Password */}
-              <View style={{ marginBottom: 20 }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{txt.confirmPass}</Text>
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, paddingRight: 45, fontSize: 14, color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
-                    secureTextEntry={!showConfirm}
-                    placeholder={txt.confirmPass}
-                    value={confirmPwd}
-                    onChangeText={setConfirmPwd}
-                  />
-                  <TouchableOpacity style={{ position: 'absolute', right: 12, top: 14 }} onPress={() => setShowConfirm(!showConfirm)}>
-                    <Ionicons name={showConfirm ? "eye-off-outline" : "eye-outline"} size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: PD }}>{txt.changePwd}</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Update your account security password</Text>
               </View>
+              <Ionicons name="chevron-forward" size={16} color="#BBB" />
+            </TouchableOpacity>
+          </Card>
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  onPress={() => { setPwdModalVisible(false); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); }}
-                  style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}
-                >
-                  <Text style={{ fontWeight: '700', color: '#6B7280' }}>{txt.cancelBtn}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleSavePassword}
-                  disabled={updating}
-                  style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#0B6E4F' }}
-                >
-                  {updating ? <ActivityIndicator color="white" /> : (
-                    <Text style={{ fontWeight: '700', color: 'white' }}>{txt.saveBtn}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-                  {/* PROFILE GRADIENT HEADER */}
-          <LinearGradient
-            colors={['#0B6E4F', '#064E3B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ paddingTop: 28, paddingBottom: 36, alignItems: 'center', borderBottomLeftRadius: 32, borderBottomRightRadius: 32, marginBottom: 20 }}
+          {/* ── LOGOUT ── */}
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={{ marginTop: 10, marginBottom: 20, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#DC262620', shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 1 }}
           >
-            <View style={{ position: 'relative', marginBottom: 12 }}>
-              <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)' }}>
-                <Text style={{ fontSize: 40 }}>👤</Text>
-              </View>
-              <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#D4AF37', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#064E3B' }}>
-                <Ionicons name="star" size={11} color="white" />
-              </View>
-            </View>
-            <Text style={{ fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginBottom: 4 }}>{studentName}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '600' }}>{studentEmail}</Text>
-              <View style={{ backgroundColor: 'rgba(212,175,55,0.3)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <Text style={{ fontSize: 10, fontWeight: '800', color: '#D4AF37', textTransform: 'uppercase' }}>{txt.student}</Text>
-              </View>
-            </View>
-          </LinearGradient>
+            <Ionicons name="log-out-outline" size={20} color="#DC2626" style={{ marginRight: 10 }} />
+            <Text style={{ fontSize: 16, fontWeight: '800', color: '#DC2626' }}>{txt.logoutBtn}</Text>
+          </TouchableOpacity>
 
-          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#CCC' }} />
-              <Text style={{ fontSize: 12, color: '#0B6E4F', fontWeight: '800', textTransform: 'uppercase' }}>
-                {txt.student}
-              </Text>
-            </View>
-          </View>
+        </View>
+      </ScrollView>
 
-          {/* ðŸ“Š NUDGE ANALYTICS GRID */}
-          <View style={{ paddingHorizontal: 20, marginBottom: 22 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-              <View style={{
-                flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14,
-                alignItems: 'center', borderWidth: 1, borderColor: '#E8F0EA',
-                shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1
-              }}>
-                <Ionicons name="paper-plane-outline" size={20} color={'#0B6E4F'} style={{ marginBottom: 6 }} />
-                <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>{nudgesSent}</Text>
-                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                  {language === 'ms' ? 'Nudge Dihantar' : 'Nudges Sent'}
-                </Text>
-              </View>
-              <View style={{
-                flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14,
-                alignItems: 'center', borderWidth: 1, borderColor: '#E8F0EA',
-                shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 5, elevation: 1
-              }}>
-                <Ionicons name="mail-unread-outline" size={20} color={'#D4AF37'} style={{ marginBottom: 6 }} />
-                <Text style={{ fontSize: 20, fontWeight: '800', color: '#064E3B' }}>{nudgesReceived}</Text>
-                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                  {language === 'ms' ? 'Nudge Diterima' : 'Nudges Received'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* âš™ï¸ CONTROLLERS & SECTIONS */}
-          <View style={{ paddingHorizontal: 20 }}>
-
-            {/* 1. CLASS INFORMATION SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.classInfo}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                {classes.length === 0 ? (
-                  <View style={{ paddingVertical: 14, alignItems: 'center' }}>
-                    <Text style={{ color: '#6B7280', fontSize: 14, marginBottom: 12 }}>{txt.noClass}</Text>
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate('JoinClass')}
-                      style={{ backgroundColor: '#0B6E4F', borderRadius: 12, paddingHorizontal: 22, paddingVertical: 10 }}
-                    >
-                      <Text style={{ color: 'white', fontWeight: '800', fontSize: 13 }}>{txt.joinBtn}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : classes.map((cls, i) => (
-                  <View key={cls.id || i} style={{
-                    paddingVertical: 12,
-                    borderBottomWidth: i < classes.length - 1 ? 1 : 0,
-                    borderBottomColor: 'rgba(0,0,0,0.06)',
-                  }}>
-                    {/* Class Title and status badge */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#064E3B', flex: 1 }}>{cls.name}</Text>
-                      <View style={{
-                        paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-                        backgroundColor: cls.status === 'pending' ? '#FEF3C7' : '#D1FAE5',
-                      }}>
-                        <Text style={{
-                          fontSize: 10, fontWeight: '800',
-                          color: cls.status === 'pending' ? '#B45309' : '#047857',
-                        }}>
-                          {cls.status === 'pending' ? txt.pending : txt.enrolled}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Class fields */}
-                    {[
-                      { icon: 'person-outline',    label: txt.teacher,   value: cls.teacher_name },
-                      { icon: 'key-outline',        label: txt.classCode, value: cls.code },
-                      { icon: 'people-outline',     label: txt.classmates,value: `${cls.total_classmates} ${txt.student}` },
-                      { icon: 'calendar-outline',   label: txt.enrollDate,value: cls.joined_at ? new Date(cls.joined_at).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”' },
-                    ].map((row, j) => (
-                      <View key={j} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                        <Ionicons name={row.icon} size={14} color={'#6B7280'} style={{ marginRight: 8, width: 14 }} />
-                        <Text style={{ fontSize: 12, color: '#6B7280', width: 85 }}>{row.label}:</Text>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#064E3B' }}>{row.value}</Text>
-                      </View>
-                    ))}
-
-                    {/* Leave class option */}
-                    {cls.status === 'approved' && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          const triggerLeave = async () => {
-                            try {
-                              await supabase.from('class_members').delete().eq('class_id', cls.id).eq('student_id', user.id);
-                              await supabase.from('join_requests').delete().eq('class_id', cls.id).eq('student_id', user.id);
-                              setClasses(prev => prev.filter(c => c.id !== cls.id));
-                              Alert.alert('Done', 'Left class.');
-                            } catch (e) {
-                              Alert.alert('Error', e.message);
-                            }
-                          };
-
-                          if (Platform.OS === 'web') {
-                            if (window.confirm(txt.leaveConfirm)) triggerLeave();
-                          } else {
-                            Alert.alert(txt.leaveBtn, txt.leaveConfirm, [
-                              { text: txt.cancelBtn, style: 'cancel' },
-                              { text: txt.leaveBtn, style: 'destructive', onPress: triggerLeave }
-                            ]);
-                          }
-                        }}
-                        style={{
-                          marginTop: 10, alignSelf: 'flex-start',
-                          borderWidth: 1, borderColor: '#EF4444',
-                          borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5,
-                          flexDirection: 'row', alignItems: 'center', gap: 4,
-                        }}
-                      >
-                        <Ionicons name="log-out-outline" size={13} color="#EF4444" />
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#EF4444' }}>{txt.leaveBtn}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* 2. PROFILE INFORMATION SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.profileInfo}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '800', marginBottom: 2 }}>{txt.fullName}</Text>
-                  <Text style={{ fontSize: 14, color: '#064E3B', fontWeight: '700' }}>{studentName}</Text>
-                </View>
-                <View style={{ marginBottom: 14 }}>
-                  <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '800', marginBottom: 2 }}>{txt.email}</Text>
-                  <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '700' }}>{studentEmail}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setNameModalVisible(true)}
-                  style={{
-                    backgroundColor: '#0B6E4F' + '12', borderRadius: 10, paddingVertical: 10, alignItems: 'center',
-                    borderWidth: 1, borderColor: '#0B6E4F' + '20'
-                  }}
-                >
-                  <Text style={{ color: '#0B6E4F', fontWeight: '800', fontSize: 13 }}>{txt.editName}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* 3. LANGUAGE SETTINGS SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.langTitle}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setLanguageModalVisible(true)}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}
-                >
-                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#0B6E4F' + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name="globe-outline" size={18} color={'#0B6E4F'} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#064E3B' }}>{txt.langTitle}</Text>
-                    <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                      {language === 'en' ? 'English (US)' : 'Bahasa Melayu'}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#BBB" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* 4. NOTIFICATION SETTINGS SECTION */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.notifsTitle}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 8,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                {[
-                  { key: 'announcement', label: txt.annNotif, icon: 'megaphone-outline' },
-                  { key: 'feedback',     label: txt.feedbackNotif, icon: 'chatbox-ellipses-outline' },
-                  { key: 'nudge',        label: txt.nudgeNotif, icon: 'notifications-outline' },
-                  { key: 'tasmiq',       label: txt.tasmiqNotif, icon: 'book-outline' },
-                  { key: 'murajaah',     label: txt.murajaahNotif, icon: 'repeat-outline' },
-                ].map((item, idx) => (
-                  <View key={item.key} style={{
-                    flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
-                    borderBottomWidth: idx < 4 ? 1 : 0, borderBottomColor: 'rgba(0,0,0,0.06)'
-                  }}>
-                    <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#0B6E4F' + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                      <Ionicons name={item.icon} size={18} color={'#0B6E4F'} />
-                    </View>
-                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#064E3B' }}>{item.label}</Text>
-                    <Switch
-                      value={notifs[item.key]}
-                      onValueChange={(val) => handleToggleNotif(item.key, val)}
-                      trackColor={{ false: '#DDD', true: '#0B6E4F' }}
-                      thumbColor="#FFF"
-                    />
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* 5. ACCOUNT SECURITY (CHANGE PASSWORD) */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
-                {txt.secTitle}
-              </Text>
-              <View style={{
-                backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14,
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
-                borderWidth: 1, borderColor: '#E8F0EA'
-              }}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setPwdModalVisible(true)}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}
-                >
-                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#0B6E4F' + '10', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name="key-outline" size={18} color={'#0B6E4F'} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#064E3B' }}>{language === 'ms' ? 'Tukar Kata Laluan' : 'Change Password'}</Text>
-                    <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                      {language === 'ms' ? 'Kemas kini kata laluan keselamatan anda' : 'Update your account security password'}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#BBB" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* ðŸšª LOGOUT BUTTON */}
-            <TouchableOpacity
-              onPress={handleLogout}
-              activeOpacity={0.7}
-              style={{
-                marginTop: 10, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18,
-                flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1.5, borderColor: '#DC2626' + '20',
-                shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 1
-              }}
-            >
-              <Ionicons name="log-out-outline" size={20} color={'#DC2626'} style={{ marginRight: 10 }} />
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#DC2626' }}>{txt.logoutBtn}</Text>
-            </TouchableOpacity>
-
-          </View>
-        </ScrollView>
-
-        {/* â”€â”€ ðŸ“ EDIT NAME MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <Modal visible={nameModalVisible} animationType="fade" transparent>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#064E3B', marginBottom: 6 }}>{txt.editName}</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>
-                {language === 'ms' ? 'Sila masukkan nama penuh anda untuk dipaparkan.' : 'Please enter your full name for display.'}
-              </Text>
-
-              <TextInput
-                style={{
-                  backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, fontSize: 15,
-                  color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 20
-                }}
-                placeholder="Full name"
-                value={newName}
-                onChangeText={setNewName}
-                autoFocus
-              />
-
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  onPress={() => setNameModalVisible(false)}
-                  style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}
-                >
-                  <Text style={{ fontWeight: '700', color: '#6B7280' }}>{txt.cancelBtn}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleUpdateName}
-                  disabled={updating}
-                  style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#0B6E4F' }}
-                >
-                  {updating ? <ActivityIndicator color="white" /> : (
-                    <Text style={{ fontWeight: '700', color: 'white' }}>{txt.saveBtn}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* â”€â”€ ðŸ”’ CHANGE PASSWORD MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <Modal visible={pwdModalVisible} animationType="fade" transparent>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#064E3B', marginBottom: 6 }}>{language === 'ms' ? 'Tukar Kata Laluan' : 'Change Password'}</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>
-                {language === 'ms' ? 'Sila lengkapkan butiran untuk menukar kata laluan.' : 'Please fill details to change password.'}
-              </Text>
-
-              {/* Current Password */}
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{txt.currentPass}</Text>
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, paddingRight: 45, fontSize: 14, color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
-                    secureTextEntry={!showCurrent}
-                    placeholder={txt.currentPass}
-                    value={currentPwd}
-                    onChangeText={setCurrentPwd}
-                  />
-                  <TouchableOpacity style={{ position: 'absolute', right: 12, top: 14 }} onPress={() => setShowCurrent(!showCurrent)}>
-                    <Ionicons name={showCurrent ? "eye-off-outline" : "eye-outline"} size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* New Password */}
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{txt.newPass}</Text>
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, paddingRight: 45, fontSize: 14, color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
-                    secureTextEntry={!showNew}
-                    placeholder={txt.newPass}
-                    value={newPwd}
-                    onChangeText={setNewPwd}
-                  />
-                  <TouchableOpacity style={{ position: 'absolute', right: 12, top: 14 }} onPress={() => setShowNew(!showNew)}>
-                    <Ionicons name={showNew ? "eye-off-outline" : "eye-outline"} size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Confirm Password */}
-              <View style={{ marginBottom: 20 }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{txt.confirmPass}</Text>
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, paddingRight: 45, fontSize: 14, color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
-                    secureTextEntry={!showConfirm}
-                    placeholder={txt.confirmPass}
-                    value={confirmPwd}
-                    onChangeText={setConfirmPwd}
-                  />
-                  <TouchableOpacity style={{ position: 'absolute', right: 12, top: 14 }} onPress={() => setShowConfirm(!showConfirm)}>
-                    <Ionicons name={showConfirm ? "eye-off-outline" : "eye-outline"} size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  onPress={() => { setPwdModalVisible(false); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); }}
-                  style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}
-                >
-                  <Text style={{ fontWeight: '700', color: '#6B7280' }}>{txt.cancelBtn}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleSavePassword}
-                  disabled={updating}
-                  style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#0B6E4F' }}
-                >
-                  {updating ? <ActivityIndicator color="white" /> : (
-                    <Text style={{ fontWeight: '700', color: 'white' }}>{txt.saveBtn}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* â”€â”€ ðŸŒ LANGUAGE SELECTION MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <Modal visible={languageModalVisible} animationType="fade" transparent>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#064E3B', marginBottom: 4 }}>App Language</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>Pilih bahasa aplikasi / Select app language</Text>
-
-              <TouchableOpacity
-                onPress={() => handleSelectLanguage('en')}
-                style={{
-                  padding: 14, borderRadius: 12, backgroundColor: language === 'en' ? '#0B6E4F' + '12' : '#F9F9F9',
-                  borderWidth: 1.5, borderColor: language === 'en' ? '#0B6E4F' : '#E5E7EB', marginBottom: 10
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: '700', color: language === 'en' ? '#0B6E4F' : '#064E3B' }}>English (US)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleSelectLanguage('ms')}
-                style={{
-                  padding: 14, borderRadius: 12, backgroundColor: language === 'ms' ? '#0B6E4F' + '12' : '#F9F9F9',
-                  borderWidth: 1.5, borderColor: language === 'ms' ? '#0B6E4F' : '#E5E7EB', marginBottom: 20
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: '700', color: language === 'ms' ? '#0B6E4F' : '#064E3B' }}>Bahasa Melayu</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setLanguageModalVisible(false)}
-                style={{ padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}
-              >
+      {/* ── EDIT NAME MODAL ── */}
+      <Modal visible={nameModalVisible} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: PD, marginBottom: 16 }}>{txt.editName}</Text>
+            <TextInput
+              style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, fontSize: 15, color: PD, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 20 }}
+              placeholder="Full name" value={newName} onChangeText={setNewName} autoFocus
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setNameModalVisible(false)} style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}>
                 <Text style={{ fontWeight: '700', color: '#6B7280' }}>{txt.cancelBtn}</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={handleUpdateName} disabled={updating} style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: P }}>
+                {updating ? <ActivityIndicator color="white" /> : <Text style={{ fontWeight: '700', color: 'white' }}>{txt.saveBtn}</Text>}
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-      </SafeAreaView>
+      {/* ── CHANGE PASSWORD MODAL ── */}
+      <Modal visible={pwdModalVisible} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: PD, marginBottom: 16 }}>{txt.changePwd}</Text>
+            {[
+              { label: txt.currentPass, val: currentPwd, set: setCurrentPwd, show: showCurrent, toggle: setShowCurrent },
+              { label: txt.newPass,     val: newPwd,     set: setNewPwd,     show: showNew,     toggle: setShowNew },
+              { label: txt.confirmPass, val: confirmPwd, set: setConfirmPwd, show: showConfirm, toggle: setShowConfirm },
+            ].map((field, i) => (
+              <View key={i} style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{field.label}</Text>
+                <View style={{ position: 'relative' }}>
+                  <TextInput style={{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 14, paddingRight: 45, fontSize: 14, color: PD, borderWidth: 1, borderColor: '#E5E7EB' }} secureTextEntry={!field.show} placeholder={field.label} value={field.val} onChangeText={field.set} />
+                  <TouchableOpacity style={{ position: 'absolute', right: 12, top: 14 }} onPress={() => field.toggle(!field.show)}>
+                    <Ionicons name={field.show ? 'eye-off-outline' : 'eye-outline'} size={18} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+              <TouchableOpacity onPress={() => { setPwdModalVisible(false); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); }} style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}>
+                <Text style={{ fontWeight: '700', color: '#6B7280' }}>{txt.cancelBtn}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSavePassword} disabled={updating} style={{ flex: 2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: P }}>
+                {updating ? <ActivityIndicator color="white" /> : <Text style={{ fontWeight: '700', color: 'white' }}>{txt.saveBtn}</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── LANGUAGE MODAL ── */}
+      <Modal visible={languageModalVisible} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: PD, marginBottom: 4 }}>App Language</Text>
+            <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>Pilih bahasa / Select language</Text>
+            {['en', 'ms'].map(lang => (
+              <TouchableOpacity key={lang} onPress={() => handleSelectLanguage(lang)} style={{ padding: 14, borderRadius: 12, backgroundColor: language === lang ? P + '12' : '#F9F9F9', borderWidth: 1.5, borderColor: language === lang ? P : '#E5E7EB', marginBottom: 10 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: language === lang ? P : PD }}>{lang === 'en' ? 'English (US)' : 'Bahasa Melayu'}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setLanguageModalVisible(false)} style={{ padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#E5E7EB' }}>
+              <Text style={{ fontWeight: '700', color: '#6B7280' }}>{txt.cancelBtn}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
 
+// ── Small helpers ─────────────────────────────────────────────────────────────
+function SectionHeader({ label }) {
+  return (
+    <Text style={{ fontSize: 12, fontWeight: '900', color: '#0B6E4F', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase', paddingHorizontal: 4 }}>
+      {label}
+    </Text>
+  );
+}
+
+function Card({ children }) {
+  return (
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2, borderWidth: 1, borderColor: '#E8F0EA' }}>
+      {children}
+    </View>
+  );
+}
