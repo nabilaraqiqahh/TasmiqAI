@@ -605,7 +605,6 @@ export default function TasmiqPrepScreen({ navigation }) {
             Your recitation will be analysed by TasmiqAI and submitted to your teacher.
           </Text>
         </ScrollView>
-      </SafeAreaView>
 
       {/* -- Surah Picker Modal -- */}
       <Modal visible={surahModalVisible} animationType="slide" transparent>
@@ -767,6 +766,7 @@ export default function TasmiqPrepScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+    </SafeAreaView>
   );
 }
 
