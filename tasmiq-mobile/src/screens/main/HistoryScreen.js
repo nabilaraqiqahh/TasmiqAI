@@ -10,9 +10,9 @@ import { getRecitationHistory } from '../../services/recitationService';
 import { getCurrentUser } from '../../services/authService';
 
 // Design tokens
-const P   = '#7B4F2E';
-const PD  = '#5C3820';
-const PL  = '#F5E6D8';
+const P   = '#0B6E4F';
+const PD  = '#064E3B';
+const PL  = '#D1FAE5';
 const G   = '#C8A84B';
 const BG  = '#FFFDF0';
 const RED = '#DC2626';
@@ -245,7 +245,7 @@ export default function HistoryScreen({ navigation }) {
                           { label: 'Fluency',       val: item.fluency_score },
                         ].filter(m => m.val != null).map(m => (
                           <View key={m.label} style={{ backgroundColor: PL, padding: 8, borderRadius: 8, flex: 1, minWidth: '44%' }}>
-                            <Text style={{ fontSize: 10, color: '#8C6B55' }}>{m.label}</Text>
+                            <Text style={{ fontSize: 10, color: '#6B7280' }}>{m.label}</Text>
                             <Text style={{ fontSize: 13, fontWeight: '800', color: PD }}>{m.val}%</Text>
                           </View>
                         ))}

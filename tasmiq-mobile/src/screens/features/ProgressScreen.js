@@ -12,9 +12,9 @@ import { useTheme } from '../../context/ThemeContext';
 import quranData from '../../data/quran_data.json';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
-const P   = '#7B4F2E';
-const PD  = '#5C3820';
-const PL  = '#F5E6D8';
+const P   = '#0B6E4F';
+const PD  = '#064E3B';
+const PL  = '#D1FAE5';
 const G   = '#C8A84B';
 const GL  = '#F5E3A0';
 const BG  = '#FFFDF0';
@@ -498,7 +498,7 @@ export default function ProgressScreen({ navigation }) {
                 <Ionicons name="close-circle" size={30} color="#D1D5DB" />
               </TouchableOpacity>
             </View>
-            <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, marginBottom: 16, borderWidth: 1, borderColor: '#EDE0D4' }}>
+            <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E5EDE6' }}>
               <Ionicons name="search" size={16} color="#9CA3AF" />
               <TextInput
                 placeholder="Search surah..."
