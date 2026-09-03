@@ -22,7 +22,8 @@ const D = {
 export default function TasmiqWorkspace() {
   const { teacher } = useAuth(); // current authenticated teacher
   const [activeTab, setActiveTab] = useState('exercise'); // 'exercise' | 'assessment' | 'history'
-  
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('all');
+
   // Submissions data
   const [exerciseRecs, setExerciseRecs] = useState([]);
   const [assessmentRecs, setAssessmentRecs] = useState([]);
@@ -537,61 +538,155 @@ export default function TasmiqWorkspace() {
       {/* ════════════════════════════════════════════════════════════ */}
       {/* TAB 3: HISTORY & COMPARISONS                                  */}
       {/* ════════════════════════════════════════════════════════════ */}
-      {activeTab === 'history' && (
-        <div>
-          {/* History list with comparison timeline */}
-          <div style={{ backgroundColor: D.card, borderRadius: 18, padding: 24, border: `1px solid ${D.border}` }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: D.text, marginBottom: 16 }}>Reviewed History &amp; Recording Comparisons</h3>
+      {activeTab === 'history' && (() => {
+        // Sort by reviewed_at descending (latest teacher action first)
+        const sorted = [...activeList].sort((a, b) =>
+          new Date(b.reviewed_at || b.submitted_at || 0) - new Date(a.reviewed_at || a.submitted_at || 0)
+        );
 
-            {activeList.length === 0 ? (
-              <p style={{ color: D.textSec, textAlign: 'center', padding: '40px 0', fontSize: 14 }}>No history records found matching your filters.</p>
+        const counts = {
+          all:      sorted.length,
+          approved: sorted.filter(r => r.status === 'approved').length,
+          repeat:   sorted.filter(r => r.status === 'repeat').length,
+          reviewed: sorted.filter(r => r.reviewed && r.status !== 'approved' && r.status !== 'repeat').length,
+        };
+
+        const filtered = historyStatusFilter === 'all' ? sorted
+          : historyStatusFilter === 'approved' ? sorted.filter(r => r.status === 'approved')
+          : historyStatusFilter === 'repeat'   ? sorted.filter(r => r.status === 'repeat')
+          : sorted.filter(r => r.reviewed && r.status !== 'approved' && r.status !== 'repeat');
+
+        const filterOptions = [
+          { key: 'all',      label: 'All',       color: '#6B7280', bg: '#F3F4F6' },
+          { key: 'approved', label: '✅ PASS',    color: '#065F46', bg: '#D1FAE5' },
+          { key: 'repeat',   label: '🔄 REPEAT', color: '#991B1B', bg: '#FEE2E2' },
+          { key: 'reviewed', label: '👁 Other',  color: '#92400E', bg: '#FEF3C7' },
+        ];
+
+        return (
+          <div style={{ backgroundColor: D.card, borderRadius: 18, border: `1px solid ${D.border}`, overflow: 'hidden' }}>
+
+            {/* Header + filter chips */}
+            <div style={{ padding: '18px 24px', borderBottom: `1px solid ${D.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <span style={{ fontSize: 15, fontWeight: 800, color: D.text }}>Reviewed History</span>
+                <span style={{ fontSize: 13, color: D.textSec, marginLeft: 8 }}>Sorted by latest teacher action</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {filterOptions.map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setHistoryStatusFilter(opt.key)}
+                    style={{
+                      padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 700,
+                      backgroundColor: historyStatusFilter === opt.key ? opt.bg : '#F9FAFB',
+                      color:           historyStatusFilter === opt.key ? opt.color : '#6B7280',
+                      outline:         historyStatusFilter === opt.key ? `1.5px solid ${opt.color}50` : 'none',
+                    }}
+                  >
+                    {opt.label} ({counts[opt.key] || 0})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Table header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.8fr 1fr 90px 120px 1fr 40px', padding: '10px 24px', backgroundColor: '#F9FAFB', borderBottom: `1px solid ${D.border}` }}>
+              {['Student', 'Surah / Ayah', 'Reviewed On', 'Score', 'Status', 'Feedback', ''].map(h => (
+                <span key={h} style={{ fontSize: 11, fontWeight: 700, color: D.textSec, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</span>
+              ))}
+            </div>
+
+            {/* Rows */}
+            {filtered.length === 0 ? (
+              <div style={{ padding: '60px 24px', textAlign: 'center', color: D.textSec }}>
+                <CheckCircle size={36} color="#D1FAE5" style={{ display: 'block', margin: '0 auto 12px' }} />
+                No records found for this filter.
+              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {activeList.map((item) => (
-                  <div key={item.id} style={{
-                    padding: 18, borderRadius: 14, border: `1px solid ${D.border}`,
-                    backgroundColor: D.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                  }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                        <span style={{ fontWeight: 800, fontSize: 15, color: D.text }}>{item.student_name}</span>
+              <div style={{ maxHeight: '68vh', overflowY: 'auto' }}>
+                {filtered.map((item, idx) => {
+                  const isPass   = item.status === 'approved';
+                  const isRepeat = item.status === 'repeat';
+                  const scoreColor = (item.score || 0) >= 70 ? D.emerald : (item.score || 0) >= 50 ? '#F59E0B' : '#EF4444';
+                  const reviewedDate = item.reviewed_at
+                    ? new Date(item.reviewed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : item.submitted_at
+                      ? new Date(item.submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—';
+
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'grid', gridTemplateColumns: '2fr 1.8fr 1fr 90px 120px 1fr 40px',
+                        padding: '14px 24px', alignItems: 'center',
+                        borderBottom: `1px solid ${D.border}`,
+                        backgroundColor: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA',
+                        borderLeft: `3px solid ${isPass ? D.emerald : isRepeat ? '#EF4444' : '#F59E0B'}`,
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#F0FDF4'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'}
+                    >
+                      {/* Student */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 9, background: `linear-gradient(135deg, ${D.emerald}, ${D.emeraldDark})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900, color: 'white', flexShrink: 0 }}>
+                          {(item.student_name || 'S')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: D.text }}>{item.student_name}</div>
+                          <div style={{ fontSize: 11, color: D.textSec }}>{item.student?.email || ''}</div>
+                        </div>
+                      </div>
+
+                      {/* Surah */}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: D.text }}>{item.surahDisplay}</div>
+                        <div style={{ fontSize: 11, color: D.textSec }}>Ayah {item.ayahDisplay}</div>
+                      </div>
+
+                      {/* Date */}
+                      <div style={{ fontSize: 12, color: D.textSec }}>{reviewedDate}</div>
+
+                      {/* Score */}
+                      <div style={{ fontSize: 15, fontWeight: 900, color: scoreColor }}>{item.score || 0}%</div>
+
+                      {/* Status */}
+                      <div>
                         <span style={{
-                          fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 6,
-                          backgroundColor: item.status === 'approved' ? '#D1FAE5' : item.status === 'repeat' ? '#FEE2E2' : '#FEF3C7',
-                          color: item.status === 'approved' ? '#065F46' : item.status === 'repeat' ? '#B91C1C' : '#92400E'
+                          padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 800,
+                          backgroundColor: isPass ? '#D1FAE5' : isRepeat ? '#FEE2E2' : '#FEF3C7',
+                          color:           isPass ? '#065F46' : isRepeat ? '#991B1B' : '#92400E',
                         }}>
-                          {item.status === 'approved' ? 'PASS' : item.status === 'repeat' ? 'REPEAT' : 'REVIEWED'}
+                          {isPass ? '✅ PASS' : isRepeat ? '🔄 REPEAT' : '👁 REVIEWED'}
                         </span>
                       </div>
-                      <div style={{ fontSize: 13, color: D.textSec }}>
-                        {item.surahDisplay} · Ayah {item.ayahDisplay} · {new Date(item.reviewed_at || item.submitted_at).toLocaleDateString()}
-                      </div>
-                      {item.feedback && (
-                        <div style={{ fontSize: 12, color: D.muted, marginTop: 4, fontStyle: 'italic' }}>
-                          "{item.feedback}"
-                        </div>
-                      )}
-                    </div>
 
-                    {item.audio_url && (
-                      <button
-                        onClick={() => togglePlayAudio(item.audio_url)}
-                        style={{
-                          padding: '10px 16px', borderRadius: 10, border: `1px solid ${D.emerald}`,
-                          backgroundColor: '#F0FDF4', color: D.emerald, fontWeight: 800, fontSize: 13,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
-                        }}
-                      >
-                        <Play size={14} /> Play Audio
-                      </button>
-                    )}
-                  </div>
-                ))}
+                      {/* Feedback */}
+                      <div style={{ fontSize: 12, color: D.textSec, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontStyle: item.feedback ? 'italic' : 'normal' }}>
+                        {item.feedback ? `"${item.feedback}"` : <span style={{ color: '#D1D5DB' }}>No feedback</span>}
+                      </div>
+
+                      {/* Play */}
+                      {item.audio_url ? (
+                        <button
+                          onClick={() => togglePlayAudio(item.audio_url)}
+                          title="Play Audio"
+                          style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${D.emeraldLight}`, backgroundColor: '#F0FDF4', color: D.emerald, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Play size={14} />
+                        </button>
+                      ) : <div />}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
