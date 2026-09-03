@@ -306,7 +306,7 @@ export default function DashboardScreen({ navigation }) {
 
             {/* TASMIQ — primary, larger card */}
             <TouchableOpacity
-              onPress={() => navigation.navigate('Tasmiq')}
+              onPress={() => navigation.navigate('TasmiqPrep')}
               activeOpacity={0.88}
               style={{ marginBottom: 12 }}
             >
@@ -333,7 +333,7 @@ export default function DashboardScreen({ navigation }) {
 
             {/* MURAJAAH — secondary */}
             <TouchableOpacity
-              onPress={() => navigation.navigate('Learn')}
+              onPress={() => navigation.navigate('MurajaahMode')}
               activeOpacity={0.88}
             >
               <View style={{ backgroundColor: CARD, borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E8F5EC', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 }}>

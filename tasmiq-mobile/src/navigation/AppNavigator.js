@@ -226,42 +226,29 @@ function MainTabNavigator() {
                 </View>
               );
             }
-            // ── Tasmiq ──
-            if (route.name === 'Tasmiq') {
-              return (
-                <View style={{
-                  width: 46, height: 46, borderRadius: 23,
-                  backgroundColor: focused ? P : P + '18',
-                  alignItems: 'center', justifyContent: 'center',
-                  marginTop: -14,
-                  shadowColor: P, shadowOpacity: focused ? 0.3 : 0, shadowRadius: 10, elevation: focused ? 6 : 0,
-                }}>
-                  <Ionicons name="mic" size={22} color={focused ? '#FFFFFF' : P} />
-                </View>
-              );
-            }
             const icons = {
-              Home:     focused ? 'home'         : 'home-outline',
-              Learn:    focused ? 'book'          : 'book-outline',
-              Profile:  focused ? 'person-circle' : 'person-circle-outline',
+              Home:     focused ? 'home'           : 'home-outline',
+              Progress: focused ? 'stats-chart'    : 'stats-chart-outline',
+              History:  focused ? 'time'           : 'time-outline',
+              Profile:  focused ? 'person-circle'  : 'person-circle-outline',
             };
             return <Ionicons name={icons[route.name] || 'help-outline'} size={22} color={color} />;
           },
         })}
       >
-        <Tab.Screen name="Home"        component={DashboardScreen}    options={{ tabBarLabel: 'Home' }} />
-        <Tab.Screen name="Learn"       component={MurajaahModeScreen}  options={{ tabBarLabel: 'Murajaah' }} />
+        <Tab.Screen name="Home"        component={DashboardScreen}  options={{ tabBarLabel: 'Home' }} />
+        <Tab.Screen name="Progress"    component={ProgressScreen}   options={{ tabBarLabel: 'Progress' }} />
         <Tab.Screen
           name="JoinClassTab"
-          component={DashboardScreen}   // placeholder — tap opens modal
+          component={DashboardScreen}
           options={{
             tabBarLabel: 'Join Class',
             tabBarLabelStyle: { fontSize: 9, fontWeight: '800', color: P, marginTop: 2 },
           }}
           listeners={{ tabPress: e => { e.preventDefault(); setJoinVisible(true); } }}
         />
-        <Tab.Screen name="Tasmiq"      component={TasmiqPrepScreen}    options={{ tabBarLabel: 'Tasmiq' }} />
-        <Tab.Screen name="Profile"     component={ProfileScreen}       options={{ tabBarLabel: 'Profile' }} />
+        <Tab.Screen name="History"     component={HistoryScreen}    options={{ tabBarLabel: 'History' }} />
+        <Tab.Screen name="Profile"     component={ProfileScreen}    options={{ tabBarLabel: 'Profile' }} />
       </Tab.Navigator>
 
       {/* Join Class bottom sheet */}
@@ -320,8 +307,10 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="MainTabs"          component={MainTabNavigator} />
             <Stack.Screen name="TasmiqPrep"        component={TasmiqPrepScreen} />
+            <Stack.Screen name="Tasmiq"            component={TasmiqPrepScreen} />
             <Stack.Screen name="TasmiqMode"        component={TasmiqModeScreen} />
             <Stack.Screen name="MurajaahMode"      component={MurajaahModeScreen} />
+            <Stack.Screen name="Learn"             component={MurajaahModeScreen} />
             <Stack.Screen name="JoinClass"         component={JoinClassScreen} />
             <Stack.Screen name="Nudge"             component={NudgeScreen} />
             <Stack.Screen name="History"           component={HistoryScreen} />
