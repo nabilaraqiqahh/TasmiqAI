@@ -175,8 +175,10 @@ _default_origins = (
     "http://localhost:3000,"
     "http://localhost:5173,"
     "http://localhost:8081,"
+    "http://localhost:8001,"
     "http://127.0.0.1:3000,"
-    "http://127.0.0.1:5173"
+    "http://127.0.0.1:5173,"
+    "http://127.0.0.1:8001"
 )
 _origins_env = os.environ.get("ALLOWED_ORIGINS", _default_origins)
 ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(",") if o.strip()]
