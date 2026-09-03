@@ -3,6 +3,7 @@ import { Play, Pause, RefreshCw, RotateCcw, RotateCw, Send, CheckCircle, XCircle
          ChevronDown, Clock, BookOpen, Star, Filter, Volume2 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const D = {
   emerald:      '#0B6E4F',
@@ -63,6 +64,7 @@ function ScoreCard({ label, value, color }) {
 export default function RecitationReview() {
   const location = useLocation();
   const audioRef = useRef(null);
+  const { teacher } = useAuth(); // authenticated teacher session
 
   const [submissions, setSubmissions] = useState([]);
   const [history,     setHistory]     = useState([]);
@@ -213,58 +215,95 @@ export default function RecitationReview() {
 
   const handleAction = async (action) => {
     if (!selected) return;
-    
+
     // Require feedback when requesting re-recording (REPEAT)
     if (action === 'redo' && (!feedback || !feedback.trim())) {
       alert('Please provide written feedback explaining what the student needs to improve before requesting a re-recording.');
       return;
     }
 
+    // Resolve the authenticated teacher's UUID
+    const teacherId = teacher?.id || teacher?.uid || null;
+
     setSubmitting(true);
     try {
-      const isPassDecision = action === 'approve';
-      const statusValue = isPassDecision ? 'approved' : 'repeat';
-      const feedbackText = isPassDecision
-        ? `[PASS] ${feedback || 'Recitation approved.'}`
-        : `[REPEAT REQUIRED] ${feedback}`;
+      const isPassDecision  = action === 'approve';
+      const teacherStatus   = isPassDecision ? 'PASS' : 'REPEAT';
+      const statusValue     = isPassDecision ? 'approved' : 'repeat';
+      const feedbackText    = isPassDecision
+        ? (feedback.trim() ? `[PASS] ${feedback.trim()}` : 'Recitation approved.')
+        : `[REPEAT REQUIRED] ${feedback.trim()}`;
       const gradeMap = { Excellent: 5, Good: 4, 'Needs Improvement': 3, 'Re-record Required': 1 };
 
-      await supabase.from('recitations').update({
-        reviewed:      true,
-        status:        statusValue,
-        teacher_grade: isPassDecision ? (gradeMap[grade] || 5) : 1,
-        feedback:      feedbackText,
-        reviewed_at:   new Date().toISOString(),
-      }).eq('id', selected.id);
+      // ── 1. Update recitation with teacher decision ────────────────────────
+      const { error: recErr } = await supabase
+        .from('recitations')
+        .update({
+          reviewed:         true,
+          status:           statusValue,
+          teacher_grade:    isPassDecision ? (gradeMap[grade] || 5) : 1,
+          feedback:         feedbackText,
+          reviewed_at:      new Date().toISOString(),
+          // explicit teacher evaluation columns
+          teacher_id:       teacherId,
+          teacher_status:   teacherStatus,
+        })
+        .eq('id', selected.id);
 
-      // Send notification to student
+      if (recErr) throw recErr;
+
+      // ── 2. Create notification for the student ────────────────────────────
+      // student is identified via recitations.user_id — the authenticated student UUID
       if (selected.user_id) {
-        try {
-          await supabase.from('notifications').insert({
-            user_id: selected.user_id,
-            title: isPassDecision ? 'Assessment Approved (PASS)' : 'Re-recording Requested (REPEAT)',
-            message: isPassDecision
-              ? `Your Official Teacher Assessment for ${selected.surahDisplay} has been APPROVED (PASS)!`
-              : `Your teacher requested a REPEAT for ${selected.surahDisplay}. Feedback: "${feedback}"`,
-            is_read: false,
-            created_at: new Date().toISOString(),
-          });
-        } catch (notifErr) {
-          console.warn('Could not send student notification:', notifErr);
+        const notifTitle = isPassDecision
+          ? 'Teacher Assessment Completed'
+          : 'Teacher Requested Re-recording';
+        const notifBody = isPassDecision
+          ? 'Your Tasmiq assessment has been approved by your teacher.'
+          : 'Your teacher has requested you to re-record your Tasmiq assessment. Tap to view the feedback.';
+
+        const { error: notifErr } = await supabase
+          .from('notifications')
+          .insert([{
+            user_id:       selected.user_id,   // student UUID — looked up from the recitation record
+            title:         notifTitle,
+            body:          notifBody,           // correct column name (NOT message)
+            type:          'TEACHER_TASMIQ_EVALUATION',
+            teacher_id:    teacherId,           // the evaluating teacher's UUID
+            recitation_id: selected.id,        // deep-link: navigate to this assessment
+            is_read:       false,
+            created_at:    new Date().toISOString(),
+          }]);
+
+        if (notifErr) {
+          // Non-fatal: evaluation already saved — just log
+          console.error('[RecitationReview] Notification insert failed:', notifErr.message);
         }
 
-        // Update student avg_score
-        const { data: recs } = await supabase.from('recitations').select('score').eq('user_id', selected.user_id).eq('reviewed', true);
+        // ── 3. Update student avg_score ───────────────────────────────────
+        const { data: recs } = await supabase
+          .from('recitations')
+          .select('score')
+          .eq('user_id', selected.user_id)
+          .eq('reviewed', true);
+
         if (recs?.length) {
-          const avg = Math.round(recs.reduce((s, r) => s + (r.score || 0), 0) / recs.length);
+          const avg = Math.round(
+            recs.reduce((s, r) => s + (r.score || 0), 0) / recs.length
+          );
           await supabase.from('users').update({ avg_score: avg }).eq('id', selected.user_id);
         }
       }
 
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-      setFeedback(''); setGrade('Good'); setSelected(null); setIsPlaying(false);
-      setCurrentTime(0); setDuration(0); setAudioError(false);
+      setFeedback('');
+      setGrade('Good');
+      setSelected(null);
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      setAudioError(false);
       loadSubmissions(true);
       setHistory([]); // invalidate history cache so it reloads next time
     } catch (err) {
