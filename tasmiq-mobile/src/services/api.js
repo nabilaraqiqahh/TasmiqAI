@@ -2,21 +2,17 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 
 // -----------------------------------------------------------------------------
-//  Production API URL — https://api.tasmiqai.com
+//  BACKEND URL CONFIGURATION
 //
-//  For local development (Expo Go on same WiFi):
-//    Comment out the production line below and uncomment the local block.
+//  TUNNEL URL (active):  https://pizza-stuffed-collectibles-hotel.trycloudflare.com
+//  This is a Cloudflare tunnel that exposes your local backend to any network.
+//  Update this URL if you restart cloudflared and get a new tunnel URL.
 //
-//  Local dev example:
-//    const MY_PC_IP = '192.168.x.x';  // your PC's IPv4 from ipconfig
-//    export const API_URL = Platform.OS === 'web'
-//      ? 'http://localhost:8001'
-//      : `http://${MY_PC_IP}:8001`;
+//  To get a new tunnel URL, run on your laptop:
+//    e:\TasmiqAI\cloudflared.exe tunnel --url http://localhost:8001
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// Your PC's local IP — testers on the same WiFi can reach the backend here.
-// Update this if your IP changes (run: ipconfig on Windows).
-const LOCAL_BACKEND = 'http://192.168.150.232:8001';
+const TUNNEL_BACKEND = 'https://pizza-stuffed-collectibles-hotel.trycloudflare.com';
+const LOCAL_BACKEND  = 'http://192.168.150.232:8001';
 
 export const API_URL = (() => {
   if (Platform.OS === 'web') {
@@ -26,7 +22,7 @@ export const API_URL = (() => {
     }
     return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001';
   }
-  return LOCAL_BACKEND;   // native APK — calls your laptop's backend over LAN
+  return TUNNEL_BACKEND;   // native APK — uses public Cloudflare tunnel (works on any network)
 })();
 
 const api = axios.create({

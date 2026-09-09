@@ -24,6 +24,7 @@
         "backgroundColor": "#0B6E4F"
       },
       "edgeToEdgeEnabled": true,
+      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.INTERNET",
@@ -39,6 +40,9 @@
         "projectId": "d34fe843-561c-4103-bf18-c9819548ea26"
       }
     },
-    "owner": "nabilaraqiqahh21"
+    "owner": "nabilaraqiqahh21",
+    "plugins": [
+      "expo-status-bar"
+    ]
   }
 }
