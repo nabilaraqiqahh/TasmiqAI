@@ -29,21 +29,83 @@ export const analyzeRecitation = async (audioUri, surah = 1, ayah = 1, expectedT
   const formData = new FormData();
 
   if (Platform.OS === 'web') {
+    // Web: fetch the blob-URL directly
     const res = await fetch(audioUri);
     const blob = await res.blob();
     formData.append('audio', blob, 'recording.wav');
   } else {
+    // Native Android/iOS: pre-read the file to base64 then convert to a Blob
+    // before appending to FormData.
+    // DO NOT hand a bare file:// URI object to FormData — the React Native
+    // multipart bridge silently sends 0 bytes on many Android real devices,
+    // causing the backend to receive an empty file.
     const filename = audioUri.split('/').pop() || 'recording.m4a';
-    const ext = filename.split('.').pop().toLowerCase();
-    const mimeMap = {
-      m4a: 'audio/mp4', mp4: 'audio/mp4', caf: 'audio/x-caf',
-      aac: 'audio/aac', wav: 'audio/wav', mp3: 'audio/mpeg',
-    };
-    formData.append('audio', {
-      uri:  audioUri,
-      name: filename,
-      type: mimeMap[ext] || 'audio/mp4',
-    });
+    const ext      = filename.split('.').pop().toLowerCase();
+    const mimeType = { m4a: 'audio/mp4', mp4: 'audio/mp4', caf: 'audio/x-caf',
+                       aac: 'audio/aac', wav: 'audio/wav',  mp3: 'audio/mpeg' }[ext] || 'audio/mp4';
+
+    let audioBlob = null;
+
+    // Tier 1: expo-file-system base64 read (most reliable on Android real device)
+    try {
+      const FileSystem = require('expo-file-system');
+      const b64 = await FileSystem.readAsStringAsync(audioUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (b64 && b64.length > 0) {
+        // Decode base64 → Uint8Array → Blob
+        const byteChars  = atob(b64);
+        const byteArrays = [];
+        for (let i = 0; i < byteChars.length; i += 512) {
+          const slice   = byteChars.slice(i, i + 512);
+          const bytes   = new Uint8Array(slice.length);
+          for (let j = 0; j < slice.length; j++) bytes[j] = slice.charCodeAt(j);
+          byteArrays.push(bytes);
+        }
+        audioBlob = new Blob(byteArrays, { type: mimeType });
+      }
+    } catch (fsErr) {
+      console.warn('[analyzeRecitation] expo-file-system tier failed:', fsErr?.message);
+    }
+
+    // Tier 2: XHR blob read (React Native standard)
+    if (!audioBlob || audioBlob.size === 0) {
+      try {
+        audioBlob = await new Promise((resolve, reject) => {
+          const xhr    = new XMLHttpRequest();
+          xhr.onload   = () => resolve(xhr.response);
+          xhr.onerror  = (e) => reject(new Error('XHR failed: ' + JSON.stringify(e)));
+          xhr.responseType = 'blob';
+          xhr.open('GET', audioUri, true);
+          xhr.send(null);
+        });
+        console.log('[analyzeRecitation] XHR tier succeeded, size:', audioBlob?.size);
+      } catch (xhrErr) {
+        console.warn('[analyzeRecitation] XHR tier failed:', xhrErr?.message);
+      }
+    }
+
+    // Tier 3: direct fetch (last resort, works on some setups)
+    if (!audioBlob || audioBlob.size === 0) {
+      try {
+        const resp = await fetch(audioUri);
+        if (resp.ok) {
+          audioBlob = await resp.blob();
+          console.log('[analyzeRecitation] fetch tier succeeded, size:', audioBlob?.size);
+        }
+      } catch (fetchErr) {
+        console.warn('[analyzeRecitation] fetch tier failed:', fetchErr?.message);
+      }
+    }
+
+    if (audioBlob && audioBlob.size > 0) {
+      formData.append('audio', audioBlob, filename);
+    } else {
+      // Absolute fallback — bare URI object. May fail on some devices but
+      // better than throwing before we even try.
+      console.error('[analyzeRecitation] All read tiers failed — sending raw URI object (may produce empty upload)');
+      formData.append('audio', { uri: audioUri, name: filename, type: mimeType });
+    }
   }
 
   formData.append('surah', String(surah));

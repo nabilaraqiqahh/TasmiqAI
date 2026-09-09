@@ -695,7 +695,11 @@ def _detect_silence(audio_arr: np.ndarray, sr: int = 16000) -> dict:
             "speech_ratio": 0.0,
             "speech_seconds": 0.0,
             "rms_mean": 0.0,
-            "reason": "Audio file is empty or could not be loaded.",
+            "reason": (
+                "Recording could not be processed. "
+                "Please re-record and make sure you speak clearly into the microphone. "
+                "If the problem persists, try restarting the app."
+            ),
         }
 
     rms = librosa.feature.rms(y=audio_arr, frame_length=512, hop_length=256)[0]
