@@ -1,0 +1,11 @@
+# nixpacks build config for Railway
+# Installs system dependencies needed by librosa and audio processing
+
+[phases.setup]
+nixPkgs = ["ffmpeg", "libsndfile"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "uvicorn tasmiq_api:app --host 0.0.0.0 --port $PORT"

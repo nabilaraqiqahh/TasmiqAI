@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F8F5F0"
+      "backgroundColor": "#FFF9E8"
     },
     "ios": {
       "supportsTablet": true,
@@ -18,10 +18,10 @@
     },
     "android": {
       "package": "com.tasmiqai.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#2F6D5A"
+        "backgroundColor": "#0B6E4F"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [

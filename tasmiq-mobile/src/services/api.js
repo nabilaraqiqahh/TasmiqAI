@@ -15,7 +15,7 @@ import { Platform } from 'react-native';
 // -----------------------------------------------------------------------------
 export const API_URL = Platform.OS === 'web'
   ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001')
-  : (process.env.EXPO_PUBLIC_API_URL || 'https://api.tasmiqai.com');
+  : 'https://api.tasmiqai.com';   // native APK always uses production
 
 const api = axios.create({
   baseURL: API_URL,
