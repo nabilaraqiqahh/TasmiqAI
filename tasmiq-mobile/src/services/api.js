@@ -13,13 +13,21 @@ import { Platform } from 'react-native';
 //      ? 'http://localhost:8001'
 //      : `http://${MY_PC_IP}:8001`;
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Your PC's local IP — testers on the same WiFi can reach the backend here.
 // Update this if your IP changes (run: ipconfig on Windows).
 const LOCAL_BACKEND = 'http://192.168.150.232:8001';
 
-export const API_URL = Platform.OS === 'web'
-  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001')
-  : LOCAL_BACKEND;   // native APK — calls your laptop's backend over LAN
+export const API_URL = (() => {
+  if (Platform.OS === 'web') {
+    // If running in browser locally on localhost / 127.0.0.1, always point to local backend
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      return 'http://localhost:8001';
+    }
+    return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001';
+  }
+  return LOCAL_BACKEND;   // native APK — calls your laptop's backend over LAN
+})();
 
 const api = axios.create({
   baseURL: API_URL,

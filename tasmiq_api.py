@@ -28,6 +28,7 @@ if sys.platform == "win32":
 
 # Import FastAPI and related
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
+from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -178,6 +179,7 @@ _default_origins = (
     "http://localhost:8001,"
     "http://127.0.0.1:3000,"
     "http://127.0.0.1:5173,"
+    "http://127.0.0.1:8081,"
     "http://127.0.0.1:8001"
 )
 _origins_env = os.environ.get("ALLOWED_ORIGINS", _default_origins)
@@ -194,10 +196,20 @@ app.add_middleware(
 )
 
 # ============================================================
-# MOUNT STATIC FILES
+# AUDIO FILES (Local + CDN Fallback)
 # ============================================================
-if hasattr(tasmiq_app, 'AUDIO_DIR') and os.path.exists(tasmiq_app.AUDIO_DIR):
-    app.mount("/audio", StaticFiles(directory=str(tasmiq_app.AUDIO_DIR)), name="audio")
+@app.get("/audio/{surah_pad}/{ayah_file}")
+async def get_ayah_audio(surah_pad: str, ayah_file: str):
+    """Serve local audio if present; fallback redirect to EveryAyah CDN (Alafasy 128kbps)."""
+    ayah_num = ayah_file.replace(".mp3", "").strip()
+    sp = surah_pad.zfill(3)
+    ap = ayah_num.zfill(3)
+    if hasattr(tasmiq_app, 'AUDIO_DIR') and os.path.exists(tasmiq_app.AUDIO_DIR):
+        local_file = tasmiq_app.AUDIO_DIR / sp / f"{ap}.mp3"
+        if local_file.exists():
+            return FileResponse(str(local_file), media_type="audio/mpeg")
+    
+    return RedirectResponse(url=f"https://everyayah.com/data/Alafasy_128kbps/{sp}{ap}.mp3")
 
 # ============================================================
 # STARTUP EVENT

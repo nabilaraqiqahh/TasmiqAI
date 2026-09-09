@@ -415,11 +415,25 @@ export default function RecitationModeScreen({ navigation, route }) {
       setIsLoadingRef(true);
       const sp = (selectedSurahIndex + 1).toString().padStart(3, '0');
       const ap = selectedAyahNumber.toString().padStart(3, '0');
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: `${API_URL}/audio/${sp}/${ap}.mp3` },
-        { shouldPlay: true },
-        (s) => { if (s.didJustFinish) { setIsPlayingRef(false); } }
-      );
+      const cdnUri = `https://everyayah.com/data/Alafasy_128kbps/${sp}${ap}.mp3`;
+      const localUri = `${API_URL}/audio/${sp}/${ap}.mp3`;
+
+      let sound = null;
+      try {
+        const res = await Audio.Sound.createAsync(
+          { uri: cdnUri },
+          { shouldPlay: true },
+          (s) => { if (s.didJustFinish) { setIsPlayingRef(false); } }
+        );
+        sound = res.sound;
+      } catch {
+        const res = await Audio.Sound.createAsync(
+          { uri: localUri },
+          { shouldPlay: true },
+          (s) => { if (s.didJustFinish) { setIsPlayingRef(false); } }
+        );
+        sound = res.sound;
+      }
       setRefSound(sound);
       setIsPlayingRef(true);
     } catch { Alert.alert('Error', 'Could not load reference audio. Check your network.'); }

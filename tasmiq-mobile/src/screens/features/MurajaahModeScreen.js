@@ -194,16 +194,30 @@ export default function MurajaahModeScreen({ navigation }) {
 
       const sp = (surahIndex + 1).toString().padStart(3, '0');
       const ap = ayahNum.toString().padStart(3, '0');
-      const uri = `${API_URL}/audio/${sp}/${ap}.mp3`;
+      const cdnUri = `https://everyayah.com/data/Alafasy_128kbps/${sp}${ap}.mp3`;
+      const localUri = `${API_URL}/audio/${sp}/${ap}.mp3`;
 
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true, isLooping, rate: isSlowMode ? 0.75 : 1.0, shouldCorrectPitch: true },
-        status => { if (status.didJustFinish && !isLooping) setPlayingAyah(null); }
-      );
-      setSound(newSound);
-    } catch {
-      Alert.alert('Audio Error', 'Could not load audio. Make sure the backend is running.');
+      let loadedSound = null;
+      try {
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: cdnUri },
+          { shouldPlay: true, isLooping, rate: isSlowMode ? 0.75 : 1.0, shouldCorrectPitch: true },
+          status => { if (status.didJustFinish && !isLooping) setPlayingAyah(null); }
+        );
+        loadedSound = newSound;
+      } catch {
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: localUri },
+          { shouldPlay: true, isLooping, rate: isSlowMode ? 0.75 : 1.0, shouldCorrectPitch: true },
+          status => { if (status.didJustFinish && !isLooping) setPlayingAyah(null); }
+        );
+        loadedSound = newSound;
+      }
+
+      setSound(loadedSound);
+    } catch (err) {
+      console.warn('Murajaah audio error:', err);
+      Alert.alert('Audio Error', 'Could not load audio. Check your internet connection.');
       setPlayingAyah(null);
     } finally {
       setAudioLoading(false);
