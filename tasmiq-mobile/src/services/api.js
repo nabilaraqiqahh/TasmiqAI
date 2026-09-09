@@ -13,9 +13,13 @@ import { Platform } from 'react-native';
 //      ? 'http://localhost:8001'
 //      : `http://${MY_PC_IP}:8001`;
 // -----------------------------------------------------------------------------
+// Your PC's local IP — testers on the same WiFi can reach the backend here.
+// Update this if your IP changes (run: ipconfig on Windows).
+const LOCAL_BACKEND = 'http://192.168.150.232:8001';
+
 export const API_URL = Platform.OS === 'web'
   ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001')
-  : 'https://api.tasmiqai.com';   // native APK always uses production
+  : LOCAL_BACKEND;   // native APK — calls your laptop's backend over LAN
 
 const api = axios.create({
   baseURL: API_URL,
@@ -148,12 +152,20 @@ export const assessChunk = async (audioBlobOrUri, expectedText) => {
 //  checkBackendConnection — call on app start to warn user if backend is down
 // -----------------------------------------------------------------------------
 export const checkBackendConnection = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/health`, { timeout: 5000 });
-    return res.status === 200;
-  } catch {
-    return false;
+  // Try up to 2 times with a gap — the first attempt can fail if the backend
+  // just started or the browser tab loads before the server is fully ready.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await axios.get(`${API_URL}/health`, { timeout: 8000 });
+      if (res.status === 200) return true;
+    } catch {
+      if (attempt < 2) {
+        // Brief pause before retry
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
   }
+  return false;
 };
 
 export const submitRecitation = async () => ({ status: 'success' });

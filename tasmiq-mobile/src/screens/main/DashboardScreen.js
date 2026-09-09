@@ -318,8 +318,21 @@ export default function DashboardScreen({ navigation }) {
               <Ionicons name="warning-outline" size={18} color="#92400E" style={{ marginTop: 1 }} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '800', color: '#92400E', fontSize: 13 }}>AI Backend Offline</Text>
-                <Text style={{ color: '#92400E', fontSize: 12, marginTop: 2 }}>AI assessment unavailable. Start your local backend or check internet.</Text>
+                <Text style={{ color: '#92400E', fontSize: 12, marginTop: 2 }}>
+                  AI scoring unavailable. Make sure the backend is running:{'\n'}
+                  <Text style={{ fontFamily: 'monospace', fontSize: 11 }}>uvicorn tasmiq_api:app --port 8001</Text>
+                </Text>
               </View>
+              <TouchableOpacity
+                onPress={async () => {
+                  const { checkBackendConnection } = await import('../../services/api');
+                  const online = await checkBackendConnection();
+                  setBackendOnline(online);
+                }}
+                style={{ backgroundColor: '#92400E', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 2 }}
+              >
+                <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '800' }}>Retry</Text>
+              </TouchableOpacity>
             </View>
           )}
 
