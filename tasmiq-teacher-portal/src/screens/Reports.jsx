@@ -721,7 +721,7 @@ const ReportDocument = React.forwardRef(({ data }, ref) => {
                     <td style={{ padding: '9px 12px' }}>
                       <span style={{
                         padding: '3px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '800',
-                        backgroundColor: r.reviewed ? '#D1FAE5' : '#FEF3C7',
+                        backgroundColor: r.reviewed ? '#E8F5EE' : '#FEF3C7',
                         color: r.reviewed ? C.green : '#92400E'
                       }}>
                         {r.reviewed ? '✓ Done' : 'Pending'}
@@ -803,7 +803,7 @@ const ReportDocument = React.forwardRef(({ data }, ref) => {
                       <td style={{ padding: '10px 14px' }}>
                         <span style={{
                           padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
-                          backgroundColor: e.severity === 'High' ? '#FEE2E2' : e.severity === 'Medium' ? '#FEF3C7' : '#D1FAE5',
+                          backgroundColor: e.severity === 'High' ? '#FEE2E2' : e.severity === 'Medium' ? '#FEF3C7' : '#E8F5EE',
                           color: e.severity === 'High' ? C.red : e.severity === 'Medium' ? '#92400E' : C.green,
                         }}>
                           {e.severity}

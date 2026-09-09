@@ -64,8 +64,8 @@ export default function TeacherStudents({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFF9E8'} />
 
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 0 }}>

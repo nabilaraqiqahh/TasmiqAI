@@ -34,7 +34,7 @@ const Tab   = createBottomTabNavigator();
 
 const P  = '#0B6E4F';
 const PD = '#064E3B';
-const PL = '#D1FAE5';
+const PL = '#E8F5EE';
 const G  = '#D4AF37';
 
 // ── Join Class Bottom Sheet ────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ function JoinClassSheet({ visible, onClose, userId }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} activeOpacity={1} onPress={handleClose} />
-      <View style={{ backgroundColor: '#FFFDF0', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 48 }}>
+      <View style={{ backgroundColor: '#FFF9E8', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 48 }}>
         {/* Handle */}
         <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 20 }} />
 
@@ -209,6 +209,9 @@ function MainTabNavigator() {
             shadowRadius: 20,
           },
           tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginTop: 2 },
+          // Remove the default web active-tab highlight pill
+          tabBarItemStyle: { paddingVertical: 0 },
+          tabBarIconStyle: { marginBottom: 0 },
           tabBarIcon: ({ focused, color }) => {
             // ── CENTER: Join Class ──
             if (route.name === 'JoinClassTab') {
@@ -226,13 +229,25 @@ function MainTabNavigator() {
                 </View>
               );
             }
-            const icons = {
-              Home:     focused ? 'home'           : 'home-outline',
-              Progress: focused ? 'stats-chart'    : 'stats-chart-outline',
-              History:  focused ? 'time'           : 'time-outline',
-              Profile:  focused ? 'person-circle'  : 'person-circle-outline',
+
+            // ── Regular tabs — all use the same visual pattern ──
+            // Active: filled icon, no background circle
+            // Inactive: outline icon, muted colour
+            const iconMap = {
+              Home:     { active: 'home',          inactive: 'home-outline'          },
+              Progress: { active: 'stats-chart',   inactive: 'stats-chart-outline'   },
+              History:  { active: 'time',           inactive: 'time-outline'          },
+              Profile:  { active: 'person-circle', inactive: 'person-circle-outline' },
             };
-            return <Ionicons name={icons[route.name] || 'help-outline'} size={22} color={color} />;
+            const iconName = iconMap[route.name]
+              ? (focused ? iconMap[route.name].active : iconMap[route.name].inactive)
+              : 'help-outline';
+
+            return (
+              <View style={{ alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}>
+                <Ionicons name={iconName} size={22} color={color} />
+              </View>
+            );
           },
         })}
       >
@@ -285,7 +300,7 @@ export default function AppNavigator() {
 
   if (session === undefined) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFF9E8', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={P} />
       </View>
     );

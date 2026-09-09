@@ -251,7 +251,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-[20px] p-6 shadow-sm border-t-4 border-[#14532D] hover:-translate-y-1 hover:shadow-md transition-all duration-300 flex flex-col justify-between" style={{ minHeight: '140px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <span style={{ fontSize: '11px', fontWeight: '800', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Average Score</span>
-            <div style={{ backgroundColor: '#FFFDF0', padding: '6px', borderRadius: '10px' }}>
+            <div style={{ backgroundColor: '#FFF9E8', padding: '6px', borderRadius: '10px' }}>
               <Star size={16} color={C.gold} />
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-[20px] p-6 shadow-sm border-t-4 border-[#14532D] hover:-translate-y-1 hover:shadow-md transition-all duration-300 flex flex-col justify-between" style={{ minHeight: '140px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <span style={{ fontSize: '11px', fontWeight: '800', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Avg AI Accuracy</span>
-            <div style={{ backgroundColor: '#FFFDF0', padding: '6px', borderRadius: '10px' }}>
+            <div style={{ backgroundColor: '#FFF9E8', padding: '6px', borderRadius: '10px' }}>
               <Percent size={16} color={C.gold} />
             </div>
           </div>

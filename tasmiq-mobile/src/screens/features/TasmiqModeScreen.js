@@ -10,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { saveRecitationResult } from '../../services/recitationService';
 import { analyzeRecitation } from '../../services/api';
 import { supabase } from '../../services/supabaseClient';
+import { createNotification } from '../../services/notificationService';
 import quranData from '../../data/quran_data.json';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -21,7 +22,7 @@ const P = {
   green:    '#0B6E4F',
   red:      '#DC2626',
   amber:    '#D97706',
-  bg:       '#FFFDF0',
+  bg:       '#FFF9E8',
   card:     '#FFFFFF',
   muted:    '#6B7280',
   text:     '#1A2E1C',
@@ -712,6 +713,34 @@ export default function TasmiqModeScreen({ navigation, route }) {
       }
 
       setSubmitSuccess(true);
+
+      // ── Notify student: AI Practice or Official Assessment submitted ──────
+      try {
+        if (session?.id) {
+          const overallScore = recordingMode === 'advanced'
+            ? (advancedRecording?.score || 0)
+            : (() => {
+                const scores = Object.values(recordings).map(r => r.score || 0);
+                return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+              })();
+
+          await createNotification({
+            userId: session.id,
+            title: isExercise
+              ? `AI Practice Completed — ${overallScore}%`
+              : 'Official Assessment Submitted',
+            body: isExercise
+              ? (overallScore >= 70
+                  ? `Great work! You scored ${overallScore}% on ${currentSurah.name}. Keep it up! 🌟`
+                  : `You scored ${overallScore}% on ${currentSurah.name}. Practice more to reach 70%. 💪`)
+              : `Your official recitation of ${currentSurah.name} has been submitted and is awaiting your teacher's review.`,
+            type: isExercise ? 'AI_PRACTICE_RESULT' : 'OFFICIAL_SUBMITTED',
+          });
+        }
+      } catch (notifErr) {
+        console.warn('[TasmiqMode] notification failed (non-fatal):', notifErr?.message);
+      }
+      // ─────────────────────────────────────────────────────────────────────
     } catch (e) {
       console.error('Submission error:', e);
       setSubmitError(e?.message || 'Failed to submit. Please check your internet connection.');
@@ -732,10 +761,10 @@ export default function TasmiqModeScreen({ navigation, route }) {
     const passed = score >= 70;
     return (
       <View style={{
-        backgroundColor: passed ? '#D1FAE5' : '#FFFBEB',
+        backgroundColor: passed ? '#E8F5EE' : '#FFFBEB',
         paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
         flexDirection: 'row', alignItems: 'center', gap: 4,
-        borderWidth: 1, borderColor: passed ? '#A7F3D0' : '#FDE68A',
+        borderWidth: 1, borderColor: passed ? '#E8F5EE' : '#FDE68A',
       }}>
         <Ionicons name={passed ? "checkmark-circle" : "alert-circle"} size={14} color={passed ? '#065F46' : '#92400E'} />
         <Text style={{ fontSize: 12, fontWeight: '800', color: passed ? '#065F46' : '#92400E' }}>
@@ -751,12 +780,12 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
   if (submitSuccess) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
           <StatusBar barStyle="dark-content" />
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
             <View style={{
               width: 100, height: 100, borderRadius: 50,
-              backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center',
+              backgroundColor: '#E8F5EE', alignItems: 'center', justifyContent: 'center',
               marginBottom: 24,
             }}>
               <Ionicons name="checkmark-circle" size={64} color={'#0B6E4F'} />
@@ -806,7 +835,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
   // ═══════════════════════════════════════════════════════════════
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
         {/* Top Header bar */}
@@ -844,7 +873,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
           {/* Recording mode badge */}
           <View style={{
-            backgroundColor: recordingMode === 'advanced' ? '#EDE9FE' : '#D1FAE5',
+            backgroundColor: recordingMode === 'advanced' ? '#EDE9FE' : '#E8F5EE',
             paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
           }}>
             <Text style={{ fontSize: 10, fontWeight: '800', color: recordingMode === 'advanced' ? '#6D28D9' : '#0B6E4F' }}>
@@ -967,7 +996,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                       onPress={handlePlayAdvanced}
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 6,
-                        backgroundColor: advancedIsPlaying ? '#FEF3C7' : '#D1FAE5',
+                        backgroundColor: advancedIsPlaying ? '#FEF3C7' : '#E8F5EE',
                         paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12,
                       }}
                     >
@@ -1020,7 +1049,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
             {/* AI Analyzing indicator */}
             {advancedRecording?.isAnalyzing && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#D1FAE5', borderRadius: 12, marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#E8F5EE', borderRadius: 12, marginBottom: 16 }}>
                 <ActivityIndicator size="small" color={'#0B6E4F'} />
                 <Text style={{ fontSize: 13, color: '#0B6E4F', fontWeight: '700' }}>Evaluating recitation details...</Text>
               </View>
@@ -1044,13 +1073,13 @@ export default function TasmiqModeScreen({ navigation, route }) {
                   <View style={{
                     marginBottom: 14, padding: 12, borderRadius: 12,
                     backgroundColor: advancedRecording.analysis.completionStatus === 'complete'
-                      ? '#D1FAE5'
+                      ? '#E8F5EE'
                       : advancedRecording.analysis.completionStatus === 'incomplete'
                         ? '#FEF3C7'
                         : '#F3F4F6',
                     borderWidth: 1,
                     borderColor: advancedRecording.analysis.completionStatus === 'complete'
-                      ? '#A7F3D0'
+                      ? '#E8F5EE'
                       : advancedRecording.analysis.completionStatus === 'incomplete'
                         ? '#FDE68A'
                         : '#E5E7EB',
@@ -1296,7 +1325,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
 
                     {/* Ayah Analysis loading indicator */}
                     {rec?.isAnalyzing && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, backgroundColor: '#D1FAE5', borderRadius: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, backgroundColor: '#E8F5EE', borderRadius: 10 }}>
                         <ActivityIndicator size="small" color={'#0B6E4F'} />
                         <Text style={{ fontSize: 12, color: '#0B6E4F', fontWeight: '700' }}>Evaluating recitation details...</Text>
                       </View>
@@ -1345,7 +1374,7 @@ export default function TasmiqModeScreen({ navigation, route }) {
                           onPress={() => isThisPlaying ? handlePausePlayback() : handlePlayAyah(ayahNum)}
                           style={{
                             flexDirection: 'row', alignItems: 'center', gap: 6,
-                            backgroundColor: isThisPlaying ? '#FEF3C7' : '#D1FAE5',
+                            backgroundColor: isThisPlaying ? '#FEF3C7' : '#E8F5EE',
                             paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
                           }}
                         >

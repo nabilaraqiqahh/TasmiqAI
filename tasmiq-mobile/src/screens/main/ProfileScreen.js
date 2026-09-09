@@ -16,9 +16,9 @@ import { useTheme } from '../../context/ThemeContext';
 
 const P  = '#0B6E4F';
 const PD = '#064E3B';
-const PL = '#D1FAE5';
+const PL = '#E8F5EE';
 const G  = '#D4AF37';
-const BG = '#FFFDF0';
+const BG = '#FFF9E8';
 const BS = '#FFF9E6';
 
 export default function ProfileScreen({ navigation }) {

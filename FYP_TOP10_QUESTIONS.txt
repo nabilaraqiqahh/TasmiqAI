@@ -1,0 +1,342 @@
+================================================================
+TASMIQAI — FYP PRESENTATION
+TOP 10 TECHNICAL QUESTIONS AN EXAMINER WILL LIKELY ASK
+================================================================
+Prepared after full code audit — September 2026
+================================================================
+
+------------------------------------------------------------------------
+QUESTION 1
+"What is an Expert System, and how is it used in your project?"
+------------------------------------------------------------------------
+
+AN EXPERT SYSTEM is a rule-based computer program that mimics the
+decision-making ability of a human expert in a specific domain.
+Instead of learning from data (like a neural network), it follows
+a fixed set of IF-THEN rules defined by the programmer.
+
+IN TASMIQAI:
+Our Expert System compares a student's Quran recitation
+transcription against the expected Quran verse text.
+
+It applies these rules:
+  - IF word matches expected word → CORRECT
+  - IF word is 65%+ similar to expected → PRONUNCIATION ISSUE
+  - IF word is 35-64% similar → INCORRECT WORD
+  - IF expected word is completely missing → SKIPPED
+  - IF makhraj-sensitive letter appears in an error position
+    → Add Makhraj guidance tip
+
+It then calculates scores and generates feedback.
+
+IMPORTANT: The Expert System is our own code (Python, tasmiq_app.py).
+It is NOT the Gemini AI. Gemini only does speech recognition.
+Our Expert System does the decision-making.
+
+
+------------------------------------------------------------------------
+QUESTION 2
+"What does the AI model do in your system?"
+------------------------------------------------------------------------
+
+We use Google's Gemini Flash model for Automatic Speech Recognition (ASR).
+
+WHAT GEMINI DOES:
+  - Receives the student's audio recording
+  - Transcribes it into Arabic text
+  - We guide it with the expected verse as context in our prompt
+
+WHAT GEMINI DOES NOT DO:
+  - Gemini does NOT evaluate the recitation
+  - Gemini does NOT score the student
+  - Gemini does NOT know what "correct" means in our system
+  - We do NOT know how Gemini processes the audio internally
+    (it is a black box neural network)
+
+AFTER GEMINI:
+Our Expert System takes the transcription text and applies our
+rules to score it.
+
+CORRECT ARCHITECTURE STATEMENT:
+"Gemini Flash is responsible for speech recognition.
+Our Expert System is responsible for rule-based evaluation.
+These are two separate components."
+
+
+------------------------------------------------------------------------
+QUESTION 3
+"How is the score calculated?"
+------------------------------------------------------------------------
+
+The overall score is a WEIGHTED AVERAGE of four components:
+
+  Overall = Memorization × 0.45
+          + Pronunciation × 0.30
+          + Tajweed × 0.15
+          + Fluency × 0.10
+
+MEMORIZATION (45%):
+  = (weighted correct words / total expected words) × 100
+  Each correct word = 1.0 point
+  Each pronunciation issue = 0.75 points
+  Each incorrect word = 0.2 points
+  Each skipped word = 0 points
+
+PRONUNCIATION (30%):
+  = 100 − (pronunciation issues / total words × 35)
+  Capped: cannot exceed Memorization + 12 points
+
+TAJWEED (15%):
+  = 100 − (number of makhraj errors × 6)
+  Capped: cannot exceed Memorization + 15 points
+  (Based on makhraj-sensitive Arabic letters: ق ض ط ظ ث ذ ه ح خ غ ص)
+
+FLUENCY (10%):
+  = Proportion of speech frames in the audio × 110
+  Higher continuous speech ratio → higher fluency
+
+PASS THRESHOLD:
+  Score ≥ 70% → PASS
+  Score < 70% → NEEDS MORE PRACTICE
+
+
+------------------------------------------------------------------------
+QUESTION 4
+"How does the 70% threshold work?"
+------------------------------------------------------------------------
+
+The 70% threshold is used in two ways:
+
+WAY 1 — Visual feedback to student:
+  In TasmiqModeScreen and HistoryScreen:
+    IF score >= 70 → show green "PASS" badge
+    IF score < 70  → show amber "NEEDS MORE PRACTICE" badge
+
+WAY 2 — Unlock condition for Official Assessment:
+  In TasmiqPrepScreen, the student can only select
+  "Official Assessment" if they have completed at least
+  ONE AI Practice session for that Surah.
+
+IMPORTANT LIMITATION:
+  The current code checks IF the student has done at least
+  one AI Practice (any score), NOT whether they scored ≥ 70%.
+  A student who scored 20% in AI Practice can technically
+  access Official Assessment.
+
+  This is a known gap between the intended design (must score ≥70%)
+  and the current implementation (must have attempted at least once).
+
+
+------------------------------------------------------------------------
+QUESTION 5
+"How does the teacher assess a student's recitation?"
+------------------------------------------------------------------------
+
+STEP 1: Student submits an Official Assessment.
+  - is_exercise = false
+  - status = 'pending', reviewed = false
+
+STEP 2: Teacher opens the Teacher Portal.
+  - RecitationReview.jsx or TasmiqWorkspace.jsx
+  - Pending queue: SELECT * FROM recitations WHERE reviewed = false
+
+STEP 3: Teacher selects the student's recitation.
+  - Sees: Student name, Surah, Ayah, AI-generated score breakdown,
+    transcription, word alignment, audio recording
+
+STEP 4: Teacher plays the audio recording.
+
+STEP 5: Teacher selects PASS or REPEAT.
+  - REPEAT requires written feedback (enforced in code)
+
+STEP 6: Database updated:
+  - recitations.status → 'approved' (PASS) or 'repeat' (REPEAT)
+  - recitations.teacher_id → teacher's UUID
+  - recitations.teacher_status → 'PASS' or 'REPEAT'
+  - recitations.reviewed → true
+
+STEP 7: Notification created for the student:
+  - notifications.user_id = student UUID (from recitations.user_id)
+  - NOT based on student name — based on UUID
+
+STEP 8: Student receives push notification via Supabase Realtime.
+  - No need to refresh or log out/in
+  - Notification deep-links to the evaluation screen
+
+
+------------------------------------------------------------------------
+QUESTION 6
+"What is Murajaah and how is it different from Tasmiq?"
+------------------------------------------------------------------------
+
+MURAJAAH (Revision):
+  - Purpose: Self-revision and memorization practice
+  - No recording
+  - No AI analysis
+  - No scoring
+  - No teacher involvement
+  - Student reveals/hides ayahs to test their own memory
+  - Can listen to reference audio at normal or slow speed
+  - Progress saved to murajaah_sessions table
+  - Completion when all ayahs reviewed at least once
+
+TASMIQ (Assessment):
+  - Purpose: Formal recitation assessment
+  - Student records audio
+  - AI (Gemini) transcribes the audio
+  - Expert System scores the transcription
+  - Score saved to recitations table
+  - AI Practice: immediate auto-scored result
+  - Official Assessment: submitted to teacher for formal review
+
+KEY DIFFERENCE:
+  Murajaah is for learning. Tasmiq is for assessment.
+  Murajaah is like studying. Tasmiq is like taking the test.
+
+
+------------------------------------------------------------------------
+QUESTION 7
+"How does the notification system work?"
+------------------------------------------------------------------------
+
+The notification system uses Supabase Realtime.
+
+WHEN TEACHER SUBMITS EVALUATION:
+  Teacher portal inserts a row into the notifications table:
+    user_id = student UUID    ← identifies the correct student
+    type = 'TEACHER_TASMIQ_EVALUATION'
+    title = 'Teacher Assessment Completed' (PASS)
+           OR 'Teacher Requested Re-recording' (REPEAT)
+    recitation_id = the specific recitation UUID (for deep-link)
+
+STUDENT SIDE (Real-time):
+  The student's mobile app subscribes to a Supabase Realtime channel:
+    Channel: "notifications:{studentId}"
+    Event: INSERT on notifications table WHERE user_id = studentId
+  
+  When the teacher inserts the notification, Supabase pushes it
+  to the subscribed mobile app immediately.
+  
+  The unread count badge on the bell icon updates instantly.
+  
+  Student taps the notification → navigates to TeacherEvaluationScreen.
+
+SECURITY:
+  - All notification queries filter by user_id
+  - markAsRead() also verifies user_id (cross-student read impossible)
+  - Real-time channel is scoped to the specific student's UUID
+
+
+------------------------------------------------------------------------
+QUESTION 8
+"What happens if the AI server (backend) is offline?"
+------------------------------------------------------------------------
+
+There are two scenarios:
+
+SCENARIO 1: Gemini API unavailable (no API key or Gemini fails)
+  → Acoustic Signal Analysis fallback automatically activates
+  → Uses librosa to analyze audio signal properties:
+      - Speech/silence ratio
+      - Zero-crossing rate (articulation)
+      - Energy variance (smoothness)
+      - Duration vs expected
+  → Produces realistic scores from acoustic features
+  → Student sees a result — no crash, no error message
+  → Source field in result: "acoustic" (vs "gemini")
+
+SCENARIO 2: Entire FastAPI backend unreachable
+  → Mobile app shows alert: "Analysis Failed — Could not reach the AI Server"
+  → Student cannot submit to AI in that session
+  → The app does NOT crash
+  → Student can still browse History, Profile, Murajaah (these use Supabase directly)
+
+IMPORTANT:
+  The backend runs separately from the database.
+  Supabase database operations (load history, notifications, profile)
+  still work even if the FastAPI backend is offline.
+
+
+------------------------------------------------------------------------
+QUESTION 9
+"How are previous recitation attempts preserved?"
+------------------------------------------------------------------------
+
+Every recitation submission is an INSERT, never an UPDATE.
+
+CODE PROOF (recitationService.js → saveRecitationResult):
+  supabase.from('recitations').insert([insertPayload]).select().single()
+
+Each submission creates a NEW row with:
+  - A new UUID
+  - A timestamp (submitted_at, recorded_at)
+  - An attempt_number (COUNT of previous exercises + 1)
+  - A session_id (UUID grouping multi-ayah beginner sessions)
+
+RESULT:
+  - All AI Practice attempts are preserved
+  - Student can see all attempts in History screen
+  - ProgressScreen shows side-by-side comparison of latest two attempts
+  - Timeline bar chart shows score progression over all attempts
+  - No data is ever lost or overwritten by a new submission
+
+
+------------------------------------------------------------------------
+QUESTION 10
+"What are the limitations of your system?"
+------------------------------------------------------------------------
+
+LIMITATION 1 — Tajweed evaluation is text-based, not acoustic:
+  Our system identifies which Tajweed-sensitive letters (makhraj)
+  appeared in words that were mismatched. It does NOT acoustically
+  measure Madd elongation, Ghunnah nasalization, or Qalqalah echo.
+  Direct acoustic Tajweed evaluation would require specialized models.
+
+LIMITATION 2 — Gemini is a black box:
+  We cannot see inside Gemini's neural network. If Gemini makes
+  a transcription error (especially for rare or dialectal Arabic
+  words), our Expert System will score based on that incorrect
+  transcription.
+
+LIMITATION 3 — The 70% gate is not strictly enforced:
+  The Official Assessment unlock checks if ANY AI practice
+  was completed, not whether the student scored ≥ 70%.
+
+LIMITATION 4 — Extra words are not detected:
+  If a student inserts extra words not in the expected verse,
+  the Expert System does not explicitly classify them as
+  "extra words". They appear as mismatches in adjacent words.
+
+LIMITATION 5 — Arabic normalization is broad:
+  Diacritics (harakat) are removed before comparison.
+  This means a student who correctly recites "بِسْمِ" and one who
+  recites "بسم" are treated identically after normalization.
+  This is intentional to avoid penalizing harakat differences,
+  but it means the system is more lenient with Arabic precision.
+
+LIMITATION 6 — Acoustic fallback is estimated, not verified:
+  When Gemini is unavailable, the acoustic fallback produces
+  scores based on signal energy and rhythm — NOT based on actual
+  word comparison. The scores are realistic-looking but cannot
+  confirm whether the student recited the correct words.
+
+
+================================================================
+END OF TOP 10 QUESTIONS
+================================================================
+
+QUICK REFERENCE — KEY NUMBERS TO MEMORIZE:
+  Pass threshold:        70%
+  Memorization weight:   45%
+  Pronunciation weight:  30%
+  Tajweed weight:        15%
+  Fluency weight:        10%
+  Silence gate (min):    0.8 seconds of speech
+  Surah mismatch (min):  45% similarity
+  Word match (min):      65% character similarity for "pronunciation issue"
+  Makhraj penalty:       6 points per error
+  Backend port:          8001
+  Mobile web port:       8081
+  Surahs in dataset:     114
+
+================================================================

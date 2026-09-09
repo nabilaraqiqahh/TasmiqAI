@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 const T = {
   primary:    '#0B6E4F',
   primaryDark:'#064E3B',
-  primaryLight:'#D1FAE5',
+  primaryLight:'#E8F5EE',
   gold:       '#D4AF37',
   goldLight:  '#F8E7A1',
   bg:         '#F8FAF8',
@@ -21,7 +21,7 @@ const T = {
   red:        '#EF4444',
   redLight:   '#FEE2E2',
   green:      '#059669',
-  greenLight: '#D1FAE5',
+  greenLight: '#E8F5EE',
 };
 
 // ── Reusable Sub-Components ────────────────────────────────────────
@@ -161,7 +161,7 @@ function Alert({ type, message }) {
       display: 'flex', alignItems: 'center', gap: '8px',
       backgroundColor: isSuccess ? T.greenLight : T.redLight,
       color: isSuccess ? T.green : T.red,
-      border: `1px solid ${isSuccess ? '#A7F3D0' : '#FECACA'}`,
+      border: `1px solid ${isSuccess ? '#E8F5EE' : '#FECACA'}`,
       marginTop: '4px',
     }}>
       {isSuccess ? <CheckCircle size={15} /> : <Shield size={15} />}
@@ -795,7 +795,7 @@ export default function Settings() {
               {[
                 {
                   value: 'light', label: 'Light Mode', icon: Sun,
-                  preview: { bg: '#F8FAF8', card: '#FFFFFF', text: '#1F2937', accent: '#D1FAE5' },
+                  preview: { bg: '#F8FAF8', card: '#FFFFFF', text: '#1F2937', accent: '#E8F5EE' },
                   sublabel: 'Clean and bright',
                 },
                 {

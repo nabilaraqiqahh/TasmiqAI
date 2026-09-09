@@ -4,7 +4,7 @@ export const Colors = {
     primary:      '#0B6E4F',   // Emerald Green
     primaryDark:  '#064E3B',   // Dark Emerald
     primaryLight: '#E5F2EC',   // Soft Emerald (selected states)
-    primaryMid:   '#D1FAE5',   // Light Emerald (cards, chips)
+    primaryMid:   '#E8F5EE',   // Light Emerald (cards, chips)
     accent:       '#C99A2E',   // Gold
     accentLight:  '#F5E8C3',   // Soft Gold
     bg:           '#FFF9E8',   // Main background — warm light yellow/ivory

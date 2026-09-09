@@ -36,7 +36,7 @@ function formatDate(ts) {
 function StatusBadge({ status }) {
   const isPass   = status === 'PASS'   || status === 'approved';
   const isRepeat = status === 'REPEAT' || status === 'repeat';
-  const bg    = isPass ? '#D1FAE5' : isRepeat ? '#FEE2E2' : '#FEF3C7';
+  const bg    = isPass ? '#E8F5EE' : isRepeat ? '#FEE2E2' : '#FEF3C7';
   const color = isPass ? '#065F46' : isRepeat ? '#B91C1C' : '#92400E';
   const label = isPass ? 'PASS'    : isRepeat ? 'REPEAT'  : 'PENDING';
   const icon  = isPass ? 'checkmark-circle' : isRepeat ? 'refresh-circle' : 'time-outline';
@@ -186,7 +186,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
   // -- Render ------------------------------------------------------
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#0B6E4F" />
         <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>Loading evaluation…</Text>
       </SafeAreaView>
@@ -195,7 +195,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
 
   if (!recitation) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <Ionicons name="alert-circle-outline" size={56} color={'#6B7280'} />
           <Text style={{ color: '#064E3B', fontSize: 18, fontWeight: '800', marginTop: 16 }}>
             Evaluation Not Found
@@ -217,7 +217,7 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
   const isRepeat = evalStatus === 'REPEAT' || evalStatus === 'repeat';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         {/* -- Header ---------------------------------------------- */}
@@ -255,10 +255,10 @@ export default function TeacherEvaluationScreen({ navigation, route }) {
           {/* -- Status Banner ------------------------------------- */}
           <View style={{
             borderRadius: 20, padding: 24,
-            backgroundColor: isPass ? '#D1FAE5' : isRepeat ? '#FEE2E2' : '#FEF3C7',
+            backgroundColor: isPass ? '#E8F5EE' : isRepeat ? '#FEE2E2' : '#FEF3C7',
             alignItems: 'center', marginBottom: 24,
             borderWidth: 1,
-            borderColor: isPass ? '#A7F3D0' : isRepeat ? '#FCA5A5' : '#FDE68A',
+            borderColor: isPass ? '#E8F5EE' : isRepeat ? '#FCA5A5' : '#FDE68A',
           }}>
             <View style={{
               width: 64, height: 64, borderRadius: 32,

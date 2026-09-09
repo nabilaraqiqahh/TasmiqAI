@@ -12,9 +12,9 @@ import { getCurrentUser } from '../../services/authService';
 // Design tokens
 const P   = '#0B6E4F';
 const PD  = '#064E3B';
-const PL  = '#D1FAE5';
+const PL  = '#E8F5EE';
 const G   = '#C8A84B';
-const BG  = '#FFFDF0';
+const BG  = '#FFF9E8';
 const RED = '#DC2626';
 
 function formatDate(ts) {

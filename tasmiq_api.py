@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # JWT CONFIGURATION
 # ============================================================
-# JWT_SECRET must be set in .env — a long random string, never committed to git.
+# JWT_SECRET must be set in .env â€” a long random string, never committed to git.
 # Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
 JWT_SECRET    = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
@@ -80,7 +80,7 @@ if not JWT_SECRET:
     import secrets as _secrets
     JWT_SECRET = _secrets.token_hex(32)
     logger.warning(
-        "⚠️  JWT_SECRET not set in environment — using a temporary random secret. "
+        "âš ï¸  JWT_SECRET not set in environment â€” using a temporary random secret. "
         "All tokens will be invalidated on restart. "
         "Set JWT_SECRET in .env for persistent sessions."
     )
@@ -92,14 +92,14 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    logger.error("❌ SUPABASE_URL or SUPABASE_KEY not set in environment")
+    logger.error("âŒ SUPABASE_URL or SUPABASE_KEY not set in environment")
 
 # Initialize Supabase client
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    logger.info("✅ Supabase client initialized successfully")
+    logger.info("âœ… Supabase client initialized successfully")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize Supabase client: {e}")
+    logger.error(f"âŒ Failed to initialize Supabase client: {e}")
     supabase = None
 
 # ============================================================
@@ -205,7 +205,7 @@ if hasattr(tasmiq_app, 'AUDIO_DIR') and os.path.exists(tasmiq_app.AUDIO_DIR):
 @app.on_event("startup")
 async def startup_event():
     print("=" * 50)
-    print("🚀 TasmiqAI Server Starting...")
+    print("TasmiqAI Server Starting...")
     print("=" * 50)
     
     # Check Supabase connection
@@ -213,23 +213,23 @@ async def startup_event():
         try:
             # Test connection
             response = supabase.table("users").select("count").limit(1).execute()
-            print("✅ Connected to Supabase")
+            print("[OK] Connected to Supabase")
         except Exception as e:
-            print(f"❌ Supabase connection error: {e}")
+            print(f"[ERROR] Supabase connection error: {e}")
     else:
-        print("❌ Supabase client not initialized")
+        print("[ERROR] Supabase client not initialized")
     
     # Load Quran dataset
     if tasmiq_app.load_dataset():
-        print(f"✅ Dataset loaded: {len(tasmiq_app.quran_data)} surahs")
+        print(f"[OK] Dataset loaded: {len(tasmiq_app.quran_data)} surahs")
     else:
-        print("⚠️ Dataset failed to load")
+        print("[WARNING] Dataset failed to load")
     
     # Load AI model
     tasmiq_app.load_model()
     
     print("=" * 50)
-    print("✅ Server ready on http://localhost:8001")
+    print("[OK] Server ready on http://localhost:8001")
     print("=" * 50)
 
 # ============================================================
@@ -249,7 +249,7 @@ async def health():
     gemini_ok = tasmiq_app.gemini_client is not None
     api_key   = os.environ.get("GEMINI_API_KEY", "")
 
-    # Check ffmpeg — bundled Windows binary OR system PATH
+    # Check ffmpeg â€” bundled Windows binary OR system PATH
     import shutil as _shutil
     ffmpeg_bundled = os.path.join(os.path.dirname(__file__), 'deps', 'imageio_ffmpeg', 'binaries', 'ffmpeg.exe')
     ffmpeg_system  = _shutil.which('ffmpeg')
@@ -273,7 +273,7 @@ async def health():
 
 @app.post("/api/debug-audio")
 async def debug_audio(audio: UploadFile = File(...)):
-    """Debug endpoint — test audio loading without full AI analysis."""
+    """Debug endpoint â€” test audio loading without full AI analysis."""
     import tempfile, shutil
     tmp = None
     try:
@@ -288,7 +288,7 @@ async def debug_audio(audio: UploadFile = File(...)):
             "audio_samples": len(arr),
             "duration_seconds": round(len(arr) / 16000, 2) if len(arr) > 0 else 0,
             "loaded_ok": len(arr) > 0,
-            "message": "Audio loaded successfully" if len(arr) > 0 else "Audio array is EMPTY — check file format/ffmpeg",
+            "message": "Audio loaded successfully" if len(arr) > 0 else "Audio array is EMPTY â€” check file format/ffmpeg",
         }
     except Exception as e:
         return {"error": str(e), "loaded_ok": False}
@@ -311,8 +311,8 @@ def verify_password(plain: str, stored: str) -> bool:
     Handles BOTH bcrypt hashes AND legacy plain-text passwords gracefully.
 
     Migration strategy:
-      - If stored value starts with '$2b$' or '$2a$' it is a bcrypt hash → verify properly.
-      - Otherwise it is a legacy plain-text password → compare directly.
+      - If stored value starts with '$2b$' or '$2a$' it is a bcrypt hash â†’ verify properly.
+      - Otherwise it is a legacy plain-text password â†’ compare directly.
         On successful login with a legacy password, the caller should upgrade it.
     """
     if not plain or not stored:
@@ -370,17 +370,17 @@ async def login_user(request: LoginRequest):
         response = supabase.table("users").select("*").eq("email", request.email.strip().lower()).execute()
 
         if not response.data:
-            logger.warning(f"Login failed: user not found — {request.email}")
+            logger.warning(f"Login failed: user not found â€” {request.email}")
             return LoginResponse(success=False, error="Invalid email or password")
 
         user = response.data[0]
         stored_pwd = user.get("password_hash") or user.get("password") or ""
 
         if not verify_password(request.password, stored_pwd):
-            logger.warning(f"Login failed: bad password — {request.email}")
+            logger.warning(f"Login failed: bad password â€” {request.email}")
             return LoginResponse(success=False, error="Invalid email or password")
 
-        # ── Auto-upgrade legacy plain-text password to bcrypt hash ──────────
+        # â”€â”€ Auto-upgrade legacy plain-text password to bcrypt hash â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if not is_hashed(stored_pwd):
             try:
                 new_hash = hash_password(request.password)
@@ -390,7 +390,7 @@ async def login_user(request: LoginRequest):
                 logger.info(f"Password upgraded to bcrypt for user {user['id']}")
             except Exception as upg_err:
                 logger.warning(f"Password upgrade failed (non-fatal): {upg_err}")
-        # ─────────────────────────────────────────────────────────────────────
+        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         # Update last_login
         try:
@@ -402,7 +402,7 @@ async def login_user(request: LoginRequest):
 
         user_id = user.get("id") or user.get("uid", "")
         token   = create_access_token(str(user_id), user["email"], user.get("role", "student"))
-        logger.info(f"✅ User logged in: {user['email']} ({user.get('role')})")
+        logger.info(f"âœ… User logged in: {user['email']} ({user.get('role')})")
 
         return LoginResponse(
             success=True,
@@ -462,7 +462,7 @@ async def register_user(request: RegisterRequest):
         user  = response.data[0]
         uid   = user.get("id") or user.get("uid", "")
         token = create_access_token(str(uid), user["email"], user.get("role", "student"))
-        logger.info(f"✅ User registered: {user['email']} ({user.get('role')})")
+        logger.info(f"âœ… User registered: {user['email']} ({user.get('role')})")
 
         return LoginResponse(
             success=True,
@@ -490,7 +490,7 @@ class ChangePasswordRequest(BaseModel):
 @app.post("/api/auth/change-password")
 async def change_password(request: ChangePasswordRequest):
     """
-    Update a user's password — stores a bcrypt hash, never plain text.
+    Update a user's password â€” stores a bcrypt hash, never plain text.
     The caller is responsible for verifying the current password first.
     """
     try:
@@ -527,7 +527,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     """
     token = credentials.credentials
 
-    # ── Try proper JWT first ────────────────────────────────────────────────
+    # â”€â”€ Try proper JWT first â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     try:
         payload = decode_access_token(token)
         user_id = payload.get("sub")
@@ -538,7 +538,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except JWTError:
         pass  # Fall through to legacy check
 
-    # ── Legacy token fallback (token_{id}_{timestamp}) ──────────────────────
+    # â”€â”€ Legacy token fallback (token_{id}_{timestamp}) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Kept temporarily so existing mobile sessions survive without force-logout.
     # Remove this block after all clients have received fresh JWT tokens.
     if token.startswith("token_") and supabase:
@@ -550,7 +550,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                 resp = supabase.table("users").select("*").eq("id", user_id).execute()
                 if resp.data:
                     logger.warning(
-                        f"Legacy token accepted for user {user_id} — "
+                        f"Legacy token accepted for user {user_id} â€” "
                         "client should re-login to receive a proper JWT."
                     )
                     return resp.data[0]
@@ -825,7 +825,7 @@ async def handle_enrollment(request: EnrollmentActionRequest):
         if not result.data:
             return {"success": False, "error": "Failed to update enrollment"}
         
-        logger.info(f"✅ Enrollment {request.action}ed: {enrollment['student_id']} -> {enrollment['class_id']}")
+        logger.info(f"âœ… Enrollment {request.action}ed: {enrollment['student_id']} -> {enrollment['class_id']}")
         
         return {
             "success": True,
@@ -881,7 +881,7 @@ async def create_class(request: ClassCreateRequest):
         if not response.data:
             return {"success": False, "error": "Failed to create class"}
         
-        logger.info(f"✅ Class created: {request.name} ({code})")
+        logger.info(f"âœ… Class created: {request.name} ({code})")
         
         return {
             "success": True,
@@ -933,7 +933,7 @@ async def generate_invite_code(request: InviteCodeRequest):
         if not response.data:
             return {"success": False, "error": "Failed to generate invite code"}
         
-        logger.info(f"✅ Invite code generated: {code}")
+        logger.info(f"âœ… Invite code generated: {code}")
         
         return {
             "success": True,
@@ -1018,7 +1018,7 @@ async def request_enrollment(student_id: str, invite_code: str):
             .eq("id", invite["id"])\
             .execute()
         
-        logger.info(f"📩 Enrollment request submitted: {student_id} -> {class_id}")
+        logger.info(f"ðŸ“© Enrollment request submitted: {student_id} -> {class_id}")
         
         return {
             "success": True,
@@ -1148,7 +1148,7 @@ async def submit_recitation(
         except Exception as u_err:
             logger.warning(f"User progress update warning: {u_err}")
         
-        logger.info(f"🎙️ Recitation submitted: {user_id} - Surah {surah_number}")
+        logger.info(f"ðŸŽ™ï¸ Recitation submitted: {user_id} - Surah {surah_number}")
         
         return {
             "success": True,
@@ -1282,7 +1282,7 @@ async def submit_feedback(request: FeedbackSubmitRequest):
         if not response.data:
             return {"success": False, "error": "Failed to submit feedback"}
         
-        logger.info(f"📝 Feedback submitted for recitation: {request.recitation_id}")
+        logger.info(f"ðŸ“ Feedback submitted for recitation: {request.recitation_id}")
         
         return {
             "success": True,
@@ -1399,7 +1399,7 @@ if __name__ == "__main__":
     reload_mode = os.environ.get("UVICORN_RELOAD", "false").lower() == "true"
     uvicorn.run(
         "tasmiq_api:app",
-        host="127.0.0.1",   # localhost only — Nginx proxies from outside
+        host="127.0.0.1",   # localhost only â€” Nginx proxies from outside
         port=8001,
         reload=reload_mode,
         workers=1,          # For multi-worker use gunicorn: gunicorn -w 2 -k uvicorn.workers.UvicornWorker tasmiq_api:app

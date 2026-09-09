@@ -1,1 +1,18 @@
 @tailwind base;@tailwind components;@tailwind utilities;
+
+/* ── React Navigation web: remove active-tab highlight circle ── */
+/* The bottom tab bar renders <a> tags on web. The active one gets
+   a default background highlight that looks like a filled circle.
+   We remove it so all tabs look identical (icon + label only).    */
+[data-testid="tab-bar"] a,
+[role="tab"] {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  outline: none !important;
+}
+
+/* Remove any ::before / ::after pseudo-elements used as highlights */
+[role="tab"]::before,
+[role="tab"]::after {
+  display: none !important;
+}

@@ -113,13 +113,18 @@ export default function Announcements() {
       if (members?.length > 0) {
         const notifications = members.map(m => ({
           user_id:    m.student_id,
-          title:      'New class announcement has been posted.',
-          body:       title.trim(),
-          type:       'info',
+          title:      `📢 ${title.trim()}`,
+          body:       content.trim(),
+          type:       'ANNOUNCEMENT',
           is_read:    false,
+          created_at: new Date().toISOString(),
         }));
-        await supabase.from('notifications').insert(notifications)
-          .then(() => {}).catch(e => console.warn('Notifications insert:', e?.message));
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+        if (notifError) {
+          console.warn('[Announcements] Notifications insert warning:', notifError.message);
+        }
       }
 
       setTitle('');
@@ -225,7 +230,7 @@ export default function Announcements() {
 
             {/* Success banner */}
             {successMsg && (
-              <div style={{ marginTop: '12px', padding: '12px 16px', borderRadius: '10px', backgroundColor: '#D1FAE5', color: '#065F46', fontWeight: '700', fontSize: '14px', border: '1px solid #A7F3D0' }}>
+              <div style={{ marginTop: '12px', padding: '12px 16px', borderRadius: '10px', backgroundColor: '#E8F5EE', color: '#065F46', fontWeight: '700', fontSize: '14px', border: '1px solid #E8F5EE' }}>
                 {successMsg}
               </div>
             )}

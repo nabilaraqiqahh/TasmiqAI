@@ -61,7 +61,7 @@ export default function WelcomeScreen({ navigation }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+    <View style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>

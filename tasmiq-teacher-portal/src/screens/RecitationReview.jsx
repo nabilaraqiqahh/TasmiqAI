@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 const D = {
   emerald:      '#0B6E4F',
   emeraldDark:  '#064E3B',
-  emeraldLight: '#D1FAE5',
+  emeraldLight: '#E8F5EE',
   gold:         '#D4AF37',
   goldLight:    '#F8E7A1',
   bg:           '#FEFCE8',
@@ -39,7 +39,7 @@ function getAutoStatus(r) {
 }
 
 const STATUS_CONFIG = {
-  approved:     { label: 'AI Approved',   bg: '#D1FAE5', color: '#065F46', dot: '#0B6E4F' },
+  approved:     { label: 'AI Approved',   bg: '#E8F5EE', color: '#065F46', dot: '#0B6E4F' },
   needs_review: { label: 'Needs Review',  bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
   flagged:      { label: 'Flagged',       bg: '#FEE2E2', color: '#991B1B', dot: '#EF4444' },
 };
@@ -456,7 +456,7 @@ export default function RecitationReview() {
                         <div>
                           <span style={{
                             padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800,
-                            backgroundColor: r.isRedo ? '#FEE2E2' : '#D1FAE5',
+                            backgroundColor: r.isRedo ? '#FEE2E2' : '#E8F5EE',
                             color: r.isRedo ? '#991B1B' : '#065F46',
                           }}>
                             {r.isRedo ? '🔄 Re-record' : '✅ Approved'}

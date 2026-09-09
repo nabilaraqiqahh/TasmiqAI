@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabaseClient';
 import { getCurrentUser } from '../../services/authService';
+import { createNotification } from '../../services/notificationService';
 import { useTheme } from '../../context/ThemeContext';
 
 // -- Error boundary to prevent full app crash ---------------------
@@ -272,13 +273,18 @@ function NudgeScreenInner({ navigation }) {
 
       if (nudgeErr) throw nudgeErr;
 
-      // Insert notification for receiver
-      await supabase.from('notifications').insert([{
-        user_id: selectedMate.id,
-        title: "New nudge received!",
-        body: `${session.full_name || 'A classmate'} nudged you: "${messageText}"`,
-        is_read: false
-      }]);
+      // Insert notification for receiver — separate try so a notification
+      // failure never blocks the nudge confirmation shown to the sender
+      try {
+        await createNotification({
+          userId: selectedMate.id,
+          title:  'New nudge received! 💬',
+          body:   `${session.full_name || 'A classmate'} nudged you: "${messageText}"`,
+          type:   'NUDGE_RECEIVED',
+        });
+      } catch (notifErr) {
+        console.warn('[NudgeScreen] notification failed (non-fatal):', notifErr?.message);
+      }
 
       setNudgeModalVisible(false);
       Alert.alert('Nudge Sent! 🎉', `You reminded ${selectedMate.name} to complete their activity.`);
@@ -299,13 +305,13 @@ function NudgeScreenInner({ navigation }) {
   };
 
   if (loading) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8', alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator size="large" color={'#0B6E4F'} />
     </SafeAreaView>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
         {/* -- HEADER --------------------------------------------------- */}

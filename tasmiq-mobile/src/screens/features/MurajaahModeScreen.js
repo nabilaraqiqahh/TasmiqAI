@@ -18,13 +18,14 @@ import quranData from '../../data/quran_data.json';
 import { supabase } from '../../services/supabaseClient';
 import { getCurrentUser } from '../../services/authService';
 import { API_URL } from '../../services/api';
+import { createNotification } from '../../services/notificationService';
 import { useTheme } from '../../context/ThemeContext';
 
 const E  = '#0B6E4F';
 const ED = '#064E3B';
-const EL = '#D1FAE5';
+const EL = '#E8F5EE';
 const G  = '#D4AF37';
-const BG = '#FFFDF0';
+const BG = '#FFF9E8';
 
 export default function MurajaahModeScreen({ navigation }) {
   const { isDark } = useTheme();
@@ -272,6 +273,19 @@ export default function MurajaahModeScreen({ navigation }) {
       }
 
       setDone(true);
+
+      // ── Notify student: Murajaah session completed ────────────────────────
+      try {
+        await createNotification({
+          userId: user.id,
+          title:  `Murajaah Completed — ${surah.name}`,
+          body:   `Excellent! You finished revising all ${totalAyahs} ayahs of ${surah.name}. Your session has been saved. 📖`,
+          type:   'MURAJAAH_COMPLETED',
+        });
+      } catch (notifErr) {
+        console.warn('[Murajaah] notification failed (non-fatal):', notifErr?.message);
+      }
+      // ─────────────────────────────────────────────────────────────────────
     } catch (err) {
       Alert.alert('Error', err.message || 'Could not save session.');
     } finally {

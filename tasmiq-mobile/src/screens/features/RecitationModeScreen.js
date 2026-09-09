@@ -470,8 +470,8 @@ export default function RecitationModeScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFF9E8'} />
 
       {/* -- Header -- */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
@@ -539,13 +539,13 @@ export default function RecitationModeScreen({ navigation, route }) {
         }}>
           {/* Hint Badge */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <View style={{ backgroundColor: '#FFFDF0', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
+            <View style={{ backgroundColor: '#FFF9E8', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
               <Text style={{ fontSize: 10, fontWeight: '800', color: '#6B7280' }}>
                 Surah {currentSurah.index} : {selectedAyahNumber}{recitationMode !== 'single' && endAyahToAnalyze > selectedAyahNumber ? `-${endAyahToAnalyze}` : ''}
               </Text>
             </View>
             {!isRecording && !showAIStatus && (
-              <View style={{ backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
+              <View style={{ backgroundColor: '#E8F5EE', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
                 <Text style={{ fontSize: 10, fontWeight: '800', color: '#D4A017' }}>
                   {hintCount < 5 ? `${hintCount}/5 Hints` : 'All Hints Used'}
                 </Text>
@@ -643,7 +643,7 @@ export default function RecitationModeScreen({ navigation, route }) {
             </View>
 
             {/* Hesitation Indicator */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#FFFDF0', borderRadius: 14, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#FFF9E8', borderRadius: 14, marginBottom: 12 }}>
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: aiAnalysis.hesitation ? C.warning : '#0B6E4F', marginRight: 10 }} />
               <Text style={{ fontSize: 13, color: '#064E3B' }}>
                 {aiAnalysis.hesitation ? 'Minor hesitation detected in a few words' : 'Excellent fluency — no hesitation detected'}
@@ -664,7 +664,7 @@ export default function RecitationModeScreen({ navigation, route }) {
             disabled={isRecording}
             style={{
               width: 60, height: 60, borderRadius: 30,
-              backgroundColor: isRecording ? '#EEE' : '#D1FAE5',
+              backgroundColor: isRecording ? '#EEE' : '#E8F5EE',
               alignItems: 'center', justifyContent: 'center',
             }}
           >
@@ -773,7 +773,7 @@ export default function RecitationModeScreen({ navigation, route }) {
                 onPress={() => { setRecitationMode(m.id); setModeModalVisible(false); }}
                 style={{
                   padding: 16, borderRadius: 16, marginBottom: 12,
-                  backgroundColor: recitationMode === m.id ? '#0B6E4F' + '15' : '#FFFDF0',
+                  backgroundColor: recitationMode === m.id ? '#0B6E4F' + '15' : '#FFF9E8',
                   borderWidth: 2, borderColor: recitationMode === m.id ? '#0B6E4F' : 'transparent'
                 }}
               >
@@ -826,7 +826,7 @@ export default function RecitationModeScreen({ navigation, route }) {
                 <Ionicons name="close-circle" size={32} color={'#6B7280'} />
               </TouchableOpacity>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFDF0', borderRadius: 14, paddingHorizontal: 14, marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF9E8', borderRadius: 14, paddingHorizontal: 14, marginBottom: 14 }}>
               <Ionicons name="search" size={18} color={'#6B7280'} />
               <TextInput
                 placeholder="Search surah name or number..."
@@ -884,7 +884,7 @@ export default function RecitationModeScreen({ navigation, route }) {
                   onPress={() => { setSelectedAyahNumber(item); setAyahModalVisible(false); }}
                   style={{
                     width: '18%', aspectRatio: 1, borderRadius: 12, margin: '1%',
-                    backgroundColor: item === selectedAyahNumber ? '#0B6E4F' : '#FFFDF0',
+                    backgroundColor: item === selectedAyahNumber ? '#0B6E4F' : '#FFF9E8',
                     alignItems: 'center', justifyContent: 'center',
                   }}
                 >

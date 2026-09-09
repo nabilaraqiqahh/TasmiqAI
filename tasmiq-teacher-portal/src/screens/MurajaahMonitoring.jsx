@@ -6,7 +6,7 @@ import { CheckCircle, AlertTriangle, Clock, Search, ChevronRight, RefreshCw, Boo
 const D = {
   emerald:      '#0B6E4F',
   emeraldDark:  '#064E3B',
-  emeraldLight: '#D1FAE5',
+  emeraldLight: '#E8F5EE',
   gold:         '#D4AF37',
   bg:           '#FEFCE8',
   card:         '#FFFFFF',

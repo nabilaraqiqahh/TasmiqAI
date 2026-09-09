@@ -95,7 +95,7 @@ export default function TeacherReview({ navigation, route }) {
   };
 
   if (loading && !refreshing) {
-    return <View style={{ flex: 1, backgroundColor: '#FFFDF0', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={'#0B6E4F'} /></View>;
+    return <View style={{ flex: 1, backgroundColor: '#FFF9E8', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={'#0B6E4F'} /></View>;
   }
 
   /* -- Parse metrics — supports both old errors object and new dedicated columns -- */
@@ -123,8 +123,8 @@ export default function TeacherReview({ navigation, route }) {
   const scoreColor = overallScore >= 85 ? '#0B6E4F' : overallScore >= 70 ? '#D4AF37' : '#DC2626';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFF9E8'} />
 
       <View style={{ flex: 1, flexDirection: isWeb && width > 1000 ? 'row' : 'column', maxWidth: 1400, alignSelf: 'center', width: '100%' }}>
 
@@ -197,7 +197,7 @@ export default function TeacherReview({ navigation, route }) {
                         {selected.surah} · Ayah {selected.ayah}
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-                        <View style={{ backgroundColor: '#FFFDF0', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <View style={{ backgroundColor: '#FFF9E8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
                           <Text style={{ fontSize: 11, fontWeight: '700', color: '#0B6E4F' }}>
                             {selected.type || 'Tasmiq'}
                           </Text>
@@ -239,7 +239,7 @@ export default function TeacherReview({ navigation, route }) {
                     <Ionicons name="text-outline" size={18} color={'#0B6E4F'} />
                     <Text style={{ fontSize: 15, fontWeight: '900', color: '#064E3B' }}>Recited Text (Transcription)</Text>
                   </View>
-                  <View style={{ backgroundColor: '#FFFDF0', borderRadius: 16, padding: 20 }}>
+                  <View style={{ backgroundColor: '#FFF9E8', borderRadius: 16, padding: 20 }}>
                     <Text style={{ fontSize: 26, textAlign: 'right', color: '#064E3B', lineHeight: 48, direction: 'rtl', fontWeight: '500', fontFamily: Platform.OS === 'ios' ? 'GeezaPro' : 'serif' }}>
                       {selected.transcription}
                     </Text>
@@ -249,7 +249,7 @@ export default function TeacherReview({ navigation, route }) {
 
               {/* AI FEEDBACK TEXT */}
               {selected.feedback ? (
-                <View style={{ backgroundColor: '#FFFDF0', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#BBF7D0' }}>
+                <View style={{ backgroundColor: '#FFF9E8', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#BBF7D0' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <Ionicons name="bulb-outline" size={18} color="#0B6E4F" />
                     <Text style={{ fontSize: 15, fontWeight: '900', color: '#0B6E4F' }}>AI Feedback</Text>
@@ -287,7 +287,7 @@ export default function TeacherReview({ navigation, route }) {
                     <TouchableOpacity
                       key={n}
                       onPress={() => setGrade(n)}
-                      style={{ flex: 1, height: 56, borderRadius: 14, backgroundColor: grade === n ? '#0B6E4F' : '#FFFDF0', alignItems: 'center', justifyContent: 'center', borderWidth: grade === n ? 0 : 1, borderColor: '#E5E7EB' }}
+                      style={{ flex: 1, height: 56, borderRadius: 14, backgroundColor: grade === n ? '#0B6E4F' : '#FFF9E8', alignItems: 'center', justifyContent: 'center', borderWidth: grade === n ? 0 : 1, borderColor: '#E5E7EB' }}
                     >
                       <Text style={{ fontSize: 18, fontWeight: '900', color: grade === n ? 'white' : '#064E3B' }}>{n}</Text>
                     </TouchableOpacity>
@@ -301,7 +301,7 @@ export default function TeacherReview({ navigation, route }) {
                   placeholderTextColor="#9CA3AF"
                   value={feedback}
                   onChangeText={setFeedback}
-                  style={{ backgroundColor: '#FFFDF0', borderRadius: 14, padding: 16, height: 110, fontSize: 15, marginBottom: 20, textAlignVertical: 'top', color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
+                  style={{ backgroundColor: '#FFF9E8', borderRadius: 14, padding: 16, height: 110, fontSize: 15, marginBottom: 20, textAlignVertical: 'top', color: '#064E3B', borderWidth: 1, borderColor: '#E5E7EB' }}
                 />
 
                 <View style={{ flexDirection: 'row', gap: 12 }}>

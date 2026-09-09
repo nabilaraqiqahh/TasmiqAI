@@ -1,0 +1,15 @@
+[build]
+  base    = "tasmiq-mobile"
+  command = "npx expo export --platform web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Set your production backend URL here
+  EXPO_PUBLIC_API_URL = "https://api.tasmiqai.com"
+
+# SPA routing — redirect all paths to index.html
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

@@ -2,8 +2,8 @@
 TasmiqAI Core Assessment Engine
 ================================
 Engine priority:
-  1. Gemini Flash (cloud, ~2-5s, high accuracy) — uses GEMINI_API_KEY environment var
-  2. Audio-signal analysis (local, <1s, always works) — guaranteed fallback
+  1. Gemini Flash (cloud, ~2-5s, high accuracy) â€” uses GEMINI_API_KEY environment var
+  2. Audio-signal analysis (local, <1s, always works) â€” guaranteed fallback
 
 The audio-signal fallback uses real acoustic features (speech/silence ratio,
 duration vs expected length, energy variance) to produce realistic scores.
@@ -22,7 +22,7 @@ import librosa
 import soundfile as sf
 from pathlib import Path
 
-# ── Load environment variables first ──────────────────────────────────────────
+# â”€â”€ Load environment variables first â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -32,7 +32,7 @@ try:
 except ImportError:
     pass
 
-# ── Set bundled ffmpeg so librosa can decode m4a/mp4 from mobile ──────────────
+# â”€â”€ Set bundled ffmpeg so librosa can decode m4a/mp4 from mobile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # On Windows dev: use the bundled ffmpeg.exe in deps/
 # On Linux production: rely on system ffmpeg (apt install ffmpeg)
 _BUNDLED_FFMPEG = Path(__file__).resolve().parent / 'deps' / 'imageio_ffmpeg' / 'binaries' / 'ffmpeg.exe'
@@ -40,25 +40,25 @@ if _BUNDLED_FFMPEG.exists():
     os.environ.setdefault('PATH', '')
     os.environ['PATH'] = str(_BUNDLED_FFMPEG.parent) + os.pathsep + os.environ.get('PATH', '')
     os.environ['IMAGEIO_FFMPEG_EXE'] = str(_BUNDLED_FFMPEG)
-    print(f"✅ ffmpeg set (bundled): {_BUNDLED_FFMPEG}")
+    print(f"[OK] ffmpeg set (bundled): {_BUNDLED_FFMPEG}")
 else:
     # Linux / production: ffmpeg must be on system PATH (apt install ffmpeg)
     import shutil as _shutil
     _sys_ffmpeg = _shutil.which('ffmpeg')
     if _sys_ffmpeg:
-        print(f"✅ ffmpeg set (system): {_sys_ffmpeg}")
+        print(f"[OK] ffmpeg set (system): {_sys_ffmpeg}")
     else:
-        print("⚠️ ffmpeg not found — audio decoding of m4a/mp4 may fail. Run: apt install ffmpeg")
+        print("[WARNING] ffmpeg not found â€” audio decoding of m4a/mp4 may fail. Run: apt install ffmpeg")
 
-# ── Gemini API Key — loaded from environment / .env file ─────────────────────
+# â”€â”€ Gemini API Key â€” loaded from environment / .env file â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # DO NOT hardcode API keys in source code.
 # Set GEMINI_API_KEY in your .env file or system environment variables.
 
-# ── Logging ───────────────────────────────────────────────────────────────────
+# â”€â”€ Logging â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# ── Dataset paths ─────────────────────────────────────────────────────────────
+# â”€â”€ Dataset paths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # QURAN_DATA_DIR env var overrides the default.
 # Default: <project_root>/data/quran/source  (bundled with the repo)
 # On a Linux server, set: QURAN_DATA_DIR=/opt/tasmiqai/data/quran/source
@@ -68,7 +68,7 @@ BASE_DIR  = Path(_env_quran) if _env_quran else _DEFAULT_QURAN_DIR
 AUDIO_DIR = BASE_DIR / "audio"
 SURAH_DIR = BASE_DIR / "surah"
 
-# ── Makhraj knowledge base ────────────────────────────────────────────────────
+# â”€â”€ Makhraj knowledge base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 MAKHRAJ_MAP = {
     '\u0642': {'char': '\u0642', 'desc': 'Deep Throat / Uvula (Aqsa al-Lisan)', 'rule': 'Qalqalah (Echo) if Sakin'},
     '\u063a': {'char': '\u063a', 'desc': 'Upper Throat (Adna al-Halq)',           'rule': 'Heavy sound'},
@@ -83,11 +83,11 @@ MAKHRAJ_MAP = {
     '\u0630': {'char': '\u0630', 'desc': 'Tip of tongue + Edges of teeth',        'rule': 'Soft dh'},
 }
 
-# ── Global state ──────────────────────────────────────────────────────────────
+# â”€â”€ Global state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 quran_data = {}
 gemini_client = None   # Initialized inside load_model() using the environment variable
 
-# ── Initialisation ────────────────────────────────────────────────────────────
+# â”€â”€ Initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def load_dataset():
     global quran_data
     if not SURAH_DIR.exists():
@@ -123,19 +123,17 @@ def load_model():
                         break
 
     if api_key:
-        # Validate key format — Gemini keys start with AIza
-        if not api_key.startswith('AIza') and not api_key.startswith('AI'):
-            logger.warning(f"GEMINI_API_KEY looks invalid (should start with 'AIza'): {api_key[:12]}...")
-            logger.warning("Get a valid key from https://aistudio.google.com/app/apikey")
-            # Still try it — maybe new format
+        # Accept any non-empty key â€” Google AI Studio keys can start with
+        # 'AIza', 'AQ.', or other prefixes depending on the project type.
+        # Just try to connect; the SDK will raise if the key is truly invalid.
         try:
             from google import genai
             gemini_client = genai.Client(
                 api_key=api_key,
-                http_options={'timeout': 30.0}
+                http_options={'timeout': 60.0}   # increased from 30s — SSL handshake on slow networks
             )
-            logger.info(f"Gemini API key loaded: {api_key[:8]}...")
-            print(f"Engine: Gemini Flash (key: {api_key[:8]}...)")
+            logger.info(f"Gemini client initialised (key prefix: {api_key[:8]}...)")
+            print(f"Engine: Gemini Flash (key prefix: {api_key[:8]}...)")
             return True
         except ImportError:
             logger.error("google-genai not installed. Run: pip install google-genai")
@@ -143,14 +141,27 @@ def load_model():
             logger.error(f"Gemini client init failed: {e}")
             gemini_client = None
 
-    logger.warning("No valid GEMINI_API_KEY — using acoustic fallback")
+    logger.warning("No valid GEMINI_API_KEY â€” using acoustic fallback")
     print("Engine: Acoustic signal analysis (no API key)")
     return True
 
 
-# ── Audio helpers ─────────────────────────────────────────────────────────────
+# â”€â”€ Audio helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def process_audio(audio_source, sr=16000):
-    """Load and normalise audio from a file path or numpy array."""
+    """Load, trim, and NORMALISE audio. Returns float32 array at `sr` Hz.
+    NOTE: normalisation scales ALL audio to peak Â±1.0, which means the
+    returned array cannot be used for silence/energy detection.
+    Use process_audio_raw() for pre-normalisation analysis."""
+    arr = _load_audio_raw(audio_source, sr)
+    if len(arr) > 0:
+        arr = librosa.util.normalize(arr)
+    logger.info(f"Audio loaded (normalised): {len(arr)/sr:.2f}s at {sr}Hz")
+    return arr
+
+
+def _load_audio_raw(audio_source, sr=16000):
+    """Internal: load, resample, mono-mix, trim â€” but do NOT normalise.
+    Returns the raw float32 array so silence gate can inspect true energy."""
     try:
         if isinstance(audio_source, tuple):
             orig_sr, arr = audio_source
@@ -210,16 +221,17 @@ def process_audio(audio_source, sr=16000):
                 return np.array([])
 
         arr, _ = librosa.effects.trim(arr, top_db=25)
-        if len(arr) > 0:
-            arr = librosa.util.normalize(arr)
-        logger.info(f"Audio loaded: {len(arr)/sr:.2f}s at {sr}Hz")
+        # Do NOT normalise here â€” caller (process_audio) does that.
+        # _load_audio_raw intentionally returns the raw trimmed signal
+        # so silence detection can measure true acoustic energy.
+        logger.info(f"Audio raw loaded: {len(arr)/sr:.2f}s at {sr}Hz")
         return arr
     except Exception as e:
         logger.error(f"Audio processing error: {e}")
         return np.array([])
 
 
-# ── Arabic text helpers ───────────────────────────────────────────────────────
+# â”€â”€ Arabic text helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _clean_arabic(text: str) -> str:
     """Remove diacritics, normalise variant forms, strip non-Arabic."""
     if not text:
@@ -237,7 +249,7 @@ def clean_expected_text(expected_text: str) -> str:
     if not expected_text:
         return ""
     # Remove the end-of-ayah markers
-    expected_text = expected_text.replace("۝", "").replace("\u06dd", "")
+    expected_text = expected_text.replace("Û", "").replace("\u06dd", "")
     # Remove duplicate spaces
     expected_text = " ".join(expected_text.split())
     return expected_text
@@ -255,15 +267,15 @@ def _validate_surah_match(transcribed_text: str, expected_text: str,
     Args:
         transcribed_text: What the student actually recited (from Gemini).
         expected_text:    The reference Quranic text for the assigned ayah(s).
-        threshold:        Minimum similarity ratio to consider a match (0–1).
-                          Default 0.45 — rejects recitations that share fewer
+        threshold:        Minimum similarity ratio to consider a match (0â€“1).
+                          Default 0.45 â€” rejects recitations that share fewer
                           than ~45% of words with the expected surah.
 
     Returns:
         (is_match: bool, similarity: float, message: str)
     """
     if not transcribed_text or not expected_text:
-        # Cannot validate without both sides — allow through to avoid false rejects
+        # Cannot validate without both sides â€” allow through to avoid false rejects
         return True, 1.0, "ok"
 
     t_words = _clean_arabic(transcribed_text).split()
@@ -293,7 +305,7 @@ def _validate_surah_match(transcribed_text: str, expected_text: str,
     similarity = max(word_overlap, seq_ratio)
 
     logger.info(
-        f"Surah match — word_overlap={word_overlap:.2f}  "
+        f"Surah match â€” word_overlap={word_overlap:.2f}  "
         f"seq_ratio={seq_ratio:.2f}  final={similarity:.2f}  "
         f"threshold={threshold}"
     )
@@ -335,81 +347,69 @@ def get_expected_text_from_db(surah_idx: int, ayah_range_str: str) -> str:
     return clean_expected_text(" ".join(verses))
 
 
-# ── Acoustic scoring (instant, no ML model) ───────────────────────────────────
-def _acoustic_score(audio_arr: np.ndarray, expected_text: str) -> dict:
-    """
-    Derive realistic Quran recitation scores from audio signal features.
-    Only used when Gemini is unavailable.
-    """
+# â”€â”€ Acoustic scoring (instant, no ML model) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def _acoustic_score(audio_arr, expected_text):
+    # Estimate scores from audio signal alone (Gemini unavailable fallback).
+    # Cannot verify which words were spoken -- scores Pronunciation/Tajweed
+    # generously since we have no transcription to compare against.
     sr = 16000
     if len(audio_arr) == 0:
-        # Truly empty audio — return a low score to signal no speech detected
-        logger.warning("Empty audio array — returning low acoustic score")
-        base = 30.0
-        return _build_scores(base, base, base, base, expected_text, "acoustic_empty")
+        logger.warning('Empty audio -- returning minimum acoustic score')
+        return _build_scores(20.0, 20.0, 20.0, 20.0, expected_text, 'acoustic_empty')
 
-    # -- Speech/silence ratio -------------------------------------------------
     rms = librosa.feature.rms(y=audio_arr, frame_length=512, hop_length=256)[0]
-    noise_floor = np.percentile(rms, 20)
-    speech_threshold = noise_floor * 3 + 1e-4
-    speech_frames = np.sum(rms > speech_threshold)
-    speech_ratio = speech_frames / max(len(rms), 1)   # 0..1
+    noise_floor   = float(np.percentile(rms, 15))
+    rms_mean      = float(np.mean(rms))
+    speech_thresh = max(noise_floor * 2.5, rms_mean * 0.25)
+    speech_frames = int(np.sum(rms > speech_thresh))
+    speech_ratio  = speech_frames / max(len(rms), 1)
 
-    # -- Duration vs expected ------------------------------------------------
-    duration_sec = len(audio_arr) / sr
-    words_expected = len([w for w in (expected_text or "").split() if w])
-    expected_duration = max(3.0, words_expected * 0.5)
-    duration_ratio = min(1.0, duration_sec / expected_duration)   # 0..1
+    duration_sec      = len(audio_arr) / sr
+    words_expected    = len([w for w in (expected_text or '').split() if w])
+    expected_duration = max(2.0, words_expected * 0.40)
+    duration_ratio    = min(1.0, duration_sec / expected_duration)
 
-    # -- Energy variance (smoothness) ----------------------------------------
-    energy_var = float(np.std(rms) / (np.mean(rms) + 1e-6))
-    smoothness = float(np.exp(-energy_var * 2))   # 0..1
+    energy_var   = float(np.std(rms) / (rms_mean + 1e-6))
+    smoothness   = float(np.exp(-energy_var * 1.5))
 
-    # -- Zero-crossing rate (articulation) -----------------------------------
-    zcr = librosa.feature.zero_crossing_rate(y=audio_arr, frame_length=512)[0]
-    zcr_mean = float(np.mean(zcr))
-    articulation = float(np.clip((zcr_mean - 0.01) / 0.10, 0, 1))
+    zcr          = librosa.feature.zero_crossing_rate(y=audio_arr, frame_length=512)[0]
+    zcr_mean     = float(np.mean(zcr))
+    articulation = float(np.clip((zcr_mean - 0.02) / 0.12, 0, 1))
 
-    # -- Derive four scores — based on features, NO artificial floor ----------
-    # mem: how much of expected duration was covered with speech
-    # speech_ratio near 0 (silent) → score near 0
-    mem_raw = (speech_ratio * 0.6 + duration_ratio * 0.4)
-    mem_score = float(np.clip(mem_raw * 95.0, 0, 95))
+    # Memorization: duration coverage + speech activity
+    mem_score = float(np.clip((duration_ratio * 0.65 + speech_ratio * 0.35) * 100.0, 0, 97))
 
-    # pronunciation: articulation + smoothness — also gated by speech presence
-    pron_raw = (articulation * 0.5 + smoothness * 0.5) * speech_ratio
-    pron_score = float(np.clip(pron_raw * 95.0, 0, 93))
+    # Pronunciation: articulation quality
+    # Floor at 50 if speech is clearly present -- we cannot penalise
+    # pronunciation errors without a transcription.
+    pron_score = float(np.clip((articulation * 0.6 + smoothness * 0.4) * 100.0, 35, 92))
+    if speech_ratio > 0.15:
+        pron_score = max(pron_score, 50.0)
 
-    # fluency: smoothness of speech flow — zero if no speech
-    fluency_raw = (smoothness * 0.65 + speech_ratio * 0.35) * speech_ratio
-    fluency_score = float(np.clip(fluency_raw * 95.0, 0, 94))
+    # Tajweed: articulation-weighted estimate
+    tajwid_score = float(np.clip((articulation * 0.7 + smoothness * 0.3) * 100.0, 30, 90))
+    if speech_ratio > 0.15:
+        tajwid_score = max(tajwid_score, 45.0)
 
-    # tajwid: correlates with articulation — zero if no speech
-    tajwid_raw = (articulation * 0.7 + smoothness * 0.3) * speech_ratio
-    tajwid_score = float(np.clip(tajwid_raw * 90.0, 0, 92))
+    # Fluency: energy smoothness + duration coverage
+    fluency_score = float(np.clip((smoothness * 0.6 + duration_ratio * 0.4) * 100.0, 20, 92))
+    if speech_ratio > 0.15:
+        fluency_score = max(fluency_score, 40.0)
 
-    # Add small random variation only for non-silent recordings
-    if speech_ratio > 0.1:
+    if speech_ratio > 0.10:
         rng = random.Random(int(speech_ratio * 10000) + int(duration_sec * 100))
-        jitter = lambda s: float(np.clip(s + rng.uniform(-3, 3), 0.0, 97.0))
+        jitter = lambda s: float(np.clip(s + rng.uniform(-2, 2), 0.0, 97.0))
         mem_score, pron_score, fluency_score, tajwid_score = (
             jitter(mem_score), jitter(pron_score),
-            jitter(fluency_score), jitter(tajwid_score)
-        )
+            jitter(fluency_score), jitter(tajwid_score))
 
     logger.info(
-        f"Acoustic scores → Mem:{mem_score:.1f} Pron:{pron_score:.1f} "
-        f"Tajwid:{tajwid_score:.1f} Fluency:{fluency_score:.1f} "
-        f"(speech={speech_ratio:.2f}, dur={duration_sec:.1f}s, zcr={zcr_mean:.4f})"
-    )
+        f'Acoustic scores -> Mem:{mem_score:.1f} Pron:{pron_score:.1f} '
+        f'Tajwid:{tajwid_score:.1f} Fluency:{fluency_score:.1f} '
+        f'(speech={speech_ratio:.2f}, dur={duration_sec:.1f}s)')
 
-    logger.info(
-        f"Acoustic scores → Mem:{mem_score:.1f} Pron:{pron_score:.1f} "
-        f"Tajwid:{tajwid_score:.1f} Fluency:{fluency_score:.1f} "
-        f"(speech={speech_ratio:.2f}, dur={duration_sec:.1f}s, zcr={zcr_mean:.4f})"
-    )
     return _build_scores(mem_score, pron_score, tajwid_score, fluency_score,
-                         expected_text, "acoustic")
+                         expected_text, 'acoustic')
 
 
 def _build_scores(mem, pron, tajwid, fluency, expected_text, source):
@@ -437,7 +437,7 @@ def _build_scores(mem, pron, tajwid, fluency, expected_text, source):
     }
 
 
-# ── Gemini transcription ──────────────────────────────────────────────────────
+# â”€â”€ Gemini transcription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _transcribe_gemini(audio_path: str, expected_text: str) -> str:
     """Call Gemini Flash to transcribe audio. Returns Arabic text string."""
     try:
@@ -454,26 +454,55 @@ def _transcribe_gemini(audio_path: str, expected_text: str) -> str:
             audio_bytes = f.read()
 
         prompt = (
-            "You are an expert Quran recitation recognition AI.\n"
-            "Listen to the Arabic audio and transcribe exactly what the student recited.\n\n"
-            f"Expected verse: {expected_text or 'Quranic verse'}\n\n"
-            "Rules:\n"
-            "1. Output ONLY the transcribed Arabic text\n"
-            "2. No translations, explanations, or punctuation\n"
-            "3. Remove all harakat/diacritics from output\n"
-            "4. Only output what was actually spoken\n\n"
-            "Arabic text only:"
+            "You are a specialist Arabic Automatic Speech Recognition (ASR) system "
+            "trained exclusively for Quranic recitation.\n\n"
+            "TASK: Transcribe EXACTLY what the student recited in the audio.\n\n"
+            f"REFERENCE VERSE (use this to guide recognition of difficult words):\n"
+            f"{expected_text or 'Quranic verse'}\n\n"
+            "STRICT RULES:\n"
+            "1. Output ONLY the Arabic words actually spoken â€” do NOT copy the reference verse.\n"
+            "2. Write in standard Arabic script WITH harakat (diacritics) if you can hear them, "
+            "WITHOUT if not â€” do your best to represent what was spoken.\n"
+            "3. Keep word ORDER exactly as spoken â€” do not reorder.\n"
+            "4. If the student paused, stuttered, or repeated a word, transcribe it as heard.\n"
+            "5. Do NOT add words the student did not say.\n"
+            "6. Do NOT translate. Output Arabic text only.\n"
+            "7. If no speech is detected, output exactly: SILENT\n\n"
+            "Transcription:"
         )
 
-        response = gemini_client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[
-                prompt,
-                types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
-            ],
-        )
-        transcribed = re.sub(r'[^\u0600-\u06FF\s]', '',
-                             response.text.strip()).strip()
+        # Retry once on timeout/SSL — these are transient on Windows
+        import time as _time
+        _contents = [prompt, types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)]
+        try:
+            response = gemini_client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=_contents,
+            )
+        except Exception as _first_err:
+            _e = str(_first_err).lower()
+            if any(k in _e for k in ('timeout', 'ssl', 'handshake', 'timed out')):
+                logger.warning(f"Gemini attempt 1 failed ({_first_err}) — retrying in 3s...")
+                _time.sleep(3)
+                response = gemini_client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=_contents,
+                )
+            else:
+                raise
+
+        transcribed = response.text.strip()
+
+        # Handle explicit SILENT response from Gemini
+        if transcribed.upper().startswith('SILENT') or transcribed.strip() == 'SILENT':
+            raise ValueError("Gemini detected no speech (SILENT)")
+
+        # Strip non-Arabic characters but KEEP harakat for the raw transcript
+        # _clean_arabic() will strip them during comparison â€” keeping them here
+        # gives better word-boundary detection in SequenceMatcher.
+        transcribed = re.sub(r'[^\u0600-\u06FF\u0020]', ' ', transcribed).strip()
+        transcribed = ' '.join(transcribed.split())  # normalise whitespace
+
         if not transcribed:
             raise ValueError("Empty transcription from Gemini")
         logger.info(f"Gemini transcription OK: {transcribed[:60]}")
@@ -506,63 +535,109 @@ def _score_from_transcription(user_ph: str, expected_text: str,
             for k, w in enumerate(t_slice):
                 word_results.append({'word': t_orig[k] if k < len(t_orig) else w,
                                      'status': 'correct'})
-                mem_hits += 1
+                mem_hits += 1.0
         elif tag == 'replace':
             for k, w in enumerate(t_slice):
                 uw = u_slice[k] if k < len(u_slice) else ""
                 ratio = difflib.SequenceMatcher(None, w, uw).ratio() if uw else 0
                 orig  = t_orig[k] if k < len(t_orig) else w
-                if ratio >= 0.65:
+                if ratio >= 0.80:
+                    # Very close match â€” minor pronunciation difference
+                    # (e.g. harakat stripped, slight ending change)
+                    word_results.append({'word': orig, 'status': 'correct',
+                                         'user_said': uw})
+                    mem_hits += 0.95   # nearly full credit
+                elif ratio >= 0.55:
+                    # Recognisable word with pronunciation issue
                     word_results.append({'word': orig, 'status': 'pronunciation_issue',
                                          'user_said': uw})
-                    pron_issues += 1;  mem_hits += 0.75
-                elif ratio >= 0.35:
+                    pron_issues += 1
+                    mem_hits += 0.75
+                elif ratio >= 0.30:
+                    # Partially recognised
                     word_results.append({'word': orig, 'status': 'incorrect',
                                          'user_said': uw})
-                    mem_hits += 0.2
+                    mem_hits += 0.25
                 else:
+                    # Completely different word
                     word_results.append({'word': orig, 'status': 'incorrect',
                                          'user_said': uw})
+                    mem_hits += 0.0
+        elif tag == 'insert':
+            # Student said extra words â€” do NOT penalise mem_hits, just note it
+            pass
         elif tag == 'delete':
             for k, w in enumerate(t_slice):
                 word_results.append({'word': t_orig[k] if k < len(t_orig) else w,
                                      'status': 'skipped'})
+                mem_hits += 0.0
 
     total = max(len(tgt_words_n), 1)
     mem   = float(np.clip((mem_hits / total) * 100, 0, 100))
 
-    # Fluency from audio signal — gated by speech presence (silent = low fluency)
+    # â”€â”€ Fluency from audio signal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Audio is normalised (peak â‰ˆ 1.0).
+    # Use a dynamic threshold relative to the mean energy so the score
+    # reflects actual voiced-speech proportion rather than absolute amplitude.
     fluency = 0.0
     if len(audio_arr) > 0:
         rms = librosa.feature.rms(y=audio_arr)[0]
-        speech_frames = np.sum(rms > 0.005)
+        rms_mean_norm = float(np.mean(rms))
+        # Frames above 40% of mean RMS count as voiced
+        speech_threshold = rms_mean_norm * 0.4
+        speech_frames = float(np.sum(rms > speech_threshold))
         sr_ratio = speech_frames / max(len(rms), 1)
-        # Only get meaningful fluency score if significant speech present
-        if sr_ratio > 0.08:
-            fluency = float(np.clip(sr_ratio * 110 + random.uniform(-4, 6), 30, 97))
-        else:
-            fluency = float(np.clip(sr_ratio * 50, 0, 20))   # near-zero for silence
 
-    # Tajwid from makhraj errors — no speech = no tajwid score
+        if sr_ratio >= 0.06:   # at least 6% voiced â€” real recitation present
+            # Calibrated mapping for Quranic recitation:
+            #   sr_ratio 0.15 â†’ ~62  (beginner, lots of pauses)
+            #   sr_ratio 0.30 â†’ ~74  (intermediate)
+            #   sr_ratio 0.45 â†’ ~86  (good, smooth recitation)
+            #   sr_ratio 0.60 â†’ ~97  (very fluent, minimal pauses)
+            raw_fluency = 50.0 + sr_ratio * 78.0
+            # Use mem as a floor â€” if memorization is high, student was reciting,
+            # so fluency shouldn't be artificially lower than the mem score
+            floor_fluency = mem * 0.60   # at least 60% of mem score
+            fluency = float(np.clip(
+                max(raw_fluency, floor_fluency) + random.uniform(-3, 3),
+                30, 97
+            ))
+        else:
+            fluency = float(np.clip(sr_ratio * 200, 0, 12))
+
+    # â”€â”€ Tajweed from makhraj errors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Each confirmed makhraj error deducts 5 points.
+    # No relative cap â€” a student can have good Tajweed even with moderate mem
+    # (they may have recited a subset perfectly).
     makhraj_tips = _get_makhraj_tips(user_ph, expected_text or "")
     tajwid_errors = makhraj_tips.count('- <b>')
-    # Cap tajwid to mem — can't have good tajwid with no memorization
-    tajwid = float(np.clip(100 - tajwid_errors * 6, 0, 97))
-    if tajwid > mem + 15: tajwid = mem + 15
+    tajwid = float(np.clip(100 - tajwid_errors * 5, 0, 97))
+    # Only apply relative cap if memorization is very poor (< 30%)
+    # A student who recited with good articulation but skipped words still
+    # showed Tajweed effort â€” don't cap too aggressively.
+    if tajwid > mem + 30 and mem < 30:
+        tajwid = mem + 30
 
-    # Cap pron to mem + a small allowance — can't score high on pronunciation
-    # if the student didn't recite the right words at all
-    pron = float(np.clip(100 - (pron_issues / total) * 35, 0, 100))
-    if pron > mem + 12: pron = mem + 12
+    # â”€â”€ Pronunciation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Penalty per pronunciation issue relative to total expected words.
+    # 18 points spread across total is firm but fair.
+    # No hard cap relative to mem â€” pronunciation can legitimately exceed mem
+    # (student recited the right sounds in the wrong order).
+    pron = float(np.clip(100 - (pron_issues / total) * 18, 0, 100))
 
     overall = mem * 0.45 + pron * 0.30 + tajwid * 0.15 + fluency * 0.10
+    logger.info(
+        f"Scores â†’ Mem:{mem:.1f} Pron:{pron:.1f} "
+        f"Tajwid:{tajwid:.1f} Fluency:{fluency:.1f} Overall:{overall:.1f} "
+        f"(pron_issues={pron_issues}, makhraj_errors={tajwid_errors}, total_words={total})"
+    )
     return {
         "mem": mem, "pron": pron, "tajwid": tajwid, "fluency": fluency,
         "overall": overall, "word_alignments": word_results, "source": "gemini"
     }
 
 
-# ── Makhraj tips ──────────────────────────────────────────────────────────────
+# â”€â”€ Makhraj tips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _get_makhraj_tips(user_ph: str, ref_ph: str) -> str:
     errors = set()
     s = difflib.SequenceMatcher(None, ref_ph, user_ph)
@@ -583,7 +658,7 @@ def get_makhraj_tips_refined(user_ph, ref_ph):
     return _get_makhraj_tips(user_ph, ref_ph)
 
 
-# ── Public get_phonetics stubs (used by /api/assess-chunk) ───────────────────
+# â”€â”€ Public get_phonetics stubs (used by /api/assess-chunk) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def get_phonetics_with_context(audio_path_or_arr, expected_text):
     if gemini_client and isinstance(audio_path_or_arr, (str, Path)):
         try:
@@ -599,19 +674,19 @@ def process_audio_public(audio_source, sr=16000):
     return process_audio(audio_source, sr)
 
 
-# ── Silence / no-speech detection ────────────────────────────────────────────
+# â”€â”€ Silence / no-speech detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _detect_silence(audio_arr: np.ndarray, sr: int = 16000) -> dict:
     """
     Determine whether the audio contains meaningful speech.
 
     Uses a multi-check approach:
-      1. Absolute RMS energy — must be above a minimum level
-      2. Speech ratio — enough frames must be louder than background noise
-      3. Speech duration — must have at least 0.8s of voice-level audio
+      1. Absolute RMS energy â€” must be above a minimum level
+      2. Speech ratio â€” enough frames must be louder than background noise
+      3. Speech duration â€” must have at least 0.8s of voice-level audio
 
     Rejects if ANY of these fail, which catches:
       - Complete silence (mic muted / not speaking)
-      - Background room noise only (fan, AC) — low absolute RMS
+      - Background room noise only (fan, AC) â€” low absolute RMS
       - Very short taps that produce a brief click but no speech
     """
     if len(audio_arr) == 0:
@@ -627,58 +702,68 @@ def _detect_silence(audio_arr: np.ndarray, sr: int = 16000) -> dict:
     rms_mean = float(np.mean(rms))
     rms_max  = float(np.max(rms))
 
-    # ── Check 1: Absolute energy floor ──────────────────────────────────────
-    # Human speech typically has RMS > 0.01 after normalization.
-    # Silent/background noise is usually < 0.005.
-    ABSOLUTE_RMS_MIN = 0.008
+    # â”€â”€ Check 1: Absolute energy floor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Human speech in un-normalised audio typically has RMS > 0.008.
+    # Pure electrical mic noise (no voice) is usually < 0.002.
+    # 0.003 is a safe floor that works across different microphone sensitivities.
+    ABSOLUTE_RMS_MIN = 0.003
     if rms_mean < ABSOLUTE_RMS_MIN:
         logger.warning(
-            f"Silence gate: rms_mean={rms_mean:.6f} < {ABSOLUTE_RMS_MIN} → SILENT"
+            f"Silence gate: rms_mean={rms_mean:.6f} < {ABSOLUTE_RMS_MIN} â†’ SILENT"
         )
         return {
             "speech_detected": False,
             "speech_ratio": 0.0,
             "speech_seconds": 0.0,
             "rms_mean": round(rms_mean, 6),
-            "reason": "No speech detected. Please speak clearly into the microphone.",
+            "reason": "No speech detected. Please recite clearly into the microphone and try again.",
         }
 
-    # ── Check 2: Adaptive speech/noise ratio ────────────────────────────────
-    # Noise floor = 20th percentile RMS (the quietest 20% of frames = background)
+    # â”€â”€ Check 2: Adaptive speech/noise ratio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Noise floor = 20th percentile RMS (quietest 20% of frames = background)
     noise_floor = float(np.percentile(rms, 20))
-    # Speech threshold: must be at least 3× louder than background AND
-    # at least 0.01 in absolute terms (prevents treating loud noise as speech)
-    speech_threshold = max(noise_floor * 3.0, 0.01)
+    # Speech frames must be 3Ã— louder than background.
+    # Remove the hard 0.01 floor â€” it was rejecting soft microphones.
+    # Use rms_mean * 0.3 as a minimum so the threshold scales with the mic level.
+    speech_threshold = max(noise_floor * 3.0, rms_mean * 0.3)
 
     speech_frames = int(np.sum(rms > speech_threshold))
     total_frames  = max(len(rms), 1)
     speech_ratio  = speech_frames / total_frames
 
-    # Convert speech frames → seconds
+    # Convert speech frames â†’ seconds
     hop_length    = 256
     speech_seconds = float(speech_frames * hop_length / sr)
 
-    # ── Check 3: Minimum speech duration ────────────────────────────────────
-    # At least 0.8s of speech-level audio must be present.
-    # A single Quranic word takes ~0.3-0.5s; Bismillah alone is ~1.5s.
-    MIN_SPEECH_SECONDS = 0.8
-    MIN_SPEECH_RATIO   = 0.06  # at least 6% of frames must be speech
+    # â”€â”€ Check 3: Minimum speech duration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # At least 0.9s of speech-level audio must be present.
+    # Bismillah takes ~1.2â€“2s normally; a quick recitation can be ~0.9s.
+    # Below 0.9s is likely an accidental tap or a breath, not actual recitation.
+    MIN_SPEECH_SECONDS = 0.9
+    MIN_SPEECH_RATIO   = 0.08  # at least 8% of frames must be speech-level
 
     is_silent = (speech_ratio < MIN_SPEECH_RATIO) or (speech_seconds < MIN_SPEECH_SECONDS)
 
     reason = ""
     if is_silent:
-        if speech_seconds < 0.2:
-            reason = "No speech detected. Please speak clearly into the microphone."
+        if speech_seconds < 0.3:
+            reason = (
+                "No recitation detected. Please recite clearly into the microphone. "
+                "Make sure you are not on mute and your microphone is working."
+            )
+        elif speech_seconds < MIN_SPEECH_SECONDS:
+            reason = (
+                f"Recitation too short ({speech_seconds:.1f}s detected). "
+                "Please recite the full ayah â€” do not stop early."
+            )
         else:
             reason = (
-                f"Recording too short or too quiet "
-                f"({speech_seconds:.1f}s of speech detected). "
-                "Please recite louder and closer to the microphone."
+                "Voice level too low. Please recite louder and hold the device "
+                "closer to your mouth, then try again."
             )
 
     logger.info(
-        f"Silence check → ratio={speech_ratio:.3f}  "
+        f"Silence check â†’ ratio={speech_ratio:.3f}  "
         f"speech={speech_seconds:.2f}s  rms_mean={rms_mean:.5f}  "
         f"rms_max={rms_max:.5f}  threshold={speech_threshold:.5f}  "
         f"silent={is_silent}"
@@ -701,7 +786,7 @@ def detect_ayahs_in_recitation(transcribed_text: str, surah_idx: int,
       1. Clean both the transcription and each expected ayah.
       2. For each ayah, compute word-overlap against the transcription.
       3. An ayah is "detected" if overlap >= AYAH_DETECT_THRESHOLD.
-      4. Check for sequence gaps (e.g. detected [1,2,3,5] — ayah 4 is missing).
+      4. Check for sequence gaps (e.g. detected [1,2,3,5] â€” ayah 4 is missing).
 
     Returns:
         {
@@ -782,7 +867,7 @@ def detect_ayahs_in_recitation(transcribed_text: str, surah_idx: int,
             logger.info(f"Ayah gap detected in continuous recitation: {detected_ayahs}")
 
     logger.info(
-        f"Ayah detection [{surah_idx}:{start_ayah}-{end_ayah}] → "
+        f"Ayah detection [{surah_idx}:{start_ayah}-{end_ayah}] â†’ "
         f"detected={detected_ayahs}, missing={missing_ayahs}, "
         f"status={completion_status}"
     )
@@ -806,19 +891,21 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
 
     try:
         logger.info(f"Loading audio: {user_audio_path}")
-        audio_arr = process_audio(user_audio_path)
 
-        # ── SILENCE GATE — reject before any AI analysis ────────────────────
-        # Check for meaningful speech content. This catches:
-        #   - Student pressing Record but staying silent
-        #   - Accidental taps (very short recordings)
-        #   - Mic not working / muted
-        silence_check = _detect_silence(audio_arr)
+        # â”€â”€ Load RAW (trimmed, not normalised) for silence gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # CRITICAL: process_audio() calls librosa.util.normalize() which scales
+        # even pure silence to Â±1.0 peak amplitude, defeating any RMS-based
+        # silence check. We must test energy BEFORE normalisation.
+        audio_arr_raw = _load_audio_raw(user_audio_path)
+
+        # â”€â”€ SILENCE GATE on raw (un-normalised) signal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        silence_check = _detect_silence(audio_arr_raw)
         if not silence_check["speech_detected"]:
             logger.warning(
-                f"Silent recording rejected — "
+                f"Silent recording rejected (raw) â€” "
                 f"speech_ratio={silence_check['speech_ratio']:.3f}, "
-                f"speech_seconds={silence_check['speech_seconds']:.2f}s"
+                f"speech_seconds={silence_check['speech_seconds']:.2f}s, "
+                f"rms_mean={silence_check['rms_mean']:.6f}"
             )
             return {
                 "status":  "no_speech",
@@ -826,7 +913,11 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
                 "speech_ratio":   silence_check["speech_ratio"],
                 "speech_seconds": silence_check["speech_seconds"],
             }
-        # ─────────────────────────────────────────────────────────────────────
+
+        # â”€â”€ Now load the normalised version for AI / acoustic analysis â”€â”€â”€â”€â”€â”€â”€
+        audio_arr = librosa.util.normalize(audio_arr_raw) if len(audio_arr_raw) > 0 else audio_arr_raw
+
+        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         scores = None
 
@@ -842,38 +933,35 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
             expected_ayah_text = clean_expected_text(expected_ayah_text)
 
         user_ph_res = ""
-        # ── Path 1: Gemini transcription ────────────────────────────────────
+        # â”€â”€ Path 1: Gemini transcription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if gemini_client is not None:
             logger.info("Using Gemini for transcription...")
             try:
                 user_ph = _transcribe_gemini(user_audio_path, expected_ayah_text)
                 user_ph_res = user_ph
 
-                # ── Gemini hallucination guard ───────────────────────────────
-                # If Gemini returns very few words but we know there was
-                # not enough real speech (low speech_ratio), treat it as
-                # no-speech (Gemini sometimes hallucinates 1-3 words from
-                # silence or background noise).
+                # â”€â”€ Gemini hallucination guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # Only reject if Gemini returned â‰¤1 word (near-empty output)
+                # AND the raw audio had very little speech energy.
+                # We no longer use the coverage ratio here because low coverage
+                # could mean the student recited correctly but Gemini under-
+                # transcribed â€” that should be scored, not silently rejected.
                 transcribed_word_count = len([w for w in user_ph.split() if w])
-                expected_word_count = len([w for w in (expected_ayah_text or '').split() if w])
-                coverage = transcribed_word_count / max(expected_word_count, 1)
-
-                # If Gemini transcription covers < 20% of expected words AND
-                # speech energy was low, reject as no-speech.
-                if coverage < 0.20 and silence_check["speech_ratio"] < 0.25:
+                if transcribed_word_count <= 1 and silence_check["speech_ratio"] < 0.12:
                     logger.warning(
-                        f"Gemini hallucination likely — transcribed {transcribed_word_count} words "
-                        f"({coverage:.0%} coverage), speech_ratio={silence_check['speech_ratio']:.3f}"
+                        f"Gemini returned â‰¤1 word with low speech energy "
+                        f"(words={transcribed_word_count}, "
+                        f"speech_ratio={silence_check['speech_ratio']:.3f}) â€” likely silent"
                     )
                     return {
                         "status":  "no_speech",
-                        "message": "No speech detected. Please speak clearly into the microphone.",
+                        "message": "No recitation detected. Please recite clearly into the microphone.",
                         "speech_ratio":   silence_check["speech_ratio"],
                         "speech_seconds": silence_check["speech_seconds"],
                     }
-                # ─────────────────────────────────────────────────────────────
+                # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-                # ── Surah mismatch check ─────────────────────────────────────
+                # â”€â”€ Surah mismatch check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if expected_ayah_text:
                     is_match, similarity, mismatch_msg = _validate_surah_match(
                         user_ph, expected_ayah_text
@@ -891,7 +979,7 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
                             "transcription": user_ph_res,
                             "engine":       "gemini",
                         }
-                # ─────────────────────────────────────────────────────────────
+                # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
                 scores = _score_from_transcription(user_ph, expected_ayah_text, audio_arr)
                 logger.info("Gemini scoring complete.")
@@ -899,7 +987,7 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
                 logger.warning(f"Gemini path failed ({e}), falling back to acoustic.")
                 scores = None
 
-        # ── Path 2: Acoustic analysis ───────────────────────────────────────
+        # â”€â”€ Path 2: Acoustic analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if scores is None:
             logger.info("Using acoustic signal analysis...")
             scores = _acoustic_score(audio_arr, expected_ayah_text)
@@ -944,7 +1032,7 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
             else:
                 feedback_text = "Keep practicing! Regular repetition will strengthen your recitation."
 
-        # ── Ayah detection for continuous / range recitations ──────────────
+        # â”€â”€ Ayah detection for continuous / range recitations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # Only run when the ayah parameter is a range (e.g. "1-10") and
         # we have a Gemini transcription to work with.
         detected_ayahs  = None
@@ -993,7 +1081,7 @@ def assess_recitation_detailed(surah_label: str, ayah_num: str,
         raise
 
 
-# ── Legacy Entry Point ────────────────────────────────────────────────────────
+# â”€â”€ Legacy Entry Point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def main():
     if not load_dataset() or not load_model():
         print("Startup failed.")

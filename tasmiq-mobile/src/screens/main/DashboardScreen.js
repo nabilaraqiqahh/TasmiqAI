@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, SafeAreaView, ScrollView,
-  StatusBar, ActivityIndicator, Modal, Image, Animated,
+  StatusBar, ActivityIndicator, Modal, Image, Animated, Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import {
   getStudentNotifications, getUnreadCount, markAsRead,
   markAllAsRead, subscribeToNotifications,
   isEvaluationNotification, getEvaluationRecitationId,
+  deleteNotification, clearAllNotifications,
 } from '../../services/notificationService';
 import { useTheme } from '../../context/ThemeContext';
 import quranData from '../../data/quran_data.json';
@@ -20,9 +21,10 @@ import quranData from '../../data/quran_data.json';
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const P  = '#0B6E4F';
 const PD = '#064E3B';
-const PL = '#D1FAE5';
+const PL = '#E8F5EE';
 const G  = '#D4AF37';
-const BG = '#FFFDF0';
+const GL = '#F5E3A0';   // soft gold — Murajaah notification bg
+const BG = '#FFF9E8';
 const CARD = '#FFFFFF';
 const RED  = '#DC2626';
 
@@ -163,6 +165,30 @@ export default function DashboardScreen({ navigation }) {
     await markAllAsRead(userRef.current.id);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
+  };
+
+  const handleDeleteNotif = async (notifId) => {
+    if (!userRef.current?.id) return;
+    const ok = await deleteNotification(notifId, userRef.current.id);
+    if (ok) {
+      setNotifications(prev => {
+        const removed = prev.find(n => n.id === notifId);
+        if (removed && !removed.is_read) setUnreadCount(c => Math.max(0, c - 1));
+        return prev.filter(n => n.id !== notifId);
+      });
+    }
+  };
+
+  const handleClearReadNotifs = async () => {
+    if (!userRef.current?.id) return;
+    const ok = await clearAllNotifications(userRef.current.id, { readOnly: true });
+    if (ok) setNotifications(prev => prev.filter(n => !n.is_read));
+  };
+
+  const handleClearAllNotifs = async () => {
+    if (!userRef.current?.id) return;
+    const ok = await clearAllNotifications(userRef.current.id);
+    if (ok) { setNotifications([]); setUnreadCount(0); }
   };
 
   // Data load
@@ -360,7 +386,7 @@ export default function DashboardScreen({ navigation }) {
               {[
                 { step: 1, icon: 'sparkles', label: 'AI Practice', desc: 'Score 70%+ to unlock official', color: P, bg: PL },
                 { step: 2, icon: 'ribbon', label: 'Official Assessment', desc: 'Submitted to teacher', color: G, bg: '#FEF3C7' },
-                { step: 3, icon: 'checkmark-circle', label: 'Fully Passed', desc: 'Teacher marks PASS', color: '#059669', bg: '#D1FAE5' },
+                { step: 3, icon: 'checkmark-circle', label: 'Fully Passed', desc: 'Teacher marks PASS', color: '#059669', bg: '#E8F5EE' },
               ].map((item, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: i < 2 ? 14 : 0 }}>
                   <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: item.bg, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
@@ -382,8 +408,31 @@ export default function DashboardScreen({ navigation }) {
           </View>
 
           {/* ════════════════════════════════════════════════════════════════════
-              SECTION 4 — TEACHER FEEDBACK (answers: "Has my teacher reviewed?")
+              SECTION 4 — NUDGE (answers: "Can I encourage my classmates?")
               ════════════════════════════════════════════════════════════════════ */}
+          <View style={{ marginTop: 22 }}>
+            <SectionLabel text="Classmates" />
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Nudge')}
+              activeOpacity={0.88}
+            >
+              <View style={{ backgroundColor: CARD, borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#EDE9FE', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                  <Ionicons name="people" size={24} color="#7C3AED" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '900', color: PD, marginBottom: 3 }}>Nudge Classmates</Text>
+                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Remind classmates to practice their Quran</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#CCCCCC" />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* ════════════════════════════════════════════════════════════════════
+              SECTION 5 — TEACHER FEEDBACK (answers: "Has my teacher reviewed?")
+              ════════════════════════════════════════════════════════════════════ */}
+
           {latestFeedback && (
             <View style={{ marginTop: 22 }}>
               <SectionLabel text="Teacher Feedback" action="View All" onAction={() => navigation.navigate('History')} />
@@ -438,7 +487,7 @@ export default function DashboardScreen({ navigation }) {
           )}
 
           {/* ════════════════════════════════════════════════════════════════════
-              SECTION 5 — RECENT ACTIVITY (answers: "What have I completed?")
+              SECTION 6 — RECENT ACTIVITY (answers: "What have I completed?")
               ════════════════════════════════════════════════════════════════════ */}
           <View style={{ marginTop: 22 }}>
             <SectionLabel text="Recent Activity" action="See All" onAction={() => navigation.navigate('History')} />
@@ -464,7 +513,7 @@ export default function DashboardScreen({ navigation }) {
           </View>
 
           {/* ════════════════════════════════════════════════════════════════════
-              SECTION 6 — ANNOUNCEMENTS (secondary, below core learning)
+              SECTION 7 — ANNOUNCEMENTS (secondary, below core learning)
               ════════════════════════════════════════════════════════════════════ */}
           {announcements.length > 0 && (
             <View style={{ marginTop: 22 }}>
@@ -485,7 +534,7 @@ export default function DashboardScreen({ navigation }) {
           )}
 
           {/* ════════════════════════════════════════════════════════════════════
-              SECTION 7 — VERSE OF THE DAY (decorative, bottom)
+              SECTION 8 — VERSE OF THE DAY (decorative, bottom)
               ════════════════════════════════════════════════════════════════════ */}
           <View style={{ marginTop: 22 }}>
             <SectionLabel text="Verse of the Day" />
@@ -514,19 +563,58 @@ export default function DashboardScreen({ navigation }) {
             {/* Handle */}
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginTop: 12, marginBottom: 16 }} />
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, marginBottom: 4 }}>
               <Text style={{ fontSize: 18, fontWeight: '900', color: PD }}>Notifications</Text>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => setNotifVisible(false)}>
+                <Ionicons name="close-circle" size={28} color="#D1D5DB" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Action bar */}
+            {notifications.length > 0 && (
+              <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 24, marginBottom: 14, flexWrap: 'wrap' }}>
                 {unreadCount > 0 && (
-                  <TouchableOpacity onPress={handleMarkAllRead}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: P }}>Mark all read</Text>
+                  <TouchableOpacity
+                    onPress={handleMarkAllRead}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: PL, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}
+                  >
+                    <Ionicons name="checkmark-done-outline" size={13} color={P} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: P }}>Mark all read</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={() => setNotifVisible(false)}>
-                  <Ionicons name="close-circle" size={28} color="#D1D5DB" />
-                </TouchableOpacity>
+                {notifications.some(n => n.is_read) && (
+                  <TouchableOpacity
+                    onPress={handleClearReadNotifs}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F3F4F6', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={13} color="#6B7280" />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#6B7280' }}>Clear read</Text>
+                  </TouchableOpacity>
+                )}
+                {notifications.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (typeof Alert !== 'undefined') {
+                        Alert.alert(
+                          'Clear All Notifications',
+                          'This will permanently delete all your notifications. Continue?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Clear All', style: 'destructive', onPress: handleClearAllNotifs },
+                          ]
+                        );
+                      } else {
+                        handleClearAllNotifs();
+                      }
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={13} color="#DC2626" />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#DC2626' }}>Clear all</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            </View>
+            )}
 
             {notifLoading ? (
               <View style={{ paddingVertical: 40, alignItems: 'center' }}>
@@ -539,37 +627,67 @@ export default function DashboardScreen({ navigation }) {
               </View>
             ) : (
               <ScrollView contentContainerStyle={{ paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-                {notifications.map((notif) => (
-                  <TouchableOpacity
-                    key={notif.id}
-                    onPress={() => handleNotifClick(notif)}
-                    activeOpacity={0.8}
-                    style={{
-                      backgroundColor: notif.is_read ? CARD : PL,
-                      borderRadius: 16, padding: 16, marginBottom: 10,
-                      flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-                      borderWidth: 1, borderColor: notif.is_read ? '#E8F0EA' : P + '30',
-                    }}
-                  >
-                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: notif.is_read ? '#F3F4F6' : P + '20', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name={isEvaluationNotification(notif) ? 'ribbon' : 'notifications'} size={18} color={notif.is_read ? '#9CA3AF' : P} />
+                {notifications.map((notif) => {
+                  // Icon + colour per notification type
+                  const typeMap = {
+                    TEACHER_TASMIQ_EVALUATION: { icon: 'ribbon',          color: '#7C3AED', bg: '#EDE9FE' },
+                    AI_PRACTICE_RESULT:         { icon: 'sparkles',        color: P,         bg: PL       },
+                    OFFICIAL_SUBMITTED:         { icon: 'document-text',   color: '#0891B2', bg: '#E0F2FE' },
+                    MURAJAAH_COMPLETED:         { icon: 'book',            color: G,         bg: GL       },
+                    NUDGE_RECEIVED:             { icon: 'notifications',   color: '#D97706', bg: '#FEF3C7' },
+                    ANNOUNCEMENT:               { icon: 'megaphone',       color: '#9B8EC4', bg: '#F3F0FF' },
+                    info:                       { icon: 'information-circle', color: '#6B7280', bg: '#F3F4F6' },
+                  };
+                  const tm = typeMap[notif.type] || { icon: 'notifications', color: P, bg: PL };
+
+                  return (
+                    <View
+                      key={notif.id}
+                      style={{
+                        backgroundColor: notif.is_read ? CARD : tm.bg + 'AA',
+                        borderRadius: 16, padding: 14, marginBottom: 10,
+                        flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+                        borderWidth: 1, borderColor: notif.is_read ? '#E8F0EA' : tm.color + '40',
+                      }}
+                    >
+                      {/* Icon */}
+                      <TouchableOpacity
+                        onPress={() => handleNotifClick(notif)}
+                        activeOpacity={0.8}
+                        style={{ flexDirection: 'row', flex: 1, gap: 12, alignItems: 'flex-start' }}
+                      >
+                        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: notif.is_read ? '#F3F4F6' : tm.bg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Ionicons name={tm.icon} size={18} color={notif.is_read ? '#9CA3AF' : tm.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 13, fontWeight: notif.is_read ? '600' : '800', color: PD, marginBottom: 3 }}>
+                            {notif.title}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: '#6B7280', lineHeight: 18 }} numberOfLines={2}>
+                            {notif.body || notif.message}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 5 }}>
+                            {new Date(notif.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Right side: unread dot + delete */}
+                      <View style={{ alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        {!notif.is_read && (
+                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tm.color }} />
+                        )}
+                        <TouchableOpacity
+                          onPress={() => handleDeleteNotif(notif.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="close" size={12} color="#9CA3AF" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: notif.is_read ? '600' : '800', color: PD, marginBottom: 3 }}>
-                        {notif.title}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: '#6B7280', lineHeight: 18 }} numberOfLines={2}>
-                        {notif.body || notif.message}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>
-                        {new Date(notif.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                    </View>
-                    {!notif.is_read && (
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: P, marginTop: 4 }} />
-                    )}
-                  </TouchableOpacity>
-                ))}
+                  );
+                })}
               </ScrollView>
             )}
           </View>

@@ -14,8 +14,8 @@ import { Platform } from 'react-native';
 //      : `http://${MY_PC_IP}:8001`;
 // -----------------------------------------------------------------------------
 export const API_URL = Platform.OS === 'web'
-  ? 'http://localhost:8001'          // web dev — local backend
-  : 'https://api.tasmiqai.com';      // phone/Expo Go — production
+  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001')
+  : (process.env.EXPO_PUBLIC_API_URL || 'https://api.tasmiqai.com');
 
 const api = axios.create({
   baseURL: API_URL,

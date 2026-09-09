@@ -130,15 +130,15 @@ export default function TeacherDashboard({ navigation }) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFF9E8', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={'#0B6E4F'} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFF9E8'} />
       <ScrollView 
         contentContainerStyle={{ padding: isWeb ? 40 : 20, maxWidth: 1200, alignSelf: 'center', width: '100%' }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
@@ -241,7 +241,7 @@ export default function TeacherDashboard({ navigation }) {
                 borderBottomColor: '#F0F0F0',
               }}
             >
-              <View style={{ width: 52, height: 52, borderRadius: 18, backgroundColor: '#FFFDF0', alignItems: 'center', justifyContent: 'center', marginRight: 18 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 18, backgroundColor: '#FFF9E8', alignItems: 'center', justifyContent: 'center', marginRight: 18 }}>
                 <Text style={{ fontSize: 22, fontWeight: '900', color: '#0B6E4F' }}>
                   {(item.student_name || item.studentName || 'S')[0].toUpperCase()}
                 </Text>

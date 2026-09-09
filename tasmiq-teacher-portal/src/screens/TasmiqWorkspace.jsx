@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const D = {
   emerald:      '#0B6E4F',
   emeraldDark:  '#064E3B',
-  emeraldLight: '#D1FAE5',
+  emeraldLight: '#E8F5EE',
   gold:         '#D4AF37',
   goldLight:    '#F8E7A1',
   bg:           '#FEFCE8',
@@ -558,7 +558,7 @@ export default function TasmiqWorkspace() {
 
         const filterOptions = [
           { key: 'all',      label: 'All',       color: '#6B7280', bg: '#F3F4F6' },
-          { key: 'approved', label: '✅ PASS',    color: '#065F46', bg: '#D1FAE5' },
+          { key: 'approved', label: '✅ PASS',    color: '#065F46', bg: '#E8F5EE' },
           { key: 'repeat',   label: '🔄 REPEAT', color: '#991B1B', bg: '#FEE2E2' },
           { key: 'reviewed', label: '👁 Other',  color: '#92400E', bg: '#FEF3C7' },
         ];
@@ -601,7 +601,7 @@ export default function TasmiqWorkspace() {
             {/* Rows */}
             {filtered.length === 0 ? (
               <div style={{ padding: '60px 24px', textAlign: 'center', color: D.textSec }}>
-                <CheckCircle size={36} color="#D1FAE5" style={{ display: 'block', margin: '0 auto 12px' }} />
+                <CheckCircle size={36} color="#E8F5EE" style={{ display: 'block', margin: '0 auto 12px' }} />
                 No records found for this filter.
               </div>
             ) : (
@@ -657,7 +657,7 @@ export default function TasmiqWorkspace() {
                       <div>
                         <span style={{
                           padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 800,
-                          backgroundColor: isPass ? '#D1FAE5' : isRepeat ? '#FEE2E2' : '#FEF3C7',
+                          backgroundColor: isPass ? '#E8F5EE' : isRepeat ? '#FEE2E2' : '#FEF3C7',
                           color:           isPass ? '#065F46' : isRepeat ? '#991B1B' : '#92400E',
                         }}>
                           {isPass ? '✅ PASS' : isRepeat ? '🔄 REPEAT' : '👁 REVIEWED'}

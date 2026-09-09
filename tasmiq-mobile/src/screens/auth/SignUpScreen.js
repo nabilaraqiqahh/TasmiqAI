@@ -96,8 +96,8 @@ export default function SignUpScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFDF0' }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFFDF0'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9E8' }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={'#FFF9E8'} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 32, maxWidth: 500, alignSelf: 'center', width: '100%' }} showsVerticalScrollIndicator={false}>
 
