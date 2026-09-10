@@ -10,31 +10,37 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y python3 python3-pip python3-venv ffmpeg nginx git curl build-essential libsndfile1
 
+APP_DIR="/opt/tasmiqai"
+if [ -d "/var/www/tasmiqai" ]; then
+    APP_DIR="/var/www/tasmiqai"
+fi
+echo "Using application directory: $APP_DIR"
+
 echo "=== [2/7] Creating application user and folder ==="
 if ! id "tasmiqai" &>/dev/null; then
     useradd -m -s /bin/bash tasmiqai
 fi
 
-mkdir -p /opt/tasmiqai
-chown -R tasmiqai:tasmiqai /opt/tasmiqai
+mkdir -p "$APP_DIR"
+chown -R tasmiqai:tasmiqai "$APP_DIR"
 
 echo "=== [3/7] Cloning or updating repository ==="
-if [ -d "/opt/tasmiqai/.git" ]; then
+if [ -d "$APP_DIR/.git" ]; then
     echo "Repository exists. Pulling latest code..."
-    cd /opt/tasmiqai
+    cd "$APP_DIR"
     git fetch origin
     git checkout main
     git pull origin main
 else
     echo "Cloning repository..."
-    git clone https://github.com/nabilaraqiqahh/TasmiqAI.git /opt/tasmiqai
-    cd /opt/tasmiqai
+    git clone https://github.com/nabilaraqiqahh/TasmiqAI.git "$APP_DIR"
+    cd "$APP_DIR"
     git checkout main
 fi
-chown -R tasmiqai:tasmiqai /opt/tasmiqai
+chown -R tasmiqai:tasmiqai "$APP_DIR"
 
 echo "=== [4/7] Setting up Python virtual environment ==="
-cd /opt/tasmiqai
+cd "$APP_DIR"
 if [ ! -d "venv" ]; then
     python3 -m venv venv
 fi
@@ -77,7 +83,7 @@ nginx -t
 systemctl restart nginx
 
 echo "=== [6/7] Configuring systemd service ==="
-cat << 'EOF' > /etc/systemd/system/tasmiqai.service
+cat << EOF > /etc/systemd/system/tasmiqai.service
 [Unit]
 Description=TasmiqAI FastAPI Backend
 Documentation=https://github.com/nabilaraqiqahh/TasmiqAI
@@ -87,9 +93,9 @@ After=network.target
 Type=exec
 User=tasmiqai
 Group=tasmiqai
-WorkingDirectory=/opt/tasmiqai
-EnvironmentFile=/opt/tasmiqai/.env
-ExecStart=/opt/tasmiqai/venv/bin/uvicorn tasmiq_api:app --host 127.0.0.1 --port 8001 --workers 2
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$APP_DIR/.env
+ExecStart=$APP_DIR/venv/bin/uvicorn tasmiq_api:app --host 127.0.0.1 --port 8001 --workers 2
 Restart=always
 RestartSec=5s
 
@@ -100,9 +106,9 @@ EOF
 systemctl daemon-reload
 
 echo "=== [7/7] Checking .env configuration ==="
-if [ ! -f "/opt/tasmiqai/.env" ]; then
-    echo "WARNING: /opt/tasmiqai/.env not found! Creating template..."
-    cat << 'EOF' > /opt/tasmiqai/.env
+if [ ! -f "$APP_DIR/.env" ]; then
+    echo "WARNING: $APP_DIR/.env not found! Creating template..."
+    cat << 'EOF' > "$APP_DIR/.env"
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 SUPABASE_URL=https://mrxgwwhbcskcjkgtnrtd.supabase.co
 SUPABASE_KEY=YOUR_SUPABASE_SERVICE_OR_ANON_KEY
@@ -111,9 +117,9 @@ JWT_EXPIRE_HOURS=72
 ALLOWED_ORIGINS=*
 API_URL=http://127.0.0.1:8001
 EOF
-    chmod 600 /opt/tasmiqai/.env
-    chown tasmiqai:tasmiqai /opt/tasmiqai/.env
-    echo "Created template at /opt/tasmiqai/.env - Please update with your actual GEMINI_API_KEY and SUPABASE_KEY!"
+    chmod 600 "$APP_DIR/.env"
+    chown tasmiqai:tasmiqai "$APP_DIR/.env"
+    echo "Created template at $APP_DIR/.env - Please update with your actual GEMINI_API_KEY and SUPABASE_KEY!"
 fi
 
 systemctl enable tasmiqai
