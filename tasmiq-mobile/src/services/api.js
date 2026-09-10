@@ -4,26 +4,31 @@ import { Platform } from 'react-native';
 // -----------------------------------------------------------------------------
 //  BACKEND URL CONFIGURATION
 //
-//  TUNNEL URL (active):  https://pizza-stuffed-collectibles-hotel.trycloudflare.com
-//  This is a Cloudflare tunnel that exposes your local backend to any network.
-//  Update this URL if you restart cloudflared and get a new tunnel URL.
+//  For PRODUCTION (Google Play AAB):
+//    Set EXPO_PUBLIC_API_URL in eas.json → build → production → env
+//    e.g. "https://tasmiqai-production.up.railway.app"
 //
-//  To get a new tunnel URL, run on your laptop:
-//    e:\TasmiqAI\cloudflared.exe tunnel --url http://localhost:8001
+//  For LOCAL DEV (Expo Go / APK on same WiFi):
+//    The LOCAL_BACKEND below is used as fallback on native when no env var set.
+//    Run: e:\TasmiqAI\cloudflared.exe tunnel --url http://localhost:8001
+//    then update TUNNEL_BACKEND below.
 // -----------------------------------------------------------------------------
+
+const PROD_BACKEND   = process.env.EXPO_PUBLIC_API_URL || 'http://159.223.39.224';
 const TUNNEL_BACKEND = 'https://pizza-stuffed-collectibles-hotel.trycloudflare.com';
 const LOCAL_BACKEND  = 'http://192.168.150.232:8001';
 
 export const API_URL = (() => {
   if (Platform.OS === 'web') {
-    // If running in browser locally on localhost / 127.0.0.1, always point to local backend
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       return 'http://localhost:8001';
     }
-    return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001';
+    return process.env.EXPO_PUBLIC_API_URL || 'http://159.223.39.224';
   }
-  return TUNNEL_BACKEND;   // native APK — uses public Cloudflare tunnel (works on any network)
+  // Native (APK / AAB): use DigitalOcean droplet
+  return PROD_BACKEND || 'http://159.223.39.224';
 })();
+
 
 const api = axios.create({
   baseURL: API_URL,
