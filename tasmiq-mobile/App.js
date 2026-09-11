@@ -103,44 +103,30 @@ export default function App() {
   useEffect(() => {
     const restoreState = async () => {
       try {
-        const savedStateString = Platform.OS === 'web'
-          ? (typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(PERSISTENCE_KEY) : null)
-          : await AsyncStorage.getItem(PERSISTENCE_KEY);
-
-        if (savedStateString) {
-          const state = JSON.parse(savedStateString);
-          // Validate the state has a proper root route that still exists.
-          // If the top-level route is not one we recognise, discard it to
-          // avoid the "blank screen with only tab bar" problem.
-          const VALID_ROOT_ROUTES = new Set([
-            'MainTabs', 'Welcome', 'Login', 'SignUp',
-            'TasmiqPrep', 'TasmiqMode', 'MurajaahMode',
-            'JoinClass', 'Nudge', 'History', 'Progress',
-            'TeacherDashboard', 'TeacherStudents', 'TeacherReview',
-            'TeacherEvaluation',
-          ]);
-          const topRoute = state?.routes?.[state.index ?? 0]?.name;
-          if (state && typeof state === 'object' && state.routes && VALID_ROOT_ROUTES.has(topRoute)) {
-            setInitialState(state);
-          } else {
-            // Discard stale / unrecognised state
-            if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        if (Platform.OS === 'web') {
+          const savedStateString = typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(PERSISTENCE_KEY) : null;
+          if (savedStateString) {
+            const state = JSON.parse(savedStateString);
+            const VALID_ROOT_ROUTES = new Set([
+              'MainTabs', 'Welcome', 'Login', 'SignUp',
+              'TasmiqPrep', 'TasmiqMode', 'MurajaahMode',
+              'JoinClass', 'Nudge', 'History', 'Progress',
+              'TeacherDashboard', 'TeacherStudents', 'TeacherReview',
+              'TeacherEvaluation',
+            ]);
+            const topRoute = state?.routes?.[state.index ?? 0]?.name;
+            if (state && typeof state === 'object' && state.routes && VALID_ROOT_ROUTES.has(topRoute)) {
+              setInitialState(state);
+            } else if (typeof window !== 'undefined' && window.localStorage) {
               window.localStorage.removeItem(PERSISTENCE_KEY);
-            } else {
-              await AsyncStorage.removeItem(PERSISTENCE_KEY).catch(() => {});
             }
           }
+        } else {
+          // On native Android/iOS: clean up any stale persisted state to prevent crashes
+          await AsyncStorage.removeItem(PERSISTENCE_KEY).catch(() => {});
         }
       } catch (e) {
-        console.warn('Failed to restore navigation state — starting fresh:', e);
-        // Clear whatever was there
-        try {
-          if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.removeItem(PERSISTENCE_KEY);
-          } else {
-            await AsyncStorage.removeItem(PERSISTENCE_KEY);
-          }
-        } catch {}
+        console.warn('Navigation state init:', e);
       } finally {
         setIsReady(true);
       }
@@ -164,17 +150,17 @@ export default function App() {
           <LanguageProvider>
             <NavigationContainer
               linking={linking}
-              initialState={initialState}
+              initialState={Platform.OS === 'web' ? initialState : undefined}
               onStateChange={(state) => {
-                try {
-                  const json = JSON.stringify(state);
-                  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-                    window.localStorage.setItem(PERSISTENCE_KEY, json);
-                  } else {
-                    AsyncStorage.setItem(PERSISTENCE_KEY, json);
+                if (Platform.OS === 'web') {
+                  try {
+                    const json = JSON.stringify(state);
+                    if (typeof window !== 'undefined' && window.localStorage) {
+                      window.localStorage.setItem(PERSISTENCE_KEY, json);
+                    }
+                  } catch (e) {
+                    console.warn('Failed to save web navigation state:', e);
                   }
-                } catch (e) {
-                  console.warn('Failed to save navigation state:', e);
                 }
               }}
             >

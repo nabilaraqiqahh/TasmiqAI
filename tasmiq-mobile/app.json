@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -23,8 +22,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B6E4F"
       },
-      "edgeToEdgeEnabled": true,
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.INTERNET",
@@ -42,7 +39,20 @@
     },
     "owner": "nabilaraqiqahh21",
     "plugins": [
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "newArchEnabled": false
+          },
+          "ios": {
+            "newArchEnabled": false
+          }
+        }
+      ]
     ]
   }
 }
