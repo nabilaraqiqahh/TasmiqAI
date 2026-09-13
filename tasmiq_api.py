@@ -185,13 +185,11 @@ _default_origins = (
 _origins_env = os.environ.get("ALLOWED_ORIGINS", _default_origins)
 ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(",") if o.strip()]
 
-logger.info(f"CORS allowed origins: {ALLOWED_ORIGINS}")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r".*",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

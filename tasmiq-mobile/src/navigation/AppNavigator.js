@@ -308,38 +308,34 @@ export default function AppNavigator() {
 
   const role    = session?.role?.toLowerCase() || 'student';
   const isStaff = role === 'staff' || role === 'teacher' || role === 'admin';
+  const initialRoute = session?.id
+    ? (isStaff ? 'TeacherDashboard' : 'MainTabs')
+    : 'Welcome';
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {session?.id ? (
-        isStaff ? (
-          <>
-            <Stack.Screen name="TeacherDashboard" component={TeacherDashboard} />
-            <Stack.Screen name="TeacherStudents"  component={TeacherStudents} />
-            <Stack.Screen name="TeacherReview"    component={TeacherReview} />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="MainTabs"          component={MainTabNavigator} />
-            <Stack.Screen name="TasmiqPrep"        component={TasmiqPrepScreen} />
-            <Stack.Screen name="Tasmiq"            component={TasmiqPrepScreen} />
-            <Stack.Screen name="TasmiqMode"        component={TasmiqModeScreen} />
-            <Stack.Screen name="MurajaahMode"      component={MurajaahModeScreen} />
-            <Stack.Screen name="Learn"             component={MurajaahModeScreen} />
-            <Stack.Screen name="JoinClass"         component={JoinClassScreen} />
-            <Stack.Screen name="Nudge"             component={NudgeScreen} />
-            <Stack.Screen name="History"           component={HistoryScreen} />
-            <Stack.Screen name="Progress"          component={ProgressScreen} />
-            <Stack.Screen name="TeacherEvaluation" component={TeacherEvaluationScreen} />
-          </>
-        )
-      ) : (
-        <>
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
-          <Stack.Screen name="Login"   component={LoginScreen} />
-          <Stack.Screen name="SignUp"  component={SignUpScreen} />
-        </>
-      )}
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+      {/* Auth Screens */}
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="Login"   component={LoginScreen} />
+      <Stack.Screen name="SignUp"  component={SignUpScreen} />
+
+      {/* Student App Screens */}
+      <Stack.Screen name="MainTabs"          component={MainTabNavigator} />
+      <Stack.Screen name="TasmiqPrep"        component={TasmiqPrepScreen} />
+      <Stack.Screen name="Tasmiq"            component={TasmiqPrepScreen} />
+      <Stack.Screen name="TasmiqMode"        component={TasmiqModeScreen} />
+      <Stack.Screen name="MurajaahMode"      component={MurajaahModeScreen} />
+      <Stack.Screen name="Learn"             component={MurajaahModeScreen} />
+      <Stack.Screen name="JoinClass"         component={JoinClassScreen} />
+      <Stack.Screen name="Nudge"             component={NudgeScreen} />
+      <Stack.Screen name="History"           component={HistoryScreen} />
+      <Stack.Screen name="Progress"          component={ProgressScreen} />
+      <Stack.Screen name="TeacherEvaluation" component={TeacherEvaluationScreen} />
+
+      {/* Teacher Screens */}
+      <Stack.Screen name="TeacherDashboard" component={TeacherDashboard} />
+      <Stack.Screen name="TeacherStudents"  component={TeacherStudents} />
+      <Stack.Screen name="TeacherReview"    component={TeacherReview} />
     </Stack.Navigator>
   );
 }
