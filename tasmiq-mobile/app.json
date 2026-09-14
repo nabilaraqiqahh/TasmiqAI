@@ -2,7 +2,7 @@
   "expo": {
     "name": "TasmiqAI",
     "slug": "tasmiqai",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.tasmiqai.app",
-      "versionCode": 2,
+      "versionSource": "remote",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B6E4F"
@@ -39,8 +39,13 @@
     },
     "owner": "nabilaraqiqahh21",
     "plugins": [
-      "expo-status-bar",
       "expo-font",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow TasmiqAI to access your microphone to record your Quran recitation."
+        }
+      ],
       [
         "expo-build-properties",
         {
