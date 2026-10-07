@@ -16,7 +16,15 @@ import {
   deleteNotification, clearAllNotifications,
 } from '../../services/notificationService';
 import { useTheme } from '../../context/ThemeContext';
-import quranData from '../../data/quran_data.json';
+
+// getQuranData() is lazy-loaded on first use to avoid OOM crash at startup
+// Do NOT change back to a static import — the 1.5MB JSON parse blocks the JS
+// thread on startup and causes force-stop on low-RAM Android devices.
+let _quranCache = null;
+function getQuranData() {
+  if (!_quranCache) _quranCache = require('../../data/quran_data.json');
+  return _quranCache;
+}
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const P  = '#0B6E4F';
@@ -231,7 +239,7 @@ export default function DashboardScreen({ navigation }) {
 
   // Verse of the day (stable per mount)
   const verse = useMemo(() => {
-    const s = quranData[Math.floor(Math.random() * quranData.length)];
+    const s = getQuranData()[Math.floor(Math.random() * getQuranData().length)];
     const a = Math.floor(Math.random() * s.count) + 1;
     return { surah: s, ayah: a, text: s.verse[`verse_${a}`] };
   }, []);

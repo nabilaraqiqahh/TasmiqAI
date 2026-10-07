@@ -5,29 +5,37 @@ import { Platform } from 'react-native';
 //  BACKEND URL CONFIGURATION
 //
 //  For PRODUCTION (Google Play AAB):
-//    Set EXPO_PUBLIC_API_URL in eas.json → build → production → env
-//    e.g. "https://tasmiqai-production.up.railway.app"
+//    EXPO_PUBLIC_API_URL is injected at EAS build time via eas.json → build →
+//    production → env.  Set it to your Railway HTTPS URL, e.g.:
+//      "https://tasmiqai-production.up.railway.app"
 //
 //  For LOCAL DEV (Expo Go / APK on same WiFi):
-//    The LOCAL_BACKEND below is used as fallback on native when no env var set.
-//    Run: e:\TasmiqAI\cloudflared.exe tunnel --url http://localhost:8001
-//    then update TUNNEL_BACKEND below.
+//    Update LOCAL_BACKEND to your machine's LAN IP and backend port.
+//    Or run:  e:\TasmiqAI\cloudflared.exe tunnel --url http://localhost:8001
+//    and paste the tunnel URL into TUNNEL_BACKEND.
 // -----------------------------------------------------------------------------
 
-const PROD_BACKEND   = process.env.EXPO_PUBLIC_API_URL || 'http://159.223.39.224';
+// Railway production URL — injected by EAS at build time.
+// Falls back to Railway URL so the APK/AAB always has a real backend to hit.
+const RAILWAY_BACKEND = 'https://tasmiqai-production.up.railway.app';
+
+const PROD_BACKEND   = process.env.EXPO_PUBLIC_API_URL || RAILWAY_BACKEND;
 const TUNNEL_BACKEND = 'https://pizza-stuffed-collectibles-hotel.trycloudflare.com';
 const LOCAL_BACKEND  = 'http://192.168.150.232:8001';
 
 export const API_URL = (() => {
   if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    if (typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       return 'http://localhost:8001';
     }
-    return process.env.EXPO_PUBLIC_API_URL || 'http://159.223.39.224';
+    return process.env.EXPO_PUBLIC_API_URL || RAILWAY_BACKEND;
   }
-  // Native (APK / AAB): use DigitalOcean droplet
-  return PROD_BACKEND || 'http://159.223.39.224';
+  // Native (APK / AAB): use env var baked in at build time, else Railway default
+  return PROD_BACKEND;
 })();
+
+console.log('[api] Using backend:', API_URL);
 
 
 const api = axios.create({

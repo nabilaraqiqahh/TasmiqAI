@@ -14,7 +14,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useFocusEffect } from '@react-navigation/native';
-import quranData from '../../data/quran_data.json';
+
+// quranData lazy-loaded — prevents 1.5MB JSON parse blocking startup on Android
+let _quranCache = null;
+const quranData = new Proxy({}, {
+  get: (_, prop) => {
+    if (!_quranCache) _quranCache = require('../../data/quran_data.json');
+    return _quranCache[prop];
+  }
+});
 import { supabase } from '../../services/supabaseClient';
 import { getCurrentUser } from '../../services/authService';
 import { API_URL } from '../../services/api';

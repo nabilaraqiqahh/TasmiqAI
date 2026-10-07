@@ -31,7 +31,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabaseClient';
-import quranData from '../../data/quran_data.json';
+
+// quranData lazy-loaded — prevents 1.5MB JSON parse blocking startup on Android
+let _quranCache = null;
+const quranData = new Proxy({}, {
+  get: (_, prop) => {
+    if (!_quranCache) _quranCache = require('../../data/quran_data.json');
+    return _quranCache[prop];
+  }
+});
 
 const { width: SW } = Dimensions.get('window');
 

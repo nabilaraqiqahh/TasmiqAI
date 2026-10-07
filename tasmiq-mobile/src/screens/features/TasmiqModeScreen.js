@@ -4,14 +4,22 @@ import {
   StatusBar, Alert, ActivityIndicator, Animated, Platform, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { saveRecitationResult } from '../../services/recitationService';
 import { analyzeRecitation } from '../../services/api';
 import { supabase } from '../../services/supabaseClient';
 import { createNotification } from '../../services/notificationService';
-import quranData from '../../data/quran_data.json';
+
+// quranData lazy-loaded to prevent startup OOM crash on Android
+let _quranCache = null;
+const quranData = new Proxy({}, {
+  get: (_, prop) => {
+    if (!_quranCache) _quranCache = require('../../data/quran_data.json');
+    return _quranCache[prop];
+  }
+});
 
 const { width: SCREEN_W } = Dimensions.get('window');
 

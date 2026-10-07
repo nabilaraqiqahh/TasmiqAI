@@ -6,7 +6,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import quranData from '../../data/quran_data.json';
+
+// quranData lazy-loaded — prevents 1.5MB JSON parse blocking startup on Android
+let _quranCache = null;
+const quranData = new Proxy({}, {
+  get: (_, prop) => {
+    if (!_quranCache) _quranCache = require('../../data/quran_data.json');
+    return _quranCache[prop];
+  }
+});
 import { uploadRecitation } from '../../services/recitationService';
 import { API_URL, analyzeRecitation, assessChunk } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';

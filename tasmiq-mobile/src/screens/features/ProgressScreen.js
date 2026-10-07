@@ -9,7 +9,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
 import { supabase } from '../../services/supabaseClient';
 import { useTheme } from '../../context/ThemeContext';
-import quranData from '../../data/quran_data.json';
+
+// quranData lazy-loaded — prevents 1.5MB JSON parse blocking startup on Android
+let _quranCache = null;
+const quranData = new Proxy({}, {
+  get: (_, prop) => {
+    if (!_quranCache) _quranCache = require('../../data/quran_data.json');
+    return _quranCache[prop];
+  }
+});
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const P   = '#0B6E4F';

@@ -14,7 +14,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://159.223.39.224"
+        "EXPO_PUBLIC_API_URL": "https://tasmiqai-production.up.railway.app"
       }
     },
     "production": {
@@ -23,7 +23,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://159.223.39.224"
+        "EXPO_PUBLIC_API_URL": "https://tasmiqai-production.up.railway.app"
       }
     }
   },
